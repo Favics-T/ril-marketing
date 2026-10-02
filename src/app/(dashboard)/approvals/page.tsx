@@ -20,7 +20,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     client.from("content_assets").select("id,title,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
     client.from("audience_insights").select("id,summary,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","PENDING_REVIEW").order("created_at").limit(100),
     client.from("email_campaigns").select("id,name,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
-    client.from("landing_pages").select("id,name,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
+    client.from("landing_pages").select("id,title,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
   ]);
   const names=["content","insights","email","pages"];
   const failures=results.flatMap((r,i)=>r.error?[names[i]]:[]);
@@ -28,7 +28,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     ...(results[0].data??[]).map(r=>({...r,category:"content",href:`/library/${r.id}`})),
     ...(results[1].data??[]).map(r=>({...r,title:r.summary,category:"insights",href:`/audience/insights/${r.id}`})),
     ...(results[2].data??[]).map(r=>({...r,title:r.name,category:"email",href:"/email"})),
-    ...(results[3].data??[]).map(r=>({...r,title:r.name,category:"pages",href:`/audience/landing-pages/${r.id}`})),
+    ...(results[3].data??[]).map(r=>({...r,category:"pages",href:`/audience/landing-pages/${r.id}`})),
   ];
   const visible=items.filter(item=>filter==="all"||item.category===filter).sort((a,b)=>a.created_at.localeCompare(b.created_at));
   const counts=Object.fromEntries(names.map((name,i)=>[name,results[i].count??0]));
