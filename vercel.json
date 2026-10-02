@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/lead-nurture",
-      "schedule": "17 * * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
