@@ -2,15 +2,23 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrganizationId } from "@/lib/supabase/organization";
 import type {
-  AiProvider,
   DraftSpec,
   GenerationContext,
+  LlmClient,
   RepurposeKind,
   ResolvedAiConfig,
+  SourceMaterial,
 } from "@/lib/ai/types";
+import { REPURPOSE_KINDS } from "@/lib/ai/types";
 import { TemplateProvider } from "@/lib/ai/template";
-import { OpenAiCompatibleProvider } from "@/lib/ai/openai-compatible";
-import { AnthropicProvider } from "@/lib/ai/anthropic";
+import { OpenAiCompatibleClient } from "@/lib/ai/openai-compatible";
+import { AnthropicClient } from "@/lib/ai/anthropic";
+import { LlmGenerator } from "@/lib/ai/llm-generator";
+import {
+  CHUNK_SUMMARY_SYSTEM,
+  chunkSummaryPrompt,
+  condenseSourceMaterial,
+} from "@/lib/ai/source";
 import {
   defaultModel,
   getProvider,
@@ -73,74 +81,69 @@ export async function resolveAiConfig(
   return { mode: "template", provider: "openai", model: "template-v1", baseUrl: null, apiKey: null };
 }
 
-function buildLlm(config: ResolvedLlmConfig & { apiKey: string }): AiProvider {
+function buildClient(config: ResolvedLlmConfig & { apiKey: string }): LlmClient {
   if (config.provider === "anthropic") {
-    return new AnthropicProvider({ apiKey: config.apiKey, model: config.model });
+    return new AnthropicClient({ apiKey: config.apiKey, model: config.model });
   }
-  // OpenAI and Gemini both speak the OpenAI-compatible wire format.
-  return new OpenAiCompatibleProvider({
+  // OpenAI and Gemini both speak the OpenAI-compatible wire format; OpenAI's
+  // own API takes max_completion_tokens and only the default temperature.
+  return new OpenAiCompatibleClient({
     apiKey: config.apiKey,
     baseUrl: config.baseUrl ?? getProvider(config.provider).baseUrl,
     model: config.model,
+    dialect: config.provider === "openai" ? "openai" : "compatible",
   });
 }
 
-/** Provider-agnostic, grounded text completion used by the marketing assistant. */
+/**
+ * Provider-agnostic, grounded text completion (assistant, comments, reports,
+ * trends, documents, SEO). Defaults suit short answers; callers that ask for
+ * several long drafts in one reply must raise `maxTokens` and `timeoutMs`.
+ */
 export async function completeWithConfiguredProvider(
   organizationId: string,
   system: string,
-  prompt: string
+  prompt: string,
+  options: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {}
 ): Promise<{ model: string; text: string } | null> {
   const config = await resolveAiConfig(organizationId);
   if (config.mode !== "llm" || !config.apiKey) return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000);
   try {
-    if (config.provider === "anthropic") {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": config.apiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: config.model,
-          max_tokens: 1200,
-          temperature: 0.3,
-          system,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-      if (!response.ok) throw new Error(`Assistant provider returned HTTP ${response.status}.`);
-      const json = await response.json() as { content?: Array<{ text?: string }> };
-      const text = json.content?.find((block) => typeof block.text === "string")?.text?.trim();
-      if (!text) throw new Error("Assistant returned an empty response.");
-      return { model: config.model, text: text.slice(0, 12000) };
-    }
-    const response = await fetch(`${(config.baseUrl ?? getProvider(config.provider).baseUrl).replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0.3,
-        max_tokens: 1200,
-        messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
-      }),
+    const reply = await buildClient({ ...config, apiKey: config.apiKey }).complete({
+      system,
+      messages: [{ role: "user", content: prompt }],
+      maxTokens: options.maxTokens ?? 1200,
+      temperature: options.temperature ?? 0.3,
+      timeoutMs: options.timeoutMs ?? 30_000,
     });
-    if (!response.ok) throw new Error(`Assistant provider returned HTTP ${response.status}.`);
-    const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const text = json.choices?.[0]?.message?.content?.trim();
-    if (!text) throw new Error("Assistant returned an empty response.");
-    return { model: config.model, text: text.slice(0, 12000) };
+    return { model: config.model, text: reply.text.trim() };
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new Error("Assistant request timed out. Try a shorter question.");
+    if (error instanceof Error && /timed out/.test(error.message)) {
+      throw new Error("The AI request timed out. Try again, or with less input.");
+    }
     throw error;
-  } finally {
-    clearTimeout(timer);
   }
+}
+
+/**
+ * Fit an activity's source material into the generation budget. Long
+ * transcripts and documents are summarised chunk by chunk with the workspace
+ * model; without one they are shortened with an explicit marker.
+ */
+export async function prepareSourceMaterial(
+  organizationId: string,
+  materials: SourceMaterial[]
+): Promise<{ materials: SourceMaterial[]; notes: string[] }> {
+  const config = await resolveAiConfig(organizationId);
+  const summarise = config.mode === "llm" && config.apiKey
+    ? async (input: Parameters<typeof chunkSummaryPrompt>[0]) =>
+        (await completeWithConfiguredProvider(organizationId, CHUNK_SUMMARY_SYSTEM, chunkSummaryPrompt(input), {
+          maxTokens: 1500,
+          timeoutMs: 60_000,
+          temperature: 0.2,
+        }))?.text ?? null
+    : null;
+  return condenseSourceMaterial(materials, summarise);
 }
 
 /** Multimodal image understanding through the configured organization provider. */
@@ -249,38 +252,60 @@ export async function analyzeAudioVideoWithConfiguredProvider(input: {
   }
 }
 
+const kindLabel = (kind: RepurposeKind) => REPURPOSE_KINDS.find((k) => k.kind === kind)?.label ?? kind;
+
 /**
- * Generate repurposing drafts for an activity. Tries the configured LLM per
- * kind; any failure falls back to the grounded template generator so the
- * flow always produces reviewable drafts. Returns the model label for the
- * ai_generations traceability row.
+ * Generate repurposing drafts for an activity. Kinds run in parallel on the
+ * configured LLM. When a kind fails, a basic template draft is saved in its
+ * place — clearly titled and reported in `warnings`, never silently. The
+ * returned model label lists every generator that produced a draft.
  */
 export async function generateRepurposing(
   organizationId: string,
   kinds: RepurposeKind[],
   ctx: GenerationContext
-): Promise<{ model: string; drafts: DraftSpec[] }> {
+): Promise<{ model: string; drafts: DraftSpec[]; warnings: string[] }> {
   const config = await resolveAiConfig(organizationId);
+  const template = new TemplateProvider();
   if (config.mode === "template" || !config.apiKey) {
-    const provider = new TemplateProvider();
     const drafts: DraftSpec[] = [];
-    for (const kind of kinds) drafts.push(...(await provider.generate(kind, ctx)));
-    return { model: provider.modelLabel, drafts };
+    for (const kind of kinds) drafts.push(...(await template.generate(kind, ctx)).drafts);
+    return {
+      model: template.modelLabel,
+      drafts,
+      warnings: ["No AI provider is connected, so these are basic template drafts. Connect one in AI & Integrations for full drafts."],
+    };
   }
 
-  const llm = buildLlm({ ...config, apiKey: config.apiKey });
-  const template = new TemplateProvider();
-  const drafts: DraftSpec[] = [];
-  let usedLlm = false;
-  for (const kind of kinds) {
-    try {
-      drafts.push(...(await llm.generate(kind, ctx)));
-      usedLlm = true;
-    } catch {
-      drafts.push(...(await template.generate(kind, ctx)));
-    }
-  }
-  return { model: usedLlm ? llm.modelLabel : template.modelLabel, drafts };
+  const llm = new LlmGenerator(buildClient({ ...config, apiKey: config.apiKey }));
+  const outcomes = await Promise.all(
+    kinds.map(async (kind) => {
+      try {
+        return { kind, ...(await llm.generate(kind, ctx)), fallback: false };
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "unknown error";
+        console.error(`[ai] ${kind} generation failed for ${organizationId}: ${reason}`);
+        const { drafts } = await template.generate(kind, ctx);
+        return {
+          kind,
+          fallback: true,
+          drafts: drafts.map((draft) => ({
+            ...draft,
+            title: `Template draft — ${draft.title}`.slice(0, 200),
+            metadata: { ...draft.metadata, fallback_reason: reason.slice(0, 500) },
+          })),
+          warnings: [`${kindLabel(kind)}: AI generation failed (${reason.slice(0, 200)}). A basic template draft was saved instead — regenerate or rewrite it.`],
+        };
+      }
+    })
+  );
+  const drafts = outcomes.flatMap((o) => o.drafts);
+  const generators = new Set(outcomes.filter((o) => o.drafts.length).map((o) => (o.fallback ? template.modelLabel : llm.modelLabel)));
+  return {
+    model: [...generators].join(" + ") || llm.modelLabel,
+    drafts,
+    warnings: outcomes.flatMap((o) => o.warnings),
+  };
 }
 
 /** Admin read of the AI integration row (server settings page). Never leaks the key. */

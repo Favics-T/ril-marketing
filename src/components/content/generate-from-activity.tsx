@@ -17,9 +17,14 @@ export function GenerateFromActivity({ activityId }: { activityId: string }) {
 	if (state?.ok) {
 		return (
 			<div className="flex flex-col gap-3">
-				<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-					Drafts created, pending your review.
+				<p role="status" className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+					{state.message ?? "Drafts created, pending your review."}
 				</p>
+				{state.warnings?.length ? (
+					<ul role="alert" className="list-disc space-y-1 pl-4 text-xs leading-5 text-amber-700 dark:text-amber-400">
+						{state.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+					</ul>
+				) : null}
 				<Button asChild size="sm" className="w-fit">
 					<Link href="/library">Review in Content Library</Link>
 				</Button>

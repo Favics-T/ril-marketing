@@ -110,7 +110,7 @@ describe("TemplateProvider", () => {
     const provider = new TemplateProvider();
     expect(provider.modelLabel).toBe("template-v1");
     for (const kind of ["blog", "newsletter", "social_pack", "short_form"] as const) {
-      const drafts = await provider.generate(kind, ctx);
+      const { drafts } = await provider.generate(kind, ctx);
       expect(drafts.length).toBeGreaterThan(0);
       for (const d of drafts) {
         // Source facts present…
@@ -123,7 +123,7 @@ describe("TemplateProvider", () => {
 
   it("degrades honestly without audience data", async () => {
     const provider = new TemplateProvider();
-    const drafts = await provider.generate("blog", {
+    const { drafts } = await provider.generate("blog", {
       ...ctx,
       topics: [],
       hooks: [],

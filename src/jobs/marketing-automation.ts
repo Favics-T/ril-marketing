@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateRepurposing } from "@/lib/ai/provider";
+import { generateRepurposing, prepareSourceMaterial } from "@/lib/ai/provider";
+import { loadActivitySourceMaterial } from "@/lib/content/source-material";
 import type { GenerationContext } from "@/lib/ai/types";
 import { hasActiveConsent } from "@/lib/email/consent";
 import { firstStepPlan, type NurtureStepLite } from "@/lib/nurture/schedule";
@@ -31,7 +32,10 @@ async function runActivityCreated(admin: ReturnType<typeof createAdminClient>, e
     const haystack = `${row.title} ${row.content}`.toLowerCase();
     return query.split(/\s+/).some((word) => word.length > 3 && haystack.includes(word));
   }).slice(0, 8).map((row) => `${row.title}: ${row.content.slice(0, 800)}`);
+  const loadedSources = await loadActivitySourceMaterial(admin, event.organization_id, activity.id);
+  const sources = await prepareSourceMaterial(event.organization_id, loadedSources.materials);
   const context: GenerationContext = {
+    registrationUrl: activity.registration_url, sourceMaterial: sources.materials,
     organizationName: org?.name ?? "RIL", activityTitle: activity.title,
     activityDescription: activity.description, outcomes: activity.outcomes,
     speakers: activity.speakers ?? [], partners: activity.partners ?? [], eventDate: activity.event_date,
@@ -69,11 +73,13 @@ async function runActivityCreated(admin: ReturnType<typeof createAdminClient>, e
     await admin.from("activities").update({ campaign_id: campaignId }).eq("organization_id", event.organization_id).eq("id", activity.id).is("campaign_id", null);
   }
   let generatedCount = 0;
-  let newsletter = { title: `Update: ${activity.title}`, body: [activity.title, activity.description, activity.outcomes].filter(Boolean).join("\n\n") || activity.title };
+  let newsletter = { previewText: activity.description?.slice(0, 240) ?? "A new update from Renaissance Innovation Labs", title: `Update: ${activity.title}`, body: [activity.title, activity.description, activity.outcomes].filter(Boolean).join("\n\n") || activity.title };
   let model = "existing-drafts";
+  let warnings: string[] = [];
   if (!hasGeneratedAssets) {
     const generated = await generateRepurposing(event.organization_id, ["social_pack", "newsletter"], context);
     model = generated.model;
+    warnings = [...loadedSources.warnings, ...sources.notes, ...generated.warnings];
     const { data: generation, error: generationError } = await admin.from("ai_generations").insert({ organization_id: event.organization_id, activity_id: activity.id, kind: "automation_activity_created", model: generated.model }).select("id").single<{id:string}>();
     if (generationError || !generation) throw new Error(generationError?.message ?? "Could not record AI draft generation.");
     const rows = generated.drafts.map((draft) => ({
@@ -87,14 +93,14 @@ async function runActivityCreated(admin: ReturnType<typeof createAdminClient>, e
     if (insertError) throw new Error(insertError.message);
     generatedCount = rows.length;
     const draftedNewsletter = generated.drafts.find((draft) => draft.kind === "newsletter");
-    if (draftedNewsletter) newsletter = { title: draftedNewsletter.title, body: draftedNewsletter.body };
+    if (draftedNewsletter) newsletter = { title: draftedNewsletter.title, body: draftedNewsletter.body, previewText: typeof draftedNewsletter.metadata.preview_text === "string" ? draftedNewsletter.metadata.preview_text : newsletter.previewText };
   }
   const { data: emailRows } = await admin.from("email_campaigns").select("id").eq("organization_id", event.organization_id).contains("metadata", { automation_event_id: event.id }).limit(1);
   if (!emailRows?.length) {
     const { error: emailError } = await admin.from("email_campaigns").insert({
       organization_id: event.organization_id, campaign_id: campaignId, audience_segment_id: activity.audience_segment_id,
       name: `Activity email · ${activity.title.slice(0, 120)}`, subject: newsletter.title.slice(0, 200),
-      preview_text: activity.description?.slice(0, 240) ?? "A new update from Renaissance Innovation Labs",
+      preview_text: newsletter.previewText.slice(0, 240),
       body: newsletter.body.slice(0, 12000), status: "draft", metadata: { automation_event_id: event.id, automation_trigger: "activity_created" },
     });
     if (emailError) throw new Error(emailError.message);
@@ -116,7 +122,7 @@ async function runActivityCreated(admin: ReturnType<typeof createAdminClient>, e
       if (!existing) throw new Error("Generated landing-page slug is already in use.");
     }
   }
-  return { campaignId, generatedAssets: generatedCount, emailDrafts: 1, landingPages: 1, model };
+  return { campaignId, generatedAssets: generatedCount, emailDrafts: 1, landingPages: 1, model, warnings };
 }
 
 // Lead capture drives automated nurture. When the workspace has opted in, the
