@@ -7,6 +7,8 @@ import type { LandingPage } from "@/lib/landing-pages";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { LANDING_PAGE_COPY_MAX } from "@/lib/landing-page-url";
 
 type Option = { id: string; name: string };
 const field = "flex flex-col gap-1.5";
@@ -41,7 +43,16 @@ export function LandingPageForm({
         <label className={field}><span className="dateline">Public URL slug</span><Input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={80} defaultValue={page?.slug ?? ""} placeholder="founder-programme"/><span className="text-xs text-muted-foreground">The public link includes this slug and a unique page ID.</span></label>
       </div>
       <label className={field}><span className="dateline">Public headline</span><Input name="headline" required minLength={5} maxLength={200} defaultValue={page?.headline ?? ""} placeholder="Build what comes next." /></label>
-      <label className={field}><span className="dateline">Page copy</span><Textarea name="body" rows={8} maxLength={6000} defaultValue={page?.body ?? ""} placeholder="Describe the programme, who it serves, and the opportunity. Plain text only." /></label>
+      <div className={field}>
+        <span className="dateline">Page copy</span>
+        <RichTextEditor
+          name="body"
+          label="Page copy"
+          defaultValue={page?.body ?? ""}
+          maxLength={LANDING_PAGE_COPY_MAX}
+          placeholder="Describe the programme, who it serves, and the opportunity. Use headings, lists and links to make it easy to scan."
+        />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={field}><span className="dateline">Call to action</span><Input name="cta_label" required minLength={2} maxLength={60} defaultValue={page?.cta_label ?? "Register interest"} /></label>
         <label className={field}><span className="dateline">Registration destination (optional)</span><Input name="registration_url" type="url" maxLength={1000} defaultValue={page?.registration_url ?? ""} placeholder="https://…" /></label>

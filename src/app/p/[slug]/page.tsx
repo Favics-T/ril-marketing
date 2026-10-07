@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getPublishedLandingPage } from "@/lib/landing-pages";
 import { publicLandingPagePath } from "@/lib/landing-page-url";
 import { LeadCaptureForm } from "@/components/landing-pages/lead-capture-form";
+import { PageCopy } from "@/components/landing-pages/page-copy";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -34,7 +35,7 @@ export default async function PublicLandingPage({ params }: { params: Promise<{ 
         <article className="max-w-3xl">
           <p className="dateline">{page.title}</p>
           <h1 className="mt-4 max-w-[18ch] text-balance text-4xl font-bold leading-[1.1] tracking-tight sm:text-6xl">{page.headline}</h1>
-          {page.body ? <div className="mt-8 whitespace-pre-wrap text-base leading-8 text-muted-foreground sm:text-lg">{page.body}</div> : null}
+          {page.body ? <PageCopy markdown={page.body} className="mt-8 text-base leading-8 text-muted-foreground sm:text-lg" /> : null}
           {page.registration_url ? <a href={page.registration_url} target="_blank" rel="noreferrer" className="mt-8 inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">View registration details</a> : null}
         </article>
         <aside className="h-fit rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:p-7 lg:sticky lg:top-8">
