@@ -16,6 +16,7 @@ import {
 } from "@/lib/content/transitions";
 import { NEWSLETTER_STYLES, REPURPOSE_KINDS, type GenerationOptions, type RepurposeKind } from "@/lib/ai/types";
 import { loadActivitySourceMaterial } from "@/lib/content/source-material";
+import { CHANNELS, checkChannelLimits, normalizeChannel } from "@/lib/content/channels";
 import { testAiConnection } from "@/lib/ai/provider";
 import { encryptSecret } from "@/lib/crypto/secret-box";
 import { syncIndustryTrends } from "@/jobs/trend-monitoring";
@@ -34,6 +35,8 @@ export interface ActionResult {
   message?: string;
   /** Non-fatal notices, e.g. a fallback draft or a source that couldn't be read. */
   warnings?: string[];
+  /** Formats that failed to generate, so the form can offer to try them again. */
+  failedKinds?: string[];
 }
 
 const campaignChannels = ["linkedin", "instagram", "facebook", "x", "youtube", "tiktok", "email", "website", "events", "paid_ads", "pr", "other"] as const;
@@ -384,7 +387,7 @@ export async function generateFromActivity(
     const [loadedSources, campaignResult] = await Promise.all([
       loadActivitySourceMaterial(admin, organizationId, activityId),
       activity.campaign_id
-        ? admin.from("campaigns").select("objective").eq("organization_id", organizationId).eq("id", activity.campaign_id).maybeSingle<{ objective: string | null }>()
+        ? admin.from("campaigns").select("objective, target_audience, funnel_stage").eq("organization_id", organizationId).eq("id", activity.campaign_id).maybeSingle<{ objective: string | null; target_audience: string | null; funnel_stage: string | null }>()
         : Promise.resolve({ data: null }),
     ]);
     const prepared = await prepareSourceMaterial(organizationId, loadedSources.materials);
@@ -420,7 +423,7 @@ export async function generateFromActivity(
       .eq("id", organizationId)
       .maybeSingle<{ name: string }>();
 
-    const { model, drafts, warnings } = await generateRepurposing(organizationId, kinds, {
+    const { model, drafts, warnings, failedKinds } = await generateRepurposing(organizationId, kinds, {
       organizationName: org?.name ?? "RIL",
       activityTitle: activity.title,
       activityDescription: activity.description,
@@ -437,12 +440,14 @@ export async function generateFromActivity(
       hooks,
       registrationUrl: activity.registration_url,
       campaignObjective: campaignResult.data?.objective ?? null,
+      campaignAudience: campaignResult.data?.target_audience || null,
+      campaignFunnelStage: campaignResult.data?.funnel_stage ?? null,
       sourceMaterial: prepared.materials,
       options: readGenerationOptions(formData),
-    });
+    }, { allowTemplateFallback: formData.get("allow_template_fallback") === "on" });
     const notices = [...loadedSources.warnings, ...prepared.notes, ...warnings];
     if (!drafts.length) {
-      return { ok: false, error: notices.join(" ") || "No drafts were generated. Try again." };
+      return { ok: false, error: notices.join(" ") || "No drafts were generated. Try again.", failedKinds };
     }
 
     const { data: generation, error: genError } = await admin
@@ -491,6 +496,7 @@ export async function generateFromActivity(
         flagged ? `${flagged} ${flagged === 1 ? "has" : "have"} quality flags to check before approval.` : null,
       ].filter(Boolean).join(" "),
       warnings: notices,
+      failedKinds,
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
@@ -610,7 +616,7 @@ export async function generateCalendarProposals(): Promise<ActionResult> {
 const draftEditSchema = z.object({
   title: z.string().trim().min(2).max(200),
   body: z.string().trim().max(20000),
-  channel: z.string().trim().max(60).optional().default(""),
+  channel: z.union([z.enum(CHANNELS.map((c) => c.value) as [string, ...string[]]), z.literal("")]).optional().default(""),
   topic: z.string().trim().max(200).optional().default(""),
   hook: z.string().trim().max(500).optional().default(""),
   cta: z.string().trim().max(500).optional().default(""),
@@ -639,7 +645,10 @@ export async function updateContentDraft(
       seo_keywords: formData.get("seo_keywords") ?? "",
       seo_internal_links: formData.get("seo_internal_links") ?? "",
     });
-    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the draft fields." };
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return { ok: false, error: issue?.path[0] === "channel" ? "Choose a channel from the list." : issue?.message ?? "Check the draft fields." };
+    }
     const internalLinks = parsed.data.seo_internal_links.split("\n").map((item) => item.trim()).filter(Boolean);
     if (internalLinks.some((url) => !/^\/(?!\/)[^\s]*$/.test(url))) {
       return { ok: false, error: "Internal link suggestions must be local paths beginning with a single slash." };
@@ -736,13 +745,18 @@ export async function transitionAsset(
 
     const { data: asset, error: assetError } = await supabase
       .from("content_assets")
-      .select("id, status, sensitivity")
+      .select("id, status, sensitivity, channel, body, format")
       .eq("id", assetId)
       .eq("organization_id", organizationId)
-      .maybeSingle<{ id: string; status: string; sensitivity: string }>();
+      .maybeSingle<{ id: string; status: string; sensitivity: string; channel: string | null; body: string | null; format: string | null }>();
     if (assetError || !asset) return { ok: false, error: "Asset not found." };
     if (!canTransitionAsset(asset.status, to)) {
       return { ok: false, error: `Cannot move from ${asset.status} to ${to}.` };
+    }
+    // Copy over a platform's hard limit can't be reviewed or approved (PRD §13).
+    if (to === "review" || to === "approved") {
+      const { problems } = checkChannelLimits(asset.channel, asset.body, asset.format);
+      if (problems.length) return { ok: false, error: `Shorten the copy first. ${problems.join(" ")}` };
     }
     if (to === "approved" && !isReviewerRole(role)) {
       return { ok: false, error: "Approval requires an owner, admin, marketing manager or leadership role." };
@@ -823,7 +837,7 @@ export async function createManualAsset(formData: FormData): Promise<ActionResul
         organization_id: organizationId,
         title: parsed.data.title,
         body: parsed.data.body || null,
-        channel: parsed.data.channel || null,
+        channel: normalizeChannel(parsed.data.channel),
         status: "editing",
       })
       .select("id")

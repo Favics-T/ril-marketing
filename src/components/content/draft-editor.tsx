@@ -5,15 +5,43 @@ import { updateContentDraft, type ActionResult } from "@/actions/content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CHANNELS, checkChannelLimits, normalizeChannel } from "@/lib/content/channels";
 
 const field = "flex flex-col gap-1.5";
 const label = "dateline";
 
+/** Live character and hashtag count against the channel's hard limits. */
+function LimitMeter({ channel, body, format }: { channel: string; body: string; format: string | null }) {
+  const check = checkChannelLimits(channel, body, format);
+  if (!check.limit || format === "short-form video") return null;
+  const over = check.problems.length > 0;
+  const near = !over && check.length >= check.limit * 0.9;
+  const tone = over ? "text-destructive" : near ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground";
+  return (
+    <div aria-live="polite" className={`flex flex-col gap-1 text-xs ${tone}`}>
+      <p className="tabular-nums">
+        {channel === "x" ? "Longest post: " : ""}
+        {check.length.toLocaleString()}/{check.limit.toLocaleString()} characters
+        {check.hashtagLimit ? ` · ${check.hashtags}/${check.hashtagLimit} hashtags` : ""}
+        {near ? " · nearly at the limit" : ""}
+      </p>
+      {over ? (
+        <ul className="list-disc pl-4">
+          {check.problems.map((problem) => <li key={problem}>{problem}</li>)}
+          <li>This can&apos;t be sent for review until it fits.</li>
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function DraftEditor({
   asset,
 }: {
-  asset: { id: string; title: string; body: string | null; channel: string | null; topic: string | null; hook: string | null; cta: string | null; metadata?: Record<string, unknown> | null };
+  asset: { id: string; title: string; body: string | null; channel: string | null; format?: string | null; topic: string | null; hook: string | null; cta: string | null; metadata?: Record<string, unknown> | null };
 }) {
+  const [channel, setChannel] = useState<string>(normalizeChannel(asset.channel) ?? "");
+  const remappedFrom = asset.channel && normalizeChannel(asset.channel) === "other" && asset.channel.trim().toLowerCase() !== "other" ? asset.channel : null;
   const seo = asset.metadata?.seo && typeof asset.metadata.seo === "object" ? asset.metadata.seo as { title?: string; description?: string; keywords?: string[]; internalLinks?: string[] } : {};
   const [bodyText, setBodyText] = useState(asset.body ?? "");
   const [seoTitle, setSeoTitle] = useState(seo.title ?? "");
@@ -43,8 +71,16 @@ export function DraftEditor({
       </div>
       <label className={field}><span className={label}>Title</span><Input name="title" required maxLength={200} defaultValue={asset.title} /></label>
       <label className={field}><span className={label}>Copy</span><Textarea name="body" rows={10} maxLength={20000} value={bodyText} onChange={(event) => setBodyText(event.target.value)} /></label>
+      <LimitMeter channel={channel} body={bodyText} format={asset.format ?? null} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className={field}><span className={label}>Channel</span><Input name="channel" maxLength={60} defaultValue={asset.channel ?? ""} /></label>
+        <label className={field}>
+          <span className={label}>Channel</span>
+          <select name="channel" value={channel} onChange={(event) => setChannel(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+            <option value="">Not set</option>
+            {CHANNELS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+          {remappedFrom ? <span className="text-xs text-muted-foreground">Previously typed as &ldquo;{remappedFrom}&rdquo;. Pick the matching channel.</span> : null}
+        </label>
         <label className={field}><span className={label}>Topic</span><Input name="topic" maxLength={200} defaultValue={asset.topic ?? ""} /></label>
         <label className={field}><span className={label}>Hook</span><Input name="hook" maxLength={500} defaultValue={asset.hook ?? ""} /></label>
         <label className={field}><span className={label}>Call to action</span><Input name="cta" maxLength={500} defaultValue={asset.cta ?? ""} /></label>

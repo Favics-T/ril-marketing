@@ -156,6 +156,15 @@ describe("buildPrompt", () => {
     expect(resolveOptions({ ...ctx, eventDate: "2026-12-01" }, NOW)).toMatchObject({ newsletterStyle: "program_promotion", objective: "drive registrations for the upcoming activity" });
   });
 
+  it("uses the campaign's audience and funnel stage, with the brief taking precedence", () => {
+    const withCampaign = { ...ctx, campaignAudience: "University students in Lagos", campaignFunnelStage: "lead_capture" };
+    const prompt = buildPrompt("blog", withCampaign, undefined, NOW);
+    expect(prompt).toContain("Campaign target audience: University students in Lagos");
+    expect(prompt).toContain("Campaign funnel stage: lead capture");
+    expect(resolveOptions(withCampaign, NOW).audience).toBe("University students in Lagos");
+    expect(resolveOptions({ ...withCampaign, options: { audience: "Hiring managers" } }, NOW).audience).toBe("Hiring managers");
+  });
+
   it("only offers chapters and clip times when the source has timestamps", () => {
     expect(buildPrompt("social_pack", ctx, "youtube", NOW)).toMatch(/return \[\] — never guess times/);
     const timed = { ...ctx, sourceMaterial: [{ kind: "key_moments" as const, label: "Key moments", text: "00:42 — pitch", timestamped: true }] };

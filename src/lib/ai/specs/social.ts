@@ -24,6 +24,8 @@ export const PLATFORM_LIMITS = {
   youtubeTitle: 100,
   youtubeDescription: 5000,
   youtubeTags: 500,
+  facebook: 63206,
+  tiktokCaption: 4000,
 } as const;
 
 export const LINKEDIN_WORDS: Record<ContentLength, { min: number; max: number }> = {

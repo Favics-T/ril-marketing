@@ -256,23 +256,34 @@ const kindLabel = (kind: RepurposeKind) => REPURPOSE_KINDS.find((k) => k.kind ==
 
 /**
  * Generate repurposing drafts for an activity. Kinds run in parallel on the
- * configured LLM. When a kind fails, a basic template draft is saved in its
- * place — clearly titled and reported in `warnings`, never silently. The
- * returned model label lists every generator that produced a draft.
+ * configured LLM. When a kind fails it is reported in `failedKinds` and
+ * `warnings`; a basic template draft is saved in its place only when the
+ * caller opts in with `allowTemplateFallback`, and is then clearly titled.
+ * The returned model label lists every generator that produced a draft.
  */
 export async function generateRepurposing(
   organizationId: string,
   kinds: RepurposeKind[],
-  ctx: GenerationContext
-): Promise<{ model: string; drafts: DraftSpec[]; warnings: string[] }> {
+  ctx: GenerationContext,
+  { allowTemplateFallback = false }: { allowTemplateFallback?: boolean } = {}
+): Promise<{ model: string; drafts: DraftSpec[]; warnings: string[]; failedKinds: RepurposeKind[] }> {
   const config = await resolveAiConfig(organizationId);
   const template = new TemplateProvider();
   if (config.mode === "template" || !config.apiKey) {
+    if (!allowTemplateFallback) {
+      return {
+        model: template.modelLabel,
+        drafts: [],
+        failedKinds: kinds,
+        warnings: ["No AI provider is connected. Connect one in AI & Integrations, or choose to save basic template drafts instead."],
+      };
+    }
     const drafts: DraftSpec[] = [];
     for (const kind of kinds) drafts.push(...(await template.generate(kind, ctx)).drafts);
     return {
       model: template.modelLabel,
       drafts,
+      failedKinds: [],
       warnings: ["No AI provider is connected, so these are basic template drafts. Connect one in AI & Integrations for full drafts."],
     };
   }
@@ -285,6 +296,15 @@ export async function generateRepurposing(
       } catch (error) {
         const reason = error instanceof Error ? error.message : "unknown error";
         console.error(`[ai] ${kind} generation failed for ${organizationId}: ${reason}`);
+        if (!allowTemplateFallback) {
+          return {
+            kind,
+            fallback: false,
+            failed: true,
+            drafts: [] as DraftSpec[],
+            warnings: [`${kindLabel(kind)}: AI generation failed (${reason.slice(0, 200)}). Nothing was saved for this format.`],
+          };
+        }
         const { drafts } = await template.generate(kind, ctx);
         return {
           kind,
@@ -305,6 +325,7 @@ export async function generateRepurposing(
     model: [...generators].join(" + ") || llm.modelLabel,
     drafts,
     warnings: outcomes.flatMap((o) => o.warnings),
+    failedKinds: outcomes.filter((o) => "failed" in o && o.failed).map((o) => o.kind),
   };
 }
 

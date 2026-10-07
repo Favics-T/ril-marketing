@@ -77,7 +77,8 @@ async function runActivityCreated(admin: ReturnType<typeof createAdminClient>, e
   let model = "existing-drafts";
   let warnings: string[] = [];
   if (!hasGeneratedAssets) {
-    const generated = await generateRepurposing(event.organization_id, ["social_pack", "newsletter"], context);
+    // Unattended run: nobody is there to retry, so keep labelled template drafts.
+    const generated = await generateRepurposing(event.organization_id, ["social_pack", "newsletter"], context, { allowTemplateFallback: true });
     model = generated.model;
     warnings = [...loadedSources.warnings, ...sources.notes, ...generated.warnings];
     const { data: generation, error: generationError } = await admin.from("ai_generations").insert({ organization_id: event.organization_id, activity_id: activity.id, kind: "automation_activity_created", model: generated.model }).select("id").single<{id:string}>();

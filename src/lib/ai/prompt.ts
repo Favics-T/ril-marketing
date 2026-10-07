@@ -48,6 +48,8 @@ function activityRecord(ctx: GenerationContext): string {
     ctx.partners.length ? `Partners: ${ctx.partners.join(", ")}` : null,
     ctx.registrationUrl ? `Registration link: ${ctx.registrationUrl}` : null,
     ctx.campaignObjective ? `Campaign objective: ${ctx.campaignObjective}` : null,
+    ctx.campaignAudience ? `Campaign target audience: ${ctx.campaignAudience}` : null,
+    ctx.campaignFunnelStage ? `Campaign funnel stage: ${ctx.campaignFunnelStage.replace(/_/g, " ")}` : null,
   ]
     .filter(Boolean)
     .join("\n");

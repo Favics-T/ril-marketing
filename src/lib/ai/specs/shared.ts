@@ -28,7 +28,7 @@ export function resolveOptions(ctx: GenerationContext, now: Date = new Date()): 
   return {
     tone: o.tone?.trim() || "RIL brand voice",
     length: o.length ?? "standard",
-    audience: o.audience?.trim() || ctx.segmentName || "the RIL community",
+    audience: o.audience?.trim() || ctx.campaignAudience?.trim() || ctx.segmentName || "the RIL community",
     objective:
       o.objective?.trim() ||
       ctx.campaignObjective?.trim() ||

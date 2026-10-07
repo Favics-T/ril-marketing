@@ -86,6 +86,10 @@ export interface GenerationContext {
   registrationUrl?: string | null;
   /** Objective of the campaign this activity belongs to. */
   campaignObjective?: string | null;
+  /** Target audience of that campaign, as Marketing described it. */
+  campaignAudience?: string | null;
+  /** Funnel stage of that campaign, e.g. "awareness" or "conversion". */
+  campaignFunnelStage?: string | null;
   /** Transcripts, document text and media notes for this activity. */
   sourceMaterial?: SourceMaterial[];
   options?: GenerationOptions;
