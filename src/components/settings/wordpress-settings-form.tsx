@@ -9,14 +9,25 @@ import { Input } from "@/components/ui/input";
 
 type State = { ok: boolean; message?: string; error?: string };
 
+const YOAST_SNIPPET = `add_action('init', function () {
+  foreach (['_yoast_wpseo_title', '_yoast_wpseo_metadesc'] as $key) {
+    register_post_meta('post', $key, [
+      'show_in_rest'  => true,
+      'single'        => true,
+      'type'          => 'string',
+      'auth_callback' => fn () => current_user_can('edit_posts'),
+    ]);
+  }
+});`;
+
 /**
- * Connect-first connector: the three fields stay hidden until the user asks to
+ * Connect-first connector: the fields stay hidden until the user asks to
  * connect, and the saved account is what the card shows afterwards.
  */
 export function WordPressSettingsForm({
   initial,
 }: {
-  initial: { connected: boolean; siteUrl: string; username: string };
+  initial: { connected: boolean; siteUrl: string; username: string; seoPlugin: string };
 }) {
   const [save, saveAction, saving] = useActionState<State | null, FormData>(
     async (_previous, data) => saveWordPressConnection(data),
@@ -33,6 +44,7 @@ export function WordPressSettingsForm({
       ? true
       : initial.connected;
   const [open, setOpen] = useState(!initial.connected);
+  const [seoPlugin, setSeoPlugin] = useState(initial.seoPlugin || "none");
   useEffect(() => {
     if (save?.ok) setOpen(false);
   }, [save?.ok]);
@@ -107,6 +119,33 @@ export function WordPressSettingsForm({
               </span>
             </label>
           </div>
+          <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
+            SEO plugin
+            <select
+              name="seoPlugin"
+              value={seoPlugin}
+              onChange={(event) => setSeoPlugin(event.target.value)}
+              className={`${fieldClass} font-normal sm:max-w-xs`}
+            >
+              <option value="none">None</option>
+              <option value="yoast">Yoast SEO</option>
+              <option value="rankmath">Rank Math</option>
+            </select>
+            <span className="text-[13px] font-normal leading-5 text-muted-foreground">
+              Sends each article&apos;s SEO title and meta description to this plugin. The meta description is always used as the post excerpt.
+            </span>
+          </label>
+          {seoPlugin === "yoast" ? (
+            <details className="rounded-lg border border-border px-3 py-2 text-[13px] leading-5 text-muted-foreground">
+              <summary className="cursor-pointer font-semibold text-foreground">
+                Yoast needs one snippet on your site
+              </summary>
+              <p className="mt-2">
+                Yoast does not let the API write its SEO fields by default. Ask whoever manages the site to add this to the theme&apos;s functions.php or a code-snippets plugin:
+              </p>
+              <pre className="mt-2 overflow-x-auto rounded-md bg-muted p-2 font-mono text-xs text-foreground">{YOAST_SNIPPET}</pre>
+            </details>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="sm" disabled={saving || disconnecting}>
               {saving

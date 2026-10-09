@@ -17,6 +17,8 @@ type StrapiInitial = {
   bodyField: string;
   slugField: string;
   excerptField: string;
+  seoTitleField: string;
+  seoDescriptionField: string;
 };
 
 /**
@@ -78,6 +80,11 @@ export function StrapiSettingsForm({ initial }: { initial: StrapiInitial }) {
             <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">Body field<Input name="bodyField" required defaultValue={initial.bodyField || "content"} placeholder="content" className="h-10 rounded-lg font-normal" /></label>
             <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">Slug field<Input name="slugField" required defaultValue={initial.slugField || "slug"} placeholder="slug" className="h-10 rounded-lg font-normal" /></label>
             <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">Excerpt field<Input name="excerptField" defaultValue={initial.excerptField} placeholder="optional" className="h-10 rounded-lg font-normal" /></label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">SEO title field<Input name="seoTitleField" defaultValue={initial.seoTitleField} placeholder="optional, e.g. seo.metaTitle" className="h-10 rounded-lg font-normal" /></label>
+            <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">SEO description field<Input name="seoDescriptionField" defaultValue={initial.seoDescriptionField} placeholder="optional, e.g. seo.metaDescription" className="h-10 rounded-lg font-normal" /></label>
+            <span className="text-[13px] leading-5 text-muted-foreground sm:col-span-2">Where the article&apos;s SEO title and meta description go. Use <code>component.field</code> when they live in a component such as Strapi&apos;s SEO component.</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="sm" disabled={saving || disconnecting}>{saving ? "Checking your collection…" : connected ? "Save changes" : "Connect Strapi"}</Button>

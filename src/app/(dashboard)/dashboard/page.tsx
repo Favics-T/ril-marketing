@@ -7,7 +7,9 @@ import { ContentMixChart, KpiProgressChart } from "@/components/dashboard-charts
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { createClient } from "@/lib/supabase/server";
 import { listInsights } from "@/lib/audience/insights";
-import { listAssets, listScheduled } from "@/lib/content/assets";
+import { listAssets, listScheduled, listSocialReminders } from "@/lib/content/assets";
+import { formatReminderTime } from "@/lib/content/reminders";
+import { ReminderFlag } from "@/components/content/reminder-flag";
 import { listActivities } from "@/lib/content/activities";
 import { listLeads, listLeadsNeedingFollowUp } from "@/lib/leads/leads";
 import { listOpenTasks } from "@/lib/audience/tasks";
@@ -25,7 +27,7 @@ export default async function CommandCentrePage() {
   const now = new Date();
   const today = now.toISOString().slice(0,10);
   const end = new Date(now.getTime()+30*86400000).toISOString().slice(0,10);
-  const [insights,review,assets,leads,scheduled,tasks,followups,kpis,activities] = await Promise.all([
+  const [insights,review,assets,leads,scheduled,tasks,followups,kpis,activities,reminders] = await Promise.all([
     load("Insights",listInsights(org,{status:"PENDING_REVIEW",pageSize:3}),{insights:[],total:0,page:1,pageSize:3,totalPages:1}),
     load("Reviews",listAssets(org,{status:"review"}),{assets:[],total:0}),
     load("Content",listAssets(org,{}),{assets:[],total:0}),
@@ -35,6 +37,7 @@ export default async function CommandCentrePage() {
     load("Follow-up",listLeadsNeedingFollowUp(org,4),[]),
     load("Goals",getKpiProgress(org),[]),
     load("Activities",listActivities(org),[]),
+    load("Reminders",listSocialReminders(org,now),[]),
   ]);
   const supabase = await createClient();
   const mixResult = await supabase.from("content_assets").select("channel").eq("organization_id",org).limit(5000);
@@ -44,6 +47,7 @@ export default async function CommandCentrePage() {
   const channels=[...counts].map(([channel,count])=>({channel,count}));
   const upcoming=scheduled.filter(a=>a.status==="scheduled"&&a.scheduled_for&&a.scheduled_for>=now.toISOString()).sort((a,b)=>(a.scheduled_for??"").localeCompare(b.scheduled_for??""));
   const pending=insights.total+review.total;
+  const overdue=reminders.filter(r=>r.state==="overdue").length;
   return <div className="workspace-page">
     <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="dateline">{todayDateline()}</p><h1>Command Centre</h1><p className="mt-2 text-sm text-muted-foreground">Your next decisions, upcoming work, and progress in one place.</p></div><div className="flex gap-2"><Button asChild variant="outline"><Link href="/calendar"><CalendarDays />Calendar</Link></Button><Button asChild><Link href="/activities/new"><Plus />Log activity</Link></Button></div></header>
     {errors.length>0&&<div role="alert" className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm"><AlertCircle className="size-5 shrink-0 text-destructive"/><p>Some data could not be loaded: {errors.join(", ")}. Refresh to retry. Affected counts are unavailable.</p></div>}
@@ -55,6 +59,7 @@ export default async function CommandCentrePage() {
         {label:"Content assets",value:errors.includes("Content")?"—":assets.total,detail:"Drafts through published work",href:"/library"},
       ].map(m=><div key={m.label} className="workspace-metric"><Link href={m.href}><dt>{m.label}</dt><dd>{m.value.toLocaleString()}</dd><p>{m.detail}</p></Link></div>)}
     </dl>
+    {reminders.length>0&&<section className="workspace-panel overflow-hidden" aria-labelledby="reminders-heading"><header className="workspace-panel-heading"><div><h2 id="reminders-heading">Social post reminders</h2><p>{overdue?`${overdue} overdue · `:""}{reminders.length-overdue} due today. Post them, then mark each as posted.</p></div><Link href="/calendar" className="inline-flex shrink-0 items-center gap-1 text-xs text-primary">Calendar<ArrowRight className="size-3.5"/></Link></header><ul>{reminders.slice(0,6).map(({asset:a,state})=><li key={a.id}><Link href={`/library/${a.id}`} className="workspace-row"><div className="min-w-0 flex-1"><p className="workspace-row-meta mb-1">{formatReminderTime(a.scheduled_for!)}</p><p className="workspace-row-title">{a.title}</p><p className="workspace-row-meta">{channelLabel(a.platform||a.channel)}</p></div><ReminderFlag state={state}/></Link></li>)}</ul>{reminders.length>6&&<p className="workspace-empty">{reminders.length-6} more not shown. Open the content library and filter by Scheduled to see them all.</p>}</section>}
     <div className="workspace-dashboard-grid">
       <section className="workspace-panel overflow-hidden" aria-labelledby="decisions-heading"><header className="workspace-panel-heading"><div><h2 id="decisions-heading">Ready for your review</h2><p>Every item needs a human decision.</p></div><Link href="/approvals" className="inline-flex shrink-0 items-center gap-1 text-xs text-primary">View inbox<ArrowRight className="size-3.5"/></Link></header>
         {!pending?<div className="workspace-empty flex items-center gap-3"><CheckCheck className="size-5"/>No decisions waiting. Capture an activity to create your next drafts.</div>:<ul>{insights.insights.slice(0,2).map(i=><li key={i.id}><Link href={`/audience/insights/${i.id}`} className="workspace-row"><div className="min-w-0 flex-1"><div className="mb-2 flex gap-2"><StatusStamp status={i.status}/><span className="text-xs text-muted-foreground">Audience insight</span></div><p className="workspace-row-title line-clamp-2">{i.summary}</p><p className="workspace-row-meta">{i.segment?.name??"Audience learning"}</p></div><ArrowRight className="size-4 shrink-0 text-muted-foreground"/></Link></li>)}{review.assets.slice(0,2).map(a=><li key={a.id}><Link href={`/library/${a.id}`} className="workspace-row"><div className="min-w-0 flex-1"><div className="mb-2 flex gap-2"><StatusStamp status={a.status}/><span className="text-xs text-muted-foreground">{channelLabel(a.channel)}</span></div><p className="workspace-row-title">{a.title}</p></div><ArrowRight className="size-4 shrink-0 text-muted-foreground"/></Link></li>)}</ul>}

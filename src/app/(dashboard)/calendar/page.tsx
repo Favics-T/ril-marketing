@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { CalendarGenerator } from "@/components/content/calendar-generator";
+import { ReminderFlag } from "@/components/content/reminder-flag";
+import { reminderState } from "@/lib/content/reminders";
 
 export const metadata: Metadata = { title: "Content Calendar" };
 
@@ -62,6 +64,7 @@ export default async function CalendarPage({
   }
   const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
+  const now = new Date();
   const prev = shiftMonth(month, -1);
   const next = shiftMonth(month, 1);
 
@@ -125,6 +128,7 @@ export default async function CalendarPage({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusStamp status={a.status} />
+                        <ReminderFlag state={reminderState(a, now)} />
                         <span className="dateline">
                           {[a.channel, a.platform].filter(Boolean).join(" · ") ||
                             "No channel"}

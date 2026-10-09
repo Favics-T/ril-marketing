@@ -38,6 +38,14 @@ export function formatDay(value: string | null | undefined): string {
   });
 }
 
+/** Date and time for event rows: "12 Sep 2026, 14:05". */
+export function formatDayTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+}
+
 /** Today's dateline header, shared by every dashboard surface. */
 export function todayDateline(): string {
   return new Date().toLocaleDateString("en-GB", {

@@ -12,9 +12,12 @@ export type StrapiConfig = {
   titleField: string;
   bodyField: string;
   excerptField: string;
+  /** Optional; a dotted path such as `seo.metaTitle` targets a field inside a component. */
+  seoTitleField: string;
+  seoDescriptionField: string;
 };
 
-const DEFAULTS = { collection: "articles", slugField: "slug", titleField: "title", bodyField: "content", excerptField: "" };
+const DEFAULTS = { collection: "articles", slugField: "slug", titleField: "title", bodyField: "content", excerptField: "", seoTitleField: "", seoDescriptionField: "" };
 
 /** Same public-host guard the WordPress connector uses: HTTPS only, no credentials, no bare IPs or local hosts. */
 function normalizeBaseUrl(value: string) {
@@ -100,6 +103,8 @@ export async function getStrapiConfig(organizationId: string): Promise<StrapiCon
     titleField: data.config.titleField || DEFAULTS.titleField,
     bodyField: data.config.bodyField || DEFAULTS.bodyField,
     excerptField: data.config.excerptField || DEFAULTS.excerptField,
+    seoTitleField: data.config.seoTitleField || DEFAULTS.seoTitleField,
+    seoDescriptionField: data.config.seoDescriptionField || DEFAULTS.seoDescriptionField,
   };
 }
 
@@ -108,14 +113,26 @@ export function slugFilterPath(config: StrapiConfig, slug: string) {
   return `/${config.collection}?filters[${encodeURIComponent(config.slugField)}][$eq]=${encodeURIComponent(slug)}&pagination[pageSize]=1`;
 }
 
-/** Map article fields onto the user's configured Strapi field names (excerpt only when both a field and text exist). */
-export function entryFields(config: StrapiConfig, entry: { title: string; body: string; excerpt: string; slug: string }) {
-  const fields: Record<string, string> = {
+type StrapiArticle = { title: string; body: string; excerpt: string; slug: string; seo: { title: string; description: string } };
+
+/** Set `value` at a field name or a one-level `component.field` path. */
+function setField(fields: Record<string, unknown>, path: string, value: string) {
+  const [root, child] = path.split(".");
+  if (!child) { fields[root] = value; return; }
+  const component = fields[root] && typeof fields[root] === "object" ? fields[root] as Record<string, unknown> : {};
+  fields[root] = { ...component, [child]: value };
+}
+
+/** Map article fields onto the user's configured Strapi field names. Optional fields are sent only when both a field and text exist. */
+export function entryFields(config: StrapiConfig, entry: StrapiArticle) {
+  const fields: Record<string, unknown> = {
     [config.titleField]: entry.title,
     [config.bodyField]: entry.body,
     [config.slugField]: entry.slug,
   };
   if (config.excerptField && entry.excerpt) fields[config.excerptField] = entry.excerpt;
+  if (config.seoTitleField && entry.seo.title.trim()) setField(fields, config.seoTitleField, entry.seo.title.trim());
+  if (config.seoDescriptionField && entry.seo.description.trim()) setField(fields, config.seoDescriptionField, entry.seo.description.trim());
   return fields;
 }
 
@@ -126,7 +143,7 @@ export function entryFields(config: StrapiConfig, entry: { title: string; body: 
  */
 export async function publishStrapiEntry(
   config: StrapiConfig,
-  entry: { title: string; body: string; excerpt: string; slug: string },
+  entry: StrapiArticle,
 ): Promise<{ id: string; url: string; alreadyCreated: boolean }> {
   const existing = await requestStrapi<{ data?: Array<{ id?: number | string; documentId?: string }> }>(config, slugFilterPath(config, entry.slug));
   const found = existing.data?.[0];

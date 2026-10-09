@@ -7,9 +7,10 @@ import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationId } from "@/lib/supabase/organization";
 import { getUserRole, requireReviewer } from "@/lib/audience/access";
 import { decryptSecret, encryptSecret, isEncryptionEnabled } from "@/lib/crypto/secret-box";
-import { getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, type WordPressConfig } from "@/lib/integrations/wordpress";
+import { joinWarnings, recordPublication } from "@/lib/content/record-publication";
+import { getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, verifyWordPressSeoPlugin, WORDPRESS_SEO_PLUGINS, type WordPressConfig, type WordPressSeoPlugin } from "@/lib/integrations/wordpress";
 
-type ActionResult = { ok: boolean; message?: string; error?: string; url?: string };
+type ActionResult = { ok: boolean; message?: string; warning?: string; error?: string; url?: string };
 
 async function requireCmsManager(organizationId: string) {
   const role = await getUserRole(organizationId);
@@ -20,6 +21,7 @@ const settingsSchema = z.object({
   siteUrl: z.string().trim().url().max(500),
   username: z.string().trim().min(1).max(120),
   applicationPassword: z.string().trim().max(300).default(""),
+  seoPlugin: z.enum(WORDPRESS_SEO_PLUGINS as [WordPressSeoPlugin, ...WordPressSeoPlugin[]]).default("none"),
 });
 
 export async function saveWordPressConnection(formData: FormData): Promise<ActionResult> {
@@ -27,7 +29,7 @@ export async function saveWordPressConnection(formData: FormData): Promise<Actio
     const organizationId = await requireOrganizationId();
     await requireCmsManager(organizationId);
     if (!isEncryptionEnabled()) return { ok: false, error: "Set AI_CONFIG_SECRET before storing a WordPress application password." };
-    const parsed = settingsSchema.safeParse({ siteUrl: formData.get("siteUrl"), username: formData.get("username"), applicationPassword: formData.get("applicationPassword") ?? "" });
+    const parsed = settingsSchema.safeParse({ siteUrl: formData.get("siteUrl"), username: formData.get("username"), applicationPassword: formData.get("applicationPassword") ?? "", seoPlugin: formData.get("seoPlugin") ?? "none" });
     if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the WordPress settings." };
     let siteUrl: string;
     try { siteUrl = validateWordPressSiteUrl(parsed.data.siteUrl); }
@@ -37,14 +39,15 @@ export async function saveWordPressConnection(formData: FormData): Promise<Actio
     const { data: current } = await admin.from("integrations").select("config").eq("organization_id", organizationId).eq("key", "cms_wordpress").maybeSingle<{ config: Record<string, string> }>();
     const password = parsed.data.applicationPassword.replace(/\s/g, "") || decryptSecret(current?.config.applicationPassword ?? "");
     if (!password) return { ok: false, error: "Create a WordPress Application Password for a user allowed to publish posts." };
-    const config: WordPressConfig = { siteUrl, username: parsed.data.username, applicationPassword: password };
+    const config: WordPressConfig = { siteUrl, username: parsed.data.username, applicationPassword: password, seoPlugin: parsed.data.seoPlugin };
     const profile = await verifyWordPressConnection(config);
+    await verifyWordPressSeoPlugin(config);
     const { error } = await admin.from("integrations").upsert({
       organization_id: organizationId,
       key: "cms_wordpress",
       display_name: "WordPress publishing",
       status: "connected",
-      config: { siteUrl, username: parsed.data.username, applicationPassword: encryptSecret(password), user: profile.user },
+      config: { siteUrl, username: parsed.data.username, applicationPassword: encryptSecret(password), user: profile.user, seoPlugin: config.seoPlugin },
     }, { onConflict: "organization_id,key" });
     if (error) return { ok: false, error: "Could not save the verified WordPress connection." };
     revalidatePath("/settings/ai");
@@ -86,19 +89,33 @@ export async function publishApprovedBlog(assetId: string): Promise<ActionResult
     const seo = metadata.seo && typeof metadata.seo === "object" ? metadata.seo as { title?: string; description?: string } : {};
     const excerpt = seo.description?.trim() || asset.body.replace(/\s+/g, " ").trim().slice(0, 180);
     const slug = `ril-${asset.id}`;
-    const published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug });
+    let published: Awaited<ReturnType<typeof publishWordPressPost>>;
+    try {
+      published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug, seo: { title: seo.title ?? "", description: seo.description ?? "" } });
+    } catch (publishError) {
+      const message = publishError instanceof Error ? publishError.message : "Could not publish to WordPress.";
+      const recorded = await recordPublication(supabase, { organization_id: organizationId, content_asset_id: assetId, channel: "wordpress", status: "failed", error: message.slice(0, 1000), actor_id: user.id });
+      revalidatePath(`/library/${assetId}`);
+      return { ok: false, error: message, warning: recorded.warning };
+    }
+    // Record the Publication before the status update: the post is live either way.
+    const recorded = await recordPublication(supabase, { organization_id: organizationId, content_asset_id: assetId, channel: "wordpress", external_id: String(published.id), url: published.url, status: "published", published_at: new Date().toISOString(), actor_id: user.id });
     const { data: saved, error: saveError } = await createAdminClient().from("content_assets").update({
       status: "published",
       published_at: new Date().toISOString(),
-      metadata: { ...metadata, wordpress_post_id: published.id, wordpress_url: published.url, wordpress_published_at: new Date().toISOString() },
+      metadata: { ...metadata, wordpress_post_id: published.id, wordpress_url: published.url, wordpress_published_at: new Date().toISOString(), wordpress_seo_saved: published.seoSaved },
     }).eq("organization_id", organizationId).eq("id", assetId).eq("status", "approved").select("id").maybeSingle();
-    if (saveError || !saved) return { ok: false, error: `WordPress published the article, but the workspace could not update its status. Open the WordPress link and contact an admin before retrying.`, url: published.url };
+    if (saveError || !saved) return { ok: false, error: `WordPress published the article, but the workspace could not update its status. Open the WordPress link and contact an admin before retrying.`, warning: recorded.warning, url: published.url };
     await createAdminClient().from("asset_approvals").insert({ organization_id: organizationId, content_asset_id: assetId, actor_id: user.id, from_status: "approved", to_status: "published", note: `Published to WordPress · ${published.url}` });
     revalidatePath("/library");
     revalidatePath(`/library/${assetId}`);
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
-    return { ok: true, message: published.alreadyCreated ? "Linked the existing WordPress post." : "Published to WordPress.", url: published.url };
+    const warning = joinWarnings(
+      published.seoSaved === false ? "The SEO title and description were not saved. Check the SEO plugin setting under AI Settings → WordPress." : undefined,
+      recorded.warning,
+    );
+    return { ok: true, message: published.alreadyCreated ? "Linked the existing WordPress post." : "Published to WordPress.", warning, url: published.url };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not publish to WordPress." };
   }

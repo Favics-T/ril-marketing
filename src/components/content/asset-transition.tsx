@@ -24,7 +24,17 @@ export function AssetTransition({
 	const targets = ASSET_STATUSES.filter((s) => canTransitionAsset(status, s));
 	const [to, setTo] = useState<string>(targets[0] ?? "");
 	const [state, action, pending] = useActionState<ActionResult | null, FormData>(
-		async (_prev, fd) => transitionAsset(assetId, fd),
+		async (_prev, fd) => {
+			// datetime-local carries no zone, and the server runs in UTC. Read it
+			// here, in the user's own zone, and send an exact instant instead.
+			const local = fd.get("scheduled_for");
+			if (typeof local === "string" && local) {
+				const at = new Date(local);
+				if (Number.isNaN(at.getTime())) return { ok: false, error: "Enter a valid date and time." };
+				fd.set("scheduled_for", at.toISOString());
+			}
+			return transitionAsset(assetId, fd);
+		},
 		null
 	);
 

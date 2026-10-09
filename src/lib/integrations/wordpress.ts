@@ -4,7 +4,27 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret } from "@/lib/crypto/secret-box";
 
 type IntegrationRow = { status: string; config: Record<string, string> };
-export type WordPressConfig = { siteUrl: string; username: string; applicationPassword: string };
+export type WordPressSeoPlugin = "none" | "yoast" | "rankmath";
+export type WordPressConfig = { siteUrl: string; username: string; applicationPassword: string; seoPlugin: WordPressSeoPlugin };
+export type ArticleSeo = { title: string; description: string };
+
+export const WORDPRESS_SEO_PLUGINS: readonly WordPressSeoPlugin[] = ["none", "yoast", "rankmath"];
+
+export function parseSeoPlugin(value: unknown): WordPressSeoPlugin {
+  return WORDPRESS_SEO_PLUGINS.includes(value as WordPressSeoPlugin) ? value as WordPressSeoPlugin : "none";
+}
+
+/** Post meta keys each SEO plugin reads for the search title and meta description. Empty values are left out so the plugin's own defaults apply. */
+export function seoMetaFields(plugin: WordPressSeoPlugin, seo: ArticleSeo): Record<string, string> {
+  if (plugin === "none") return {};
+  const keys = plugin === "yoast"
+    ? { title: "_yoast_wpseo_title", description: "_yoast_wpseo_metadesc" }
+    : { title: "rank_math_title", description: "rank_math_description" };
+  const fields: Record<string, string> = {};
+  if (seo.title.trim()) fields[keys.title] = seo.title.trim();
+  if (seo.description.trim()) fields[keys.description] = seo.description.trim();
+  return fields;
+}
 
 function normalizeSiteUrl(value: string) {
   let url: URL;
@@ -16,15 +36,15 @@ function normalizeSiteUrl(value: string) {
   return `${url.origin}${url.pathname.replace(/\/$/, "")}`;
 }
 
-function restRoot(siteUrl: string) {
-  return `${siteUrl.replace(/\/$/, "")}/wp-json/wp/v2`;
+function restRoot(siteUrl: string, namespace = "wp/v2") {
+  return `${siteUrl.replace(/\/$/, "")}/wp-json/${namespace}`;
 }
 
 function authHeader(username: string, applicationPassword: string) {
   return `Basic ${Buffer.from(`${username}:${applicationPassword.replace(/\s/g, "")}`).toString("base64")}`;
 }
 
-async function requestWordPress<T>(config: WordPressConfig, path: string, init: RequestInit = {}): Promise<T> {
+async function requestWordPress<T>(config: WordPressConfig, path: string, init: RequestInit = {}, namespace = "wp/v2"): Promise<T> {
   const addresses = await lookup(new URL(config.siteUrl).hostname, { all: true });
   const hasPrivateAddress = addresses.some(({ address }) => {
     const normalized = address.toLowerCase();
@@ -40,7 +60,7 @@ async function requestWordPress<T>(config: WordPressConfig, path: string, init: 
     ));
   });
   if (!addresses.length || hasPrivateAddress) throw new Error("WordPress URL must resolve only to public network addresses.");
-  const response = await fetch(`${restRoot(config.siteUrl)}${path}`, {
+  const response = await fetch(`${restRoot(config.siteUrl, namespace)}${path}`, {
     ...init,
     headers: { Authorization: authHeader(config.username, config.applicationPassword), "Content-Type": "application/json", ...init.headers },
     cache: "no-store",
@@ -63,6 +83,42 @@ export async function verifyWordPressConnection(config: WordPressConfig) {
   return { user: profile.name, userId: profile.id };
 }
 
+/**
+ * Check the chosen SEO plugin can take our fields before publishing relies on it.
+ * Rank Math exposes its own write route; Yoast's meta is only writable once the
+ * site registers it for REST, which shows up in the posts schema.
+ */
+export async function verifyWordPressSeoPlugin(config: WordPressConfig) {
+  if (config.seoPlugin === "rankmath") {
+    const index = await requestWordPress<{ namespaces?: string[] }>(config, "", {}, "");
+    if (!index.namespaces?.includes("rankmath/v1")) throw new Error("Rank Math is not active on this WordPress site.");
+  }
+  if (config.seoPlugin === "yoast") {
+    const schema = await requestWordPress<{ schema?: { properties?: { meta?: { properties?: Record<string, unknown> } } } }>(config, "/posts", { method: "OPTIONS" });
+    const meta = schema.schema?.properties?.meta?.properties ?? {};
+    if (!("_yoast_wpseo_title" in meta) || !("_yoast_wpseo_metadesc" in meta)) {
+      throw new Error("WordPress does not let the API write Yoast's SEO title and description yet. Add the snippet shown below to the site, then save again.");
+    }
+  }
+}
+
+/** Write the SEO title and description to the post's SEO plugin. Returns null when no plugin is configured or there is nothing to send. */
+async function writeSeoMeta(config: WordPressConfig, postId: number, seo: ArticleSeo): Promise<boolean | null> {
+  const meta = seoMetaFields(config.seoPlugin, seo);
+  if (!Object.keys(meta).length) return null;
+  try {
+    if (config.seoPlugin === "rankmath") {
+      await requestWordPress(config, "/updateMeta", { method: "POST", body: JSON.stringify({ objectType: "post", objectID: postId, meta }) }, "rankmath/v1");
+      return true;
+    }
+    // Unregistered meta keys are dropped silently, so confirm from what WordPress echoes back.
+    const post = await requestWordPress<{ meta?: Record<string, unknown> }>(config, `/posts/${postId}?context=edit`, { method: "POST", body: JSON.stringify({ meta }) });
+    return Object.entries(meta).every(([key, value]) => post.meta?.[key] === value);
+  } catch {
+    return false;
+  }
+}
+
 export async function getWordPressConfig(organizationId: string): Promise<WordPressConfig | null> {
   const admin = createAdminClient();
   const { data } = await admin.from("integrations").select("status,config").eq("organization_id", organizationId).eq("key", "cms_wordpress").maybeSingle<IntegrationRow>();
@@ -70,14 +126,22 @@ export async function getWordPressConfig(organizationId: string): Promise<WordPr
   const applicationPassword = decryptSecret(data.config.applicationPassword ?? "");
   if (!applicationPassword) return null;
   try {
-    return { siteUrl: normalizeSiteUrl(data.config.siteUrl ?? ""), username: data.config.username ?? "", applicationPassword };
+    return { siteUrl: normalizeSiteUrl(data.config.siteUrl ?? ""), username: data.config.username ?? "", applicationPassword, seoPlugin: parseSeoPlugin(data.config.seoPlugin) };
   } catch { return null; }
 }
 
-export async function publishWordPressPost(config: WordPressConfig, input: { title: string; body: string; excerpt: string; slug: string }) {
+/**
+ * Publish a post, idempotent by slug. The SEO fields are written after the post
+ * exists (also for a linked one), and a failure there never undoes the publish:
+ * `seoSaved` reports it instead, null meaning no SEO plugin was involved.
+ */
+export async function publishWordPressPost(config: WordPressConfig, input: { title: string; body: string; excerpt: string; slug: string; seo: ArticleSeo }) {
   const query = `?slug=${encodeURIComponent(input.slug)}&context=edit`;
   const existing = await requestWordPress<Array<{ id: number; link: string }>>(config, `/posts${query}`);
-  if (existing[0]?.id) return { id: existing[0].id, url: existing[0].link, alreadyCreated: true };
+  if (existing[0]?.id) {
+    const seoSaved = await writeSeoMeta(config, existing[0].id, input.seo);
+    return { id: existing[0].id, url: existing[0].link, alreadyCreated: true, seoSaved };
+  }
 
   const content = input.body.split(/\r?\n\s*\r?\n/).map((paragraph) => paragraph.trim()).filter(Boolean)
     .map((paragraph) => `<p>${paragraph.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`).join("\n");
@@ -86,7 +150,8 @@ export async function publishWordPressPost(config: WordPressConfig, input: { tit
     body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, slug: input.slug, status: "publish" }),
   });
   if (!post.id || !post.link) throw new Error("WordPress did not return the published post URL.");
-  return { id: post.id, url: post.link, alreadyCreated: false };
+  const seoSaved = await writeSeoMeta(config, post.id, input.seo);
+  return { id: post.id, url: post.link, alreadyCreated: false, seoSaved };
 }
 
 export function validateWordPressSiteUrl(value: string) { return normalizeSiteUrl(value); }

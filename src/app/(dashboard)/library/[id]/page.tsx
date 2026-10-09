@@ -2,14 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
-import { getAsset, listAssetApprovals } from "@/lib/content/assets";
+import { getAsset, listAssetApprovals, listAssetPublications } from "@/lib/content/assets";
 import { AssetTransition } from "@/components/content/asset-transition";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { formatDay } from "@/lib/format";
 import { DraftEditor } from "@/components/content/draft-editor";
 import { WordPressPublishAction } from "@/components/content/wordpress-publish-action";
 import { StrapiPublishAction } from "@/components/content/strapi-publish-action";
+import { PublishHistory } from "@/components/content/publish-history";
 import { createClient } from "@/lib/supabase/server";
+import { formatReminderTime, reminderState } from "@/lib/content/reminders";
+import { ReminderFlag } from "@/components/content/reminder-flag";
+import { MarkPosted } from "@/components/content/mark-posted";
 
 export const metadata: Metadata = { title: "Content asset" };
 
@@ -27,7 +31,11 @@ export default async function AssetDetailPage({
 
 	const asset = await getAsset(orgId, id);
 	if (!asset) notFound();
-	const approvals = await listAssetApprovals(orgId, id);
+	const [approvals, publications] = await Promise.all([
+		listAssetApprovals(orgId, id),
+		listAssetPublications(orgId, id),
+	]);
+	const reminder = reminderState(asset);
 	const isCalendarProposal = asset.metadata?.calendar_generator === true;
 	const recommendationReason = typeof asset.metadata?.recommendation_reason === "string" ? asset.metadata.recommendation_reason : null;
 	const suggestedAt = typeof asset.metadata?.suggested_publish_at === "string" ? asset.metadata.suggested_publish_at : null;
@@ -51,7 +59,7 @@ export default async function AssetDetailPage({
 		{ label: "Topic", value: asset.topic },
 		{ label: "Hook", value: asset.hook },
 		{ label: "CTA", value: asset.cta },
-		{ label: "Scheduled", value: asset.scheduled_for ? formatDay(asset.scheduled_for) : null },
+		{ label: "Scheduled", value: asset.scheduled_for ? formatReminderTime(asset.scheduled_for) : null },
 		{ label: "Published", value: asset.published_at ? formatDay(asset.published_at) : null },
 	].filter((m) => m.value);
 
@@ -105,6 +113,28 @@ export default async function AssetDetailPage({
 					</section>
 
 				<div className="flex flex-col gap-4 lg:gap-6">
+					{reminder && asset.scheduled_for ? (
+						<section
+							aria-labelledby="reminder-heading"
+							className={`slip flex h-fit flex-col gap-3 border-l-4 p-5 sm:p-6 ${reminder === "overdue" ? "border-l-destructive" : "border-l-flag"}`}
+						>
+							<div className="flex items-center justify-between gap-3">
+								<div>
+									<p className="dateline">Posting reminder</p>
+									<h2 id="reminder-heading" className="mt-1 text-base font-bold">
+										{reminder === "overdue" ? "This post is overdue" : "Post this today"}
+									</h2>
+								</div>
+								<ReminderFlag state={reminder} />
+							</div>
+							<p className="text-sm leading-6 text-muted-foreground">
+								{reminder === "overdue"
+									? `It was due ${formatReminderTime(asset.scheduled_for)}. Post it now, or move it back to Approved to pick a new time.`
+									: `Due ${formatReminderTime(asset.scheduled_for)}. Once it's live on ${asset.platform || asset.channel || "the channel"}, mark it as posted.`}
+							</p>
+							<MarkPosted assetId={asset.id} />
+						</section>
+					) : null}
 					{isCalendarProposal ? (
 						<section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
 							<div><p className="dateline">Calendar proposal</p><h2 className="mt-1 text-base font-bold">Recommendation</h2></div>
@@ -123,6 +153,8 @@ export default async function AssetDetailPage({
 					</section>
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
+
+					<PublishHistory publications={publications} assetStatus={asset.status} />
 
 					<section className="slip flex h-fit flex-col p-5 sm:p-6">
 						<p className="dateline">History</p>

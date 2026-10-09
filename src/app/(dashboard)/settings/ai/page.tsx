@@ -50,10 +50,11 @@ export default async function AiSettingsPage({
   const ai = orgId ? await getAiIntegration(orgId).catch(() => null) : null;
 
   let integrations: IntegrationRow[] = [];
-  let wordpress: { connected: boolean; siteUrl: string; username: string } = {
+  let wordpress: { connected: boolean; siteUrl: string; username: string; seoPlugin: string } = {
     connected: false,
     siteUrl: "",
     username: "",
+    seoPlugin: "none",
   };
   let googleAnalytics: {
     connected: boolean;
@@ -68,6 +69,8 @@ export default async function AiSettingsPage({
     bodyField: string;
     slugField: string;
     excerptField: string;
+    seoTitleField: string;
+    seoDescriptionField: string;
   } = {
     connected: false,
     baseUrl: "",
@@ -76,6 +79,8 @@ export default async function AiSettingsPage({
     bodyField: "",
     slugField: "",
     excerptField: "",
+    seoTitleField: "",
+    seoDescriptionField: "",
   };
   let buffer: Awaited<ReturnType<typeof getBufferStatus>> = {
     connected: false,
@@ -103,7 +108,7 @@ export default async function AiSettingsPage({
             .eq("key", "cms_wordpress")
             .maybeSingle<{
               status: string;
-              config: { siteUrl?: string; username?: string };
+              config: { siteUrl?: string; username?: string; seoPlugin?: string };
             }>(),
           supabase
             .from("integrations")
@@ -128,6 +133,8 @@ export default async function AiSettingsPage({
                 bodyField?: string;
                 slugField?: string;
                 excerptField?: string;
+                seoTitleField?: string;
+                seoDescriptionField?: string;
               };
             }>(),
         ]);
@@ -137,6 +144,7 @@ export default async function AiSettingsPage({
           connected: wordpressResult.data.status === "connected",
           siteUrl: wordpressResult.data.config.siteUrl ?? "",
           username: wordpressResult.data.config.username ?? "",
+          seoPlugin: wordpressResult.data.config.seoPlugin ?? "none",
         };
       }
       if (analyticsResult.data) {
@@ -156,6 +164,8 @@ export default async function AiSettingsPage({
           bodyField: strapiResult.data.config.bodyField ?? "",
           slugField: strapiResult.data.config.slugField ?? "",
           excerptField: strapiResult.data.config.excerptField ?? "",
+          seoTitleField: strapiResult.data.config.seoTitleField ?? "",
+          seoDescriptionField: strapiResult.data.config.seoDescriptionField ?? "",
         };
       }
     } catch {

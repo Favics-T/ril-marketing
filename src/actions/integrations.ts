@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationId } from "@/lib/supabase/organization";
+import { recordPublication } from "@/lib/content/record-publication";
 import {
   disconnectBuffer,
   getBufferChannels,
@@ -15,6 +16,7 @@ export type { BufferChannel };
 export interface IntegrationResult {
   ok: boolean;
   error?: string;
+  warning?: string;
   channels?: BufferChannel[];
   publicationId?: string;
 }
@@ -68,29 +70,26 @@ export async function publishAssetViaBuffer(
     }
     const text = asset.body?.trim() || asset.title;
     if (!text) return { ok: false, error: "Asset has no text to publish." };
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     try {
       const externalId = await publishToBuffer(organizationId, channelId, text);
-      const { data: pub } = await supabase
-        .from("publications")
-        .insert({
-          organization_id: organizationId,
-          content_asset_id: assetId,
-          channel: "buffer",
-          external_id: externalId,
-          status: "published",
-          published_at: new Date().toISOString(),
-        })
-        .select("id")
-        .single<{ id: string }>();
+      const recorded = await recordPublication(supabase, {
+        organization_id: organizationId,
+        content_asset_id: assetId,
+        channel: "buffer",
+        external_id: externalId,
+        status: "published",
+        published_at: new Date().toISOString(),
+        actor_id: user?.id ?? null,
+      });
       await supabase
         .from("content_assets")
         .update({ status: "published", published_at: new Date().toISOString() })
         .eq("id", assetId)
         .eq("organization_id", organizationId);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       await supabase.from("asset_approvals").insert({
         organization_id: organizationId,
         content_asset_id: assetId,
@@ -101,18 +100,20 @@ export async function publishAssetViaBuffer(
       });
       revalidatePath(`/library/${assetId}`);
       revalidatePath("/calendar");
-      return { ok: true, publicationId: pub?.id };
+      return { ok: true, publicationId: recorded.id ?? undefined, warning: recorded.warning };
     } catch (publishError) {
       const message =
         publishError instanceof Error ? publishError.message : "Publish failed.";
-      await supabase.from("publications").insert({
+      const recorded = await recordPublication(supabase, {
         organization_id: organizationId,
         content_asset_id: assetId,
         channel: "buffer",
         status: "failed",
         error: message.slice(0, 1000),
+        actor_id: user?.id ?? null,
       });
-      return { ok: false, error: message };
+      revalidatePath(`/library/${assetId}`);
+      return { ok: false, error: message, warning: recorded.warning };
     }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
