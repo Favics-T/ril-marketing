@@ -1,6 +1,6 @@
 /** Publication rows (§7 Publication): one per publish attempt on an asset. */
 
-export type PublicationStatus = "queued" | "published" | "failed";
+export type PublicationStatus = "queued" | "scheduled" | "published" | "missed" | "failed" | "cancelled";
 
 export interface PublicationRow {
   id: string;
@@ -9,11 +9,15 @@ export interface PublicationRow {
   external_id: string | null;
   url: string | null;
   status: PublicationStatus;
+  /** The post status the destination last reported, e.g. WordPress "future" or "publish". */
+  remote_status: string | null;
   scheduled_for: string | null;
   published_at: string | null;
   error: string | null;
   actor_id: string | null;
+  last_synced_at: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 const DESTINATIONS: Record<string, string> = {
