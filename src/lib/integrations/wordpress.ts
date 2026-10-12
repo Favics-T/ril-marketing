@@ -2,6 +2,7 @@ import "server-only";
 import { lookup } from "node:dns/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret } from "@/lib/crypto/secret-box";
+import { markdownToWordPressHtml } from "@/lib/integrations/wordpress-html";
 
 type IntegrationRow = { status: string; config: Record<string, string> };
 export type WordPressSeoPlugin = "none" | "yoast" | "rankmath";
@@ -131,20 +132,45 @@ export async function getWordPressConfig(organizationId: string): Promise<WordPr
 }
 
 /**
+ * Statuses the slug lookup searches. Without them WordPress returns published
+ * posts only, so a retry would miss a scheduled or draft post and create a
+ * duplicate. Trash is left out: WordPress renames a trashed post's slug.
+ */
+export const SLUG_LOOKUP_STATUSES = ["publish", "future", "draft", "pending", "private"] as const;
+
+/** Path that finds the post already created for this slug, whatever its status. */
+export function postBySlugPath(slug: string) {
+  return `/posts?slug=${encodeURIComponent(slug)}&status=${SLUG_LOOKUP_STATUSES.join(",")}&context=edit`;
+}
+
+type WordPressPost = { id: number; link: string; status: string };
+
+/**
  * Publish a post, idempotent by slug. The SEO fields are written after the post
  * exists (also for a linked one), and a failure there never undoes the publish:
  * `seoSaved` reports it instead, null meaning no SEO plugin was involved.
  */
 export async function publishWordPressPost(config: WordPressConfig, input: { title: string; body: string; excerpt: string; slug: string; seo: ArticleSeo }) {
-  const query = `?slug=${encodeURIComponent(input.slug)}&context=edit`;
-  const existing = await requestWordPress<Array<{ id: number; link: string }>>(config, `/posts${query}`);
-  if (existing[0]?.id) {
-    const seoSaved = await writeSeoMeta(config, existing[0].id, input.seo);
-    return { id: existing[0].id, url: existing[0].link, alreadyCreated: true, seoSaved };
+  const content = markdownToWordPressHtml(input.body);
+  const [existing] = await requestWordPress<WordPressPost[]>(config, postBySlugPath(input.slug));
+  if (existing?.id) {
+    if (existing.status === "private") throw new Error("A private WordPress post already uses this article's slug. Make it public or delete it in WordPress, then publish again.");
+    let live = existing;
+    if (existing.status !== "publish") {
+      // An earlier draft or scheduled copy: bring it live now with the current text.
+      // date_gmt is set a minute back so a WordPress clock running behind ours can't
+      // turn "publish" back into "future".
+      const dateGmt = new Date(Date.now() - 60000).toISOString().slice(0, 19);
+      live = await requestWordPress<WordPressPost>(config, `/posts/${existing.id}`, {
+        method: "POST",
+        body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, status: "publish", date_gmt: dateGmt }),
+      });
+      if (live.status !== "publish") throw new Error(`WordPress kept the existing post as "${live.status}" instead of publishing it.`);
+    }
+    const seoSaved = await writeSeoMeta(config, live.id, input.seo);
+    return { id: live.id, url: live.link, alreadyCreated: true, seoSaved };
   }
 
-  const content = input.body.split(/\r?\n\s*\r?\n/).map((paragraph) => paragraph.trim()).filter(Boolean)
-    .map((paragraph) => `<p>${paragraph.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`).join("\n");
   const post = await requestWordPress<{ id: number; link: string }>(config, "/posts", {
     method: "POST",
     body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, slug: input.slug, status: "publish" }),
