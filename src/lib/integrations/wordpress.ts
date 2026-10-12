@@ -160,7 +160,7 @@ export async function publishWordPressPost(config: WordPressConfig, input: { tit
       // An earlier draft or scheduled copy: bring it live now with the current text.
       // date_gmt is set a minute back so a WordPress clock running behind ours can't
       // turn "publish" back into "future".
-      const dateGmt = new Date(Date.now() - 60000).toISOString().slice(0, 19);
+      const dateGmt = toDateGmt(new Date(Date.now() - 60000));
       live = await requestWordPress<WordPressPost>(config, `/posts/${existing.id}`, {
         method: "POST",
         body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, status: "publish", date_gmt: dateGmt }),
@@ -181,3 +181,94 @@ export async function publishWordPressPost(config: WordPressConfig, input: { tit
 }
 
 export function validateWordPressSiteUrl(value: string) { return normalizeSiteUrl(value); }
+
+/** WordPress's date_gmt format: YYYY-MM-DDTHH:mm:ss in UTC, no zone suffix. */
+export function toDateGmt(date: Date) {
+  if (Number.isNaN(date.getTime())) throw new Error("Choose a valid date and time.");
+  return date.toISOString().slice(0, 19);
+}
+
+/**
+ * How far ahead a scheduled time must be. WordPress publishes a post dated in
+ * the past straight away instead of scheduling it, and request time plus clock
+ * drift between us and the site can eat a smaller margin.
+ */
+export const MIN_SCHEDULE_LEAD_MS = 2 * 60 * 1000;
+
+export function assertSchedulable(when: Date, now = Date.now()) {
+  toDateGmt(when);
+  if (when.getTime() - now < MIN_SCHEDULE_LEAD_MS) throw new Error("Choose a time at least 2 minutes from now.");
+}
+
+export type WordPressRemotePost = { id: number; status: string; date_gmt: string; link: string };
+
+const REMOTE_POST_FIELDS = "id,status,date_gmt,link";
+
+async function getRemotePost(config: WordPressConfig, postId: number) {
+  return requestWordPress<WordPressRemotePost>(config, `/posts/${postId}?context=edit&_fields=${REMOTE_POST_FIELDS}`);
+}
+
+/**
+ * Create a post WordPress will publish itself at `scheduledFor` (status
+ * "future"). WP-Cron does the publishing, so it only fires when the site gets
+ * traffic. Not idempotent by slug: the caller checks for an existing post.
+ */
+export async function createScheduledPost(config: WordPressConfig, input: { title: string; body: string; excerpt: string; slug: string; seo: ArticleSeo; scheduledFor: Date }) {
+  assertSchedulable(input.scheduledFor);
+  const post = await requestWordPress<WordPressRemotePost>(config, "/posts", {
+    method: "POST",
+    body: JSON.stringify({ title: input.title, content: markdownToWordPressHtml(input.body), excerpt: input.excerpt, slug: input.slug, status: "future", date_gmt: toDateGmt(input.scheduledFor) }),
+  });
+  if (!post.id) throw new Error("WordPress did not return the scheduled post.");
+  // WordPress turns a date it considers past into an immediate publish.
+  if (post.status !== "future") throw new Error(`WordPress saved the post as "${post.status}" instead of scheduling it. Check the site's clock and timezone settings.`);
+  const seoSaved = await writeSeoMeta(config, post.id, input.seo);
+  return { id: post.id, url: post.link, dateGmt: post.date_gmt, seoSaved };
+}
+
+/**
+ * Move a scheduled post to a new time. Only valid while WordPress still holds
+ * it as "future": changing date_gmt on a published post would re-date it, or
+ * pull it back to scheduled if the new time is ahead.
+ */
+export async function updatePostSchedule(config: WordPressConfig, postId: number, scheduledFor: Date) {
+  assertSchedulable(scheduledFor);
+  const current = await getRemotePost(config, postId);
+  if (current.status !== "future") throw new Error(`This WordPress post is no longer scheduled (it is "${current.status}"), so its time can't be changed.`);
+  const post = await requestWordPress<WordPressRemotePost>(config, `/posts/${postId}?_fields=${REMOTE_POST_FIELDS}`, {
+    method: "POST",
+    body: JSON.stringify({ date_gmt: toDateGmt(scheduledFor) }),
+  });
+  if (post.status !== "future") throw new Error(`WordPress saved the post as "${post.status}" instead of rescheduling it.`);
+  return post;
+}
+
+/**
+ * Take a scheduled post off the schedule by turning it back into a draft.
+ * Refuses a post that is already live: unscheduling must never unpublish.
+ */
+export async function setPostDraft(config: WordPressConfig, postId: number) {
+  const current = await getRemotePost(config, postId);
+  if (current.status === "draft") return current;
+  if (current.status !== "future") throw new Error(`This WordPress post is no longer scheduled (it is "${current.status}"), so it was left unchanged.`);
+  const post = await requestWordPress<WordPressRemotePost>(config, `/posts/${postId}?_fields=${REMOTE_POST_FIELDS}`, {
+    method: "POST",
+    body: JSON.stringify({ status: "draft" }),
+  });
+  if (post.status !== "draft") throw new Error(`WordPress kept the post as "${post.status}" instead of moving it to draft.`);
+  return post;
+}
+
+/**
+ * Current state of the given posts, in batches of 100 (the REST page cap).
+ * status=any leaves out trashed posts, so a missing id means trashed or deleted.
+ */
+export async function getPostsByIds(config: WordPressConfig, ids: number[]) {
+  const unique = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+  const posts: WordPressRemotePost[] = [];
+  for (let start = 0; start < unique.length; start += 100) {
+    const batch = unique.slice(start, start + 100);
+    posts.push(...await requestWordPress<WordPressRemotePost[]>(config, `/posts?include=${batch.join(",")}&status=any&context=edit&per_page=100&_fields=${REMOTE_POST_FIELDS}`));
+  }
+  return posts;
+}
