@@ -8,6 +8,7 @@ import { requireOrganizationId } from "@/lib/supabase/organization";
 import { getUserRole, requireReviewer } from "@/lib/audience/access";
 import { decryptSecret, encryptSecret, isEncryptionEnabled } from "@/lib/crypto/secret-box";
 import { joinWarnings, recordPublication } from "@/lib/content/record-publication";
+import { runWordPressConnectionTest, type ConnectionCheck } from "@/lib/integrations/wordpress-diagnostics";
 import { getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, verifyWordPressSeoPlugin, WORDPRESS_SEO_PLUGINS, type WordPressConfig, type WordPressSeoPlugin } from "@/lib/integrations/wordpress";
 
 type ActionResult = { ok: boolean; message?: string; warning?: string; error?: string; url?: string };
@@ -54,6 +55,30 @@ export async function saveWordPressConnection(formData: FormData): Promise<Actio
     return { ok: true, message: `Connected as ${profile.user}.` };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not connect WordPress." };
+  }
+}
+
+export type ConnectionTestResult = { ok: boolean; checks?: ConnectionCheck[]; error?: string };
+
+/**
+ * Run the connection checks on the form's values without saving anything.
+ * A blank password falls back to the saved one, as saving does.
+ */
+export async function testWordPressConnection(formData: FormData): Promise<ConnectionTestResult> {
+  try {
+    const organizationId = await requireOrganizationId();
+    await requireCmsManager(organizationId);
+    const parsed = settingsSchema.safeParse({ siteUrl: formData.get("siteUrl"), username: formData.get("username"), applicationPassword: formData.get("applicationPassword") ?? "", seoPlugin: formData.get("seoPlugin") ?? "none" });
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the WordPress settings." };
+    let password = parsed.data.applicationPassword.replace(/\s/g, "");
+    if (!password) {
+      const { data: current } = await createAdminClient().from("integrations").select("config").eq("organization_id", organizationId).eq("key", "cms_wordpress").maybeSingle<{ config: Record<string, string> }>();
+      password = decryptSecret(current?.config.applicationPassword ?? "");
+    }
+    if (!password) return { ok: false, error: "Paste the application password to test the connection." };
+    return await runWordPressConnectionTest({ siteUrl: parsed.data.siteUrl, username: parsed.data.username, applicationPassword: password, seoPlugin: parsed.data.seoPlugin });
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not test the WordPress connection." };
   }
 }
 

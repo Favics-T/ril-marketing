@@ -45,8 +45,17 @@ function authHeader(username: string, applicationPassword: string) {
   return `Basic ${Buffer.from(`${username}:${applicationPassword.replace(/\s/g, "")}`).toString("base64")}`;
 }
 
-async function requestWordPress<T>(config: WordPressConfig, path: string, init: RequestInit = {}, namespace = "wp/v2"): Promise<T> {
-  const addresses = await lookup(new URL(config.siteUrl).hostname, { all: true });
+/** A non-2xx WordPress response, keeping the HTTP status and WordPress's error code. */
+export class WordPressRequestError extends Error {
+  constructor(message: string, readonly status: number, readonly code: string | null) {
+    super(message);
+    this.name = "WordPressRequestError";
+  }
+}
+
+/** Resolve the site's host and refuse it unless every address is public (SSRF guard). */
+export async function assertPublicWordPressHost(siteUrl: string) {
+  const addresses = await lookup(new URL(siteUrl).hostname, { all: true });
   const hasPrivateAddress = addresses.some(({ address }) => {
     const normalized = address.toLowerCase();
     const ipv4 = normalized.startsWith("::ffff:") ? normalized.slice(7) : normalized;
@@ -61,24 +70,35 @@ async function requestWordPress<T>(config: WordPressConfig, path: string, init: 
     ));
   });
   if (!addresses.length || hasPrivateAddress) throw new Error("WordPress URL must resolve only to public network addresses.");
+}
+
+/** Call the site's REST API. `authenticate: false` sends no credentials, to test reachability apart from login. */
+export async function requestWordPress<T>(config: WordPressConfig, path: string, init: RequestInit = {}, namespace = "wp/v2", authenticate = true): Promise<T> {
+  await assertPublicWordPressHost(config.siteUrl);
   const response = await fetch(`${restRoot(config.siteUrl, namespace)}${path}`, {
     ...init,
-    headers: { Authorization: authHeader(config.username, config.applicationPassword), "Content-Type": "application/json", ...init.headers },
+    headers: { ...(authenticate ? { Authorization: authHeader(config.username, config.applicationPassword) } : {}), "Content-Type": "application/json", ...init.headers },
     cache: "no-store",
     redirect: "error",
     signal: AbortSignal.timeout(15000),
   });
-  const payload = await response.json().catch(() => ({})) as { message?: string } & T;
+  const payload = await response.json().catch(() => ({})) as { message?: string; code?: string } & T;
   if (!response.ok) {
     const detail = typeof payload.message === "string" ? payload.message.slice(0, 180) : `HTTP ${response.status}`;
-    throw new Error(response.status === 401 || response.status === 403 ? "WordPress rejected the application password or the account lacks publishing permission." : `WordPress request failed: ${detail}`);
+    const message = response.status === 401 || response.status === 403 ? "WordPress rejected the application password or the account lacks publishing permission." : `WordPress request failed: ${detail}`;
+    throw new WordPressRequestError(message, response.status, typeof payload.code === "string" ? payload.code : null);
   }
   return payload;
 }
 
+/** The two publishing capabilities we rely on that the account is missing. */
+export function missingPublishCapabilities(capabilities: Record<string, boolean> | undefined) {
+  return (["edit_posts", "publish_posts"] as const).filter((cap) => !capabilities?.[cap]);
+}
+
 export async function verifyWordPressConnection(config: WordPressConfig) {
   const profile = await requestWordPress<{ id: number; name: string; capabilities?: Record<string, boolean> }>(config, "/users/me?context=edit");
-  if (!profile.capabilities?.edit_posts || !profile.capabilities.publish_posts) {
+  if (missingPublishCapabilities(profile.capabilities).length) {
     throw new Error("The connected WordPress account needs permission to edit and publish posts.");
   }
   return { user: profile.name, userId: profile.id };
