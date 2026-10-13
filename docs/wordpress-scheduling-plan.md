@@ -1,6 +1,6 @@
 # WordPress blog scheduling — plan
 
-**Updated:** 2026-10-13
+**Updated:** 2026-10-13 (step 4b done)
 **Scope:** Card 4 in [content-workflow-spec.md](content-workflow-spec.md) (schedule a blog on WordPress), plus the pieces of Cards 1, 6, 8, 9 and 10 it touches.
 **Related:** [STATUS.md](STATUS.md) feature 3, [INTEGRATIONS.md](../INTEGRATIONS.md)
 
@@ -23,6 +23,7 @@ Content goes to WordPress as Markdown rendered by `marked`, with raw HTML in the
 
 ### Further rules (2026-10-13)
 
+- **Schedules always mean WAT.** The input is read in `WORKSPACE_TIME_ZONE`, whatever zone the device is set to, and labelled "(WAT)".
 - **Audit trail.** Schedule, reschedule and unschedule each write an `asset_approvals` row.
 - **Reschedule history (Card 1, Card 3).** A reschedule marks the old publication row `cancelled` with the note "Rescheduled to <time>", then inserts a new `scheduled` row with the same `external_id`. The old row must be cancelled first, because the unique index allows only one active row per asset.
 - **No manual Scheduled → Published** while the asset has an active WordPress publication (`scheduled` or `missed`). Users are pointed to "Publish now" instead.
@@ -43,9 +44,9 @@ Content goes to WordPress as Markdown rendered by `marked`, with raw HTML in the
 | 2 | Migration: `scheduled` / `missed` / `cancelled` statuses, `remote_status`, `last_synced_at`, `updated_at`, one active WordPress row per asset, sync index | Done · `68bae23` · **not yet applied** |
 | 3 | Client calls: `toDateGmt`, `assertSchedulable`, `createScheduledPost`, `updatePostSchedule`, `setPostDraft`, `getPostsByIds` | Done · `019c1e7` |
 | 4 | Test connection (checklist, saves nothing) | Done · `f3f722f` |
-| 4b | **Time display fix (before step 5).** Calendar day grouping and month bounds in `WORKSPACE_TIME_ZONE`. One shared formatter that always passes `timeZone`, used by the calendar, asset page, dashboard and publish history. Tests around midnight WAT. | Next, after confirmation |
+| 4b | Time fix: schedule input read as WAT (labelled, pre-filled), calendar day grouping and month bounds in `WORKSPACE_TIME_ZONE`, one shared formatter (`src/lib/time.ts`) for the calendar, asset page, dashboard and publish history. Tests around midnight WAT under several process zones. | Done · `18b167e` |
 | 5 | Schedule action + asset-page card + `AssetTransition` hook + `asset_approvals` row. **Must look up an existing post by slug before `createScheduledPost`**, since that call isn't idempotent. Block manual Scheduled → Published for assets with an active WordPress publication. | |
-| 6 | Reschedule (cancel old row + new row, as above) / unschedule, each with an `asset_approvals` row | |
+| 6 | Reschedule (cancel old row + new row, as above) / unschedule, each with an `asset_approvals` row. If inserting the new row fails, restore the old row to `scheduled` and report the error. | |
 | 9 | Status sync + Missed + "Publish now" + alerts as `tasks` rows. Sync runs on load of the calendar, asset page and dashboard (non-blocking, skipping rows synced in the last 3 minutes) and from a daily cron route. Includes retry with backoff in `requestWordPress`. | |
 | 7 | Category / tag picker | Later |
 | 10 | Calendar badges | Later |
@@ -84,7 +85,35 @@ Step 9 therefore needs:
 
 - **`updatePostSchedule` has a race.** It reads the post's status, then writes the new `date_gmt`. If WP-Cron publishes the post between the two, WordPress re-dates the live post, or pulls it back to `future` if the new time is ahead. The response status is checked, but the read and write are not atomic. Possible mitigation: after a non-`future` response, restore the original `date_gmt` and report it.
 - **The sync index is a guess.** `publications_wordpress_sync_idx` is on `scheduled_for`, for WordPress rows in `scheduled` or `missed`. The on-load sync skips rows by `last_synced_at`, so consider `(last_synced_at NULLS FIRST)` or a composite index before step 9.
-- **Reschedule isn't atomic.** Cancelling the old row and inserting the new one are two writes. If the insert fails, the asset is left with no active row. Do both in one RPC, or re-insert on failure.
+- **Reschedule isn't atomic.** Cancelling the old row and inserting the new one are two writes. Decided: if the insert fails, restore the old row to `scheduled` and report the error (step 6).
 - **`setPostDraft` only acts on `future` posts.** It does nothing to a post that is already a draft, and refuses a live one, so unscheduling can never unpublish.
 - **`getPostsByIds` uses `status=any`,** which leaves out trashed posts. The sync job should treat a missing id as trashed or deleted.
-- **Existing `scheduled_for` values** saved before `4bde2d4` is deployed were stored as UTC wall-clock time, one hour late for Lagos. Production keeps writing them that way until it's deployed. Decide whether to shift those rows (STATUS.md feature 7).
+- **Existing `scheduled_for` values** saved before `4bde2d4` is deployed were stored as UTC wall-clock time, one hour late for Lagos. Production keeps writing them that way until it's deployed. Decided: no automatic shift. Review them by hand with the query below.
+
+## Old schedules to review by hand (read-only)
+
+Lists future scheduled assets whose time was last set before `4bde2d4` went live. Set `deployed_at` to that deploy's time. "When it was set" means the latest move to Scheduled in `asset_approvals`, falling back to `created_at`.
+
+```sql
+WITH params AS (SELECT timestamptz '2026-10-14 12:00:00+01' AS deployed_at),  -- set to the 4bde2d4 deploy time
+last_scheduled AS (
+  SELECT content_asset_id, max(created_at) AS scheduled_at
+  FROM asset_approvals
+  WHERE to_status = 'scheduled'
+  GROUP BY content_asset_id
+)
+SELECT ca.id, ca.title, ca.channel, ca.format,
+       ca.scheduled_for,
+       to_char(ca.scheduled_for AT TIME ZONE 'Africa/Lagos', 'YYYY-MM-DD HH24:MI') AS shown_now_wat,
+       to_char(ca.scheduled_for AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS probably_typed_wat,
+       coalesce(ls.scheduled_at, ca.created_at) AS time_set_at
+FROM content_assets ca
+LEFT JOIN last_scheduled ls ON ls.content_asset_id = ca.id
+CROSS JOIN params
+WHERE ca.status = 'scheduled'
+  AND ca.scheduled_for > now()
+  AND coalesce(ls.scheduled_at, ca.created_at) < params.deployed_at
+ORDER BY ca.scheduled_for;
+```
+
+`probably_typed_wat` is what the user most likely entered: the old code saved their typed time as UTC. To fix a row, set `scheduled_for` back by one hour.
