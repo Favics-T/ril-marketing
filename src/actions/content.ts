@@ -20,6 +20,7 @@ import { CHANNELS, checkChannelLimits, normalizeChannel } from "@/lib/content/ch
 import { testAiConnection } from "@/lib/ai/provider";
 import { encryptSecret } from "@/lib/crypto/secret-box";
 import { syncIndustryTrends } from "@/jobs/trend-monitoring";
+import { zonedWallTimeToDate } from "@/lib/time";
 import {
   defaultModel,
   getModel,
@@ -783,7 +784,11 @@ export async function transitionAsset(
       if (!parsed.data.scheduled_for) {
         return { ok: false, error: "Scheduling needs a date and time." };
       }
-      patch.scheduled_for = new Date(parsed.data.scheduled_for).toISOString();
+      // The form sends an exact instant. A bare wall-clock time means WAT, never the server's UTC.
+      const raw = parsed.data.scheduled_for;
+      const at = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw) ? new Date(raw) : zonedWallTimeToDate(raw);
+      if (!at || Number.isNaN(at.getTime())) return { ok: false, error: "Enter a valid date and time." };
+      patch.scheduled_for = at.toISOString();
     }
     if (to === "published") patch.published_at = new Date().toISOString();
 

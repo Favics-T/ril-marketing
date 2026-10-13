@@ -5,7 +5,7 @@ import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getAsset, listAssetApprovals, listAssetPublications } from "@/lib/content/assets";
 import { AssetTransition } from "@/components/content/asset-transition";
 import { StatusStamp } from "@/components/ui/status-stamp";
-import { formatDay } from "@/lib/format";
+import { formatDay, formatDayTime } from "@/lib/format";
 import { DraftEditor } from "@/components/content/draft-editor";
 import { WordPressPublishAction } from "@/components/content/wordpress-publish-action";
 import { StrapiPublishAction } from "@/components/content/strapi-publish-action";
@@ -138,7 +138,7 @@ export default async function AssetDetailPage({
 					{isCalendarProposal ? (
 						<section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
 							<div><p className="dateline">Calendar proposal</p><h2 className="mt-1 text-base font-bold">Recommendation</h2></div>
-							{suggestedAt ? <p className="text-sm"><span className="text-muted-foreground">Suggested timing: </span>{new Date(suggestedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</p> : null}
+							{suggestedAt ? <p className="text-sm"><span className="text-muted-foreground">Suggested timing: </span>{formatDayTime(suggestedAt)}</p> : null}
 							{typeof asset.metadata?.objective === "string" ? <p className="text-sm"><span className="text-muted-foreground">Objective: </span>{asset.metadata.objective}</p> : null}
 							{typeof asset.metadata?.funnel_stage === "string" ? <p className="text-sm"><span className="text-muted-foreground">Funnel stage: </span>{asset.metadata.funnel_stage}</p> : null}
 							{recommendationReason ? <p className="text-sm leading-6 text-muted-foreground">{recommendationReason}</p> : null}
@@ -149,7 +149,7 @@ export default async function AssetDetailPage({
 							<p className="dateline">Approval pipeline</p>
 							<h2 className="mt-1 text-base font-bold">Move this asset</h2>
 						</div>
-						<AssetTransition assetId={asset.id} status={asset.status} />
+						<AssetTransition assetId={asset.id} status={asset.status} scheduledFor={asset.scheduled_for} />
 					</section>
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}

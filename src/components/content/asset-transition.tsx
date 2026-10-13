@@ -5,6 +5,7 @@ import { transitionAsset, type ActionResult } from "@/actions/content";
 import { ASSET_STATUSES, canTransitionAsset } from "@/lib/content/transitions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { dateToZonedInput, WORKSPACE_TIME_ZONE_LABEL, zonedWallTimeToDate } from "@/lib/time";
 
 const fieldClass =
 	"h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -17,20 +18,23 @@ const label = (s: string) =>
 export function AssetTransition({
 	assetId,
 	status,
+	scheduledFor = null,
 }: {
 	assetId: string;
 	status: string;
+	/** The asset's saved time, pre-filled (in WAT) when it is scheduled again. */
+	scheduledFor?: string | null;
 }) {
 	const targets = ASSET_STATUSES.filter((s) => canTransitionAsset(status, s));
 	const [to, setTo] = useState<string>(targets[0] ?? "");
 	const [state, action, pending] = useActionState<ActionResult | null, FormData>(
 		async (_prev, fd) => {
-			// datetime-local carries no zone, and the server runs in UTC. Read it
-			// here, in the user's own zone, and send an exact instant instead.
+			// datetime-local carries no zone. Schedules always mean WAT, whatever
+			// zone this device is set to, so convert here and send an exact instant.
 			const local = fd.get("scheduled_for");
 			if (typeof local === "string" && local) {
-				const at = new Date(local);
-				if (Number.isNaN(at.getTime())) return { ok: false, error: "Enter a valid date and time." };
+				const at = zonedWallTimeToDate(local);
+				if (!at) return { ok: false, error: "Enter a valid date and time." };
 				fd.set("scheduled_for", at.toISOString());
 			}
 			return transitionAsset(assetId, fd);
@@ -65,11 +69,12 @@ export function AssetTransition({
 			</label>
 			{to === "scheduled" ? (
 				<label className="flex flex-col gap-1.5">
-					<span className="dateline">Scheduled for</span>
+					<span className="dateline">Scheduled for ({WORKSPACE_TIME_ZONE_LABEL})</span>
 					<input
 						type="datetime-local"
 						name="scheduled_for"
 						required
+						defaultValue={dateToZonedInput(scheduledFor)}
 						className={fieldClass}
 					/>
 				</label>

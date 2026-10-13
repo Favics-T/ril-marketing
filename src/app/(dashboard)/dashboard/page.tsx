@@ -15,6 +15,7 @@ import { listLeads, listLeadsNeedingFollowUp } from "@/lib/leads/leads";
 import { listOpenTasks } from "@/lib/audience/tasks";
 import { getKpiProgress } from "@/lib/audience/kpis";
 import { formatDay, todayDateline } from "@/lib/format";
+import { formatInZone } from "@/lib/time";
 import { channelLabel } from "@/lib/channels";
 
 export const metadata: Metadata = { title: "Command Centre" };
@@ -25,8 +26,8 @@ export default async function CommandCentrePage() {
   const errors: string[] = [];
   async function load<T>(name: string, task: Promise<T>, fallback: T) { try { return await task; } catch { errors.push(name); return fallback; } }
   const now = new Date();
-  const today = now.toISOString().slice(0,10);
-  const end = new Date(now.getTime()+30*86400000).toISOString().slice(0,10);
+  const today = now.toISOString();
+  const end = new Date(now.getTime()+30*86400000).toISOString();
   const [insights,review,assets,leads,scheduled,tasks,followups,kpis,activities,reminders] = await Promise.all([
     load("Insights",listInsights(org,{status:"PENDING_REVIEW",pageSize:3}),{insights:[],total:0,page:1,pageSize:3,totalPages:1}),
     load("Reviews",listAssets(org,{status:"review"}),{assets:[],total:0}),
@@ -64,7 +65,7 @@ export default async function CommandCentrePage() {
       <section className="workspace-panel overflow-hidden" aria-labelledby="decisions-heading"><header className="workspace-panel-heading"><div><h2 id="decisions-heading">Ready for your review</h2><p>Every item needs a human decision.</p></div><Link href="/approvals" className="inline-flex shrink-0 items-center gap-1 text-xs text-primary">View inbox<ArrowRight className="size-3.5"/></Link></header>
         {!pending?<div className="workspace-empty flex items-center gap-3"><CheckCheck className="size-5"/>No decisions waiting. Capture an activity to create your next drafts.</div>:<ul>{insights.insights.slice(0,2).map(i=><li key={i.id}><Link href={`/audience/insights/${i.id}`} className="workspace-row"><div className="min-w-0 flex-1"><div className="mb-2 flex gap-2"><StatusStamp status={i.status}/><span className="text-xs text-muted-foreground">Audience insight</span></div><p className="workspace-row-title line-clamp-2">{i.summary}</p><p className="workspace-row-meta">{i.segment?.name??"Audience learning"}</p></div><ArrowRight className="size-4 shrink-0 text-muted-foreground"/></Link></li>)}{review.assets.slice(0,2).map(a=><li key={a.id}><Link href={`/library/${a.id}`} className="workspace-row"><div className="min-w-0 flex-1"><div className="mb-2 flex gap-2"><StatusStamp status={a.status}/><span className="text-xs text-muted-foreground">{channelLabel(a.channel)}</span></div><p className="workspace-row-title">{a.title}</p></div><ArrowRight className="size-4 shrink-0 text-muted-foreground"/></Link></li>)}</ul>}
       </section>
-      <section className="workspace-panel overflow-hidden" aria-labelledby="schedule-heading"><header className="workspace-panel-heading"><div><h2 id="schedule-heading">Next on the calendar</h2><p>Approved content scheduled to go out.</p></div><CalendarDays className="size-4 text-muted-foreground"/></header><ul>{upcoming.slice(0,4).map(a=><li key={a.id}><Link href={`/library/${a.id}`} className="workspace-row"><div className="min-w-0 flex-1"><p className="workspace-row-meta mb-1">{new Date(a.scheduled_for!).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Africa/Lagos"})} WAT</p><p className="workspace-row-title">{a.title}</p><p className="workspace-row-meta">{channelLabel(a.platform||a.channel)}</p></div><StatusStamp status="scheduled"/></Link></li>)}</ul>{!upcoming.length&&<p className="workspace-empty">Nothing scheduled in the next 30 days. Review your content before adding it to the calendar.</p>}</section>
+      <section className="workspace-panel overflow-hidden" aria-labelledby="schedule-heading"><header className="workspace-panel-heading"><div><h2 id="schedule-heading">Next on the calendar</h2><p>Approved content scheduled to go out.</p></div><CalendarDays className="size-4 text-muted-foreground"/></header><ul>{upcoming.slice(0,4).map(a=><li key={a.id}><Link href={`/library/${a.id}`} className="workspace-row"><div className="min-w-0 flex-1"><p className="workspace-row-meta mb-1">{formatInZone(a.scheduled_for,"shortDateTime")}</p><p className="workspace-row-title">{a.title}</p><p className="workspace-row-meta">{channelLabel(a.platform||a.channel)}</p></div><StatusStamp status="scheduled"/></Link></li>)}</ul>{!upcoming.length&&<p className="workspace-empty">Nothing scheduled in the next 30 days. Review your content before adding it to the calendar.</p>}</section>
     </div>
     <div className="workspace-dashboard-grid"><KpiProgressChart kpis={kpis}/><ContentMixChart channels={channels} total={assets.total}/></div>
     <div className="grid gap-6 lg:grid-cols-2">

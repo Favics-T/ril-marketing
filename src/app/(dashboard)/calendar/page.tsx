@@ -8,33 +8,11 @@ import { StatusStamp } from "@/components/ui/status-stamp";
 import { CalendarGenerator } from "@/components/content/calendar-generator";
 import { ReminderFlag } from "@/components/content/reminder-flag";
 import { reminderState } from "@/lib/content/reminders";
+import { formatInZone, formatZonedKey, shiftMonthKey, WORKSPACE_TIME_ZONE_LABEL, zonedDayKey, zonedMonthKey, zonedMonthRange } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Content Calendar" };
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-function monthKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function monthLabel(key: string): string {
-  const [y, m] = key.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function shiftMonth(key: string, delta: number): string {
-  const [y, m] = key.split("-").map(Number);
-  return monthKey(new Date(y, m - 1 + delta, 1));
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" });
-}
 
 export default async function CalendarPage({
   searchParams,
@@ -42,22 +20,20 @@ export default async function CalendarPage({
   searchParams: Promise<{ m?: string }>;
 }) {
   const sp = await searchParams;
-  const month = sp.m && MONTH_RE.test(sp.m) ? sp.m : monthKey(new Date());
-
-  const [y, m] = month.split("-").map(Number);
-  const from = new Date(y, m - 1, 1).toISOString();
-  const to = new Date(y, m, 0, 23, 59, 59, 999).toISOString();
+  const month = sp.m && MONTH_RE.test(sp.m) ? sp.m : zonedMonthKey(new Date());
+  // The month runs from midnight WAT on the 1st, not midnight UTC.
+  const { from, to } = zonedMonthRange(month);
 
   const orgId = await getCallerOrganizationId();
   const rows = orgId
     ? await listScheduled(orgId, from, to)
     : [];
 
-  // Group by calendar day, day-first.
+  // Group by calendar day in WAT, so 00:30 WAT lands on its own day, not the UTC day before.
   const byDay = new Map<string, typeof rows>();
   for (const row of rows) {
     if (!row.scheduled_for) continue;
-    const day = row.scheduled_for.slice(0, 10);
+    const day = zonedDayKey(new Date(row.scheduled_for));
     const list = byDay.get(day) ?? [];
     list.push(row);
     byDay.set(day, list);
@@ -65,17 +41,9 @@ export default async function CalendarPage({
   const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
   const now = new Date();
-  const prev = shiftMonth(month, -1);
-  const next = shiftMonth(month, 1);
-
-  const dayLabel = (isoDay: string) => {
-    const d = new Date(`${isoDay}T00:00:00`);
-    return d.toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
-  };
+  const prev = shiftMonthKey(month, -1);
+  const next = shiftMonthKey(month, 1);
+  const dayLabel = (day: string) => formatZonedKey(day, "dayHeading");
 
   return (
     <div className="workspace-page flex flex-col gap-4 md:gap-6">
@@ -85,7 +53,7 @@ export default async function CalendarPage({
             Content Calendar
           </h1>
           <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-            Every approved asset with a date, in the order it goes out.
+            Every approved asset with a date, in the order it goes out. Times are in {WORKSPACE_TIME_ZONE_LABEL}.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-4">
@@ -97,7 +65,7 @@ export default async function CalendarPage({
             </Link>
           </Button>
           <span className="min-w-[10ch] px-2 text-center text-[13px] font-bold tracking-[-0.01em] tabular-nums">
-            {monthLabel(month)}
+            {formatZonedKey(month, "month")}
           </span>
           <Button variant="outline" size="sm" asChild>
             <Link href={`/calendar?m=${next}`} aria-label="Next month">
@@ -142,7 +110,7 @@ export default async function CalendarPage({
                       </Link>
                     </div>
                     <span className="dateline shrink-0 tabular-nums">
-                      {a.scheduled_for ? formatTime(a.scheduled_for) : "—"}
+                      {a.scheduled_for ? formatInZone(a.scheduled_for, "time") : "—"}
                     </span>
                   </li>
                 ))}
