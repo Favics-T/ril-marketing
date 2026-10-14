@@ -3,11 +3,13 @@ import {
   dateToZonedInput,
   formatInZone,
   formatZonedKey,
+  shiftDayKey,
   shiftMonthKey,
   zonedDayKey,
   zonedMonthKey,
   zonedMonthRange,
   zonedWallTimeToDate,
+  zonedWeekRange,
 } from "@/lib/time";
 
 const originalTz = process.env.TZ;
@@ -88,6 +90,45 @@ describe.each(PROCESS_ZONES)("with the process zone set to %s", (zone) => {
     });
   });
 
+  describe("zonedWeekRange (Monday-start week bounds)", () => {
+    const week = { start: "2026-10-12", from: "2026-10-11T23:00:00.000Z", to: "2026-10-18T22:59:59.999Z" };
+
+    it("runs Monday midnight WAT to the end of Sunday WAT", () => {
+      useZone();
+      expect(zonedWeekRange("2026-10-12")).toEqual(week);
+    });
+
+    it("maps every day of the week back to its Monday, Sunday included", () => {
+      useZone();
+      expect(zonedWeekRange("2026-10-14")).toEqual(week);
+      expect(zonedWeekRange("2026-10-18")).toEqual(week);
+      expect(zonedWeekRange("2026-10-19").start).toBe("2026-10-19");
+    });
+
+    it("crosses month and year boundaries", () => {
+      useZone();
+      const turnOfYear = { start: "2026-12-28", from: "2026-12-27T23:00:00.000Z", to: "2027-01-03T22:59:59.999Z" };
+      expect(zonedWeekRange("2026-12-31")).toEqual(turnOfYear);
+      expect(zonedWeekRange("2027-01-01")).toEqual(turnOfYear);
+    });
+
+    it("includes 00:30 WAT Monday and 23:30 WAT Sunday, and excludes 00:30 WAT the next Monday", () => {
+      useZone();
+      const { from, to } = zonedWeekRange("2026-10-14");
+      const inWeek = (iso: string) => iso >= from && iso <= to;
+      expect(inWeek("2026-10-11T23:30:00.000Z")).toBe(true);
+      expect(inWeek("2026-10-18T22:30:00.000Z")).toBe(true);
+      expect(inWeek("2026-10-18T23:30:00.000Z")).toBe(false);
+    });
+
+    it("rejects keys that aren't real days", () => {
+      useZone();
+      expect(() => zonedWeekRange("2026-13-01")).toThrow();
+      expect(() => zonedWeekRange("2026-02-30")).toThrow();
+      expect(() => zonedWeekRange("nope")).toThrow();
+    });
+  });
+
   describe("formatInZone", () => {
     it("shows WAT times whatever the process zone", () => {
       useZone();
@@ -115,6 +156,16 @@ describe.each(PROCESS_ZONES)("with the process zone set to %s", (zone) => {
       expect(formatZonedKey("2026-10-12", "dayHeading")).toBe("Monday 12 October");
       expect(formatZonedKey("2026-11", "month")).toBe("November 2026");
     });
+  });
+});
+
+describe("shiftDayKey", () => {
+  it("crosses month, year and leap-day boundaries both ways", () => {
+    expect(shiftDayKey("2026-10-31", 1)).toBe("2026-11-01");
+    expect(shiftDayKey("2027-01-01", -1)).toBe("2026-12-31");
+    expect(shiftDayKey("2028-02-28", 1)).toBe("2028-02-29");
+    expect(shiftDayKey("2026-10-12", 7)).toBe("2026-10-19");
+    expect(shiftDayKey("2026-10-12", 0)).toBe("2026-10-12");
   });
 });
 
