@@ -1,11 +1,13 @@
 -- REN-416: workspace access comes from organization_members only.
 --
--- Before this migration a user could reach another workspace three ways:
+-- Before this migration a user could reach another workspace two ways:
 --   1. caller_organization_ids() also trusted profiles.organization_id, and
 --      profiles_self (FOR ALL) let users update it, or delete and re-insert
 --      their profile with any organization_id.
 --   2. members_insert_self let a user add themselves to any workspace, with
 --      any role, including owner.
+-- It also drops org_insert_authenticated, which let any user insert
+-- workspace rows directly; onboarding never needed it.
 -- Every *_isolation policy calls caller_organization_ids(), so redefining it
 -- fixes all 48 of them without touching the policies themselves.
 --
@@ -42,6 +44,12 @@ $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 -- is no invite flow; when one is built it needs its own SECURITY DEFINER
 -- function that checks the inviter's role.
 DROP POLICY IF EXISTS members_insert_self ON organization_members;
+
+-- ============ NO DIRECT WORKSPACE INSERTS ============
+-- create_organization_with_owner() is the only workspace creator in the app,
+-- and as SECURITY DEFINER it doesn't need this policy. Without it, a client
+-- insert into organizations fails RLS instead of leaving an orphan row.
+DROP POLICY IF EXISTS org_insert_authenticated ON organizations;
 
 -- ============ PROFILES ARE READ-ONLY TO CLIENTS ============
 -- Privileges, not a policy: RLS WITH CHECK cannot see the old value, and a
