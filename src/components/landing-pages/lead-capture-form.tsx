@@ -3,9 +3,10 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { LeadFormPage } from "@/lib/landing-page-url";
 
 export function LeadCaptureForm({ page, pageKey }: {
-  page: { cta_label: string; registration_url: string | null };
+  page: LeadFormPage;
   pageKey: string;
 }) {
   const [message, setMessage] = useState("");
