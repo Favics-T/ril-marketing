@@ -77,7 +77,7 @@ export const PROVIDERS: Record<ProviderKey, ProviderDef> = {
   gemini: {
     key: "gemini",
     label: "Gemini",
-    tagline: "Google's Gemini. The only option here that can also read your images and audio.",
+    tagline: "Google's Gemini. Supports image, audio and video analysis.",
     keyPlaceholder: "Paste your key — it starts with AIza",
     keyHelp: "Paste the key exactly as it appears. Keys are hidden after saving.",
     keyUrl: "https://aistudio.google.com/apikey",

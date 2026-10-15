@@ -95,9 +95,9 @@ export default async function TrendsPage({
           }
         />
       ) : (
-        <ul className="ledger slip divide-y divide-border/80 overflow-hidden">
+        <section className="slip overflow-hidden" aria-label="Sourced trend signals"><div className="workspace-list-heading"><span>Signal, source and editorial angle</span><span>Source date</span></div><ul className="ledger divide-y divide-border/80">
           {trends.map((t) => (
-            <li key={t.id} className="flex items-start justify-between gap-4 px-5 py-4 sm:px-6">
+            <li key={t.id} className="flex flex-wrap items-start justify-between gap-4 px-5 py-6 sm:flex-nowrap sm:px-6">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusStamp status={t.status} />
@@ -138,7 +138,7 @@ export default async function TrendsPage({
               <div className="shrink-0 text-right"><p className="dateline tabular-nums">{formatDay(t.source_published_at ?? t.created_at)}</p>{t.source_published_at ? <p className="dateline mt-1">Published</p> : null}</div>
             </li>
           ))}
-        </ul>
+        </ul></section>
       )}
     </div>
   );

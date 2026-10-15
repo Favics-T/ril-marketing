@@ -5,6 +5,8 @@ import { transitionAsset, type ActionResult } from "@/actions/content";
 import { ASSET_STATUSES, canTransitionAsset } from "@/lib/content/transitions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { localSchedule } from "@/lib/content/scheduling";
 
 const fieldClass =
 	"h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -17,14 +19,21 @@ const label = (s: string) =>
 export function AssetTransition({
 	assetId,
 	status,
+	manualSocialPosting = false,
 }: {
 	assetId: string;
 	status: string;
+	manualSocialPosting?: boolean;
 }) {
-	const targets = ASSET_STATUSES.filter((s) => canTransitionAsset(status, s));
+	const targets = ASSET_STATUSES.filter((s) => canTransitionAsset(status, s) && !(manualSocialPosting && s === "published"));
 	const [to, setTo] = useState<string>(targets[0] ?? "");
 	const [state, action, pending] = useActionState<ActionResult | null, FormData>(
-		async (_prev, fd) => transitionAsset(assetId, fd),
+		async (_prev, fd) => {
+			try {
+				if (fd.get("to") === "scheduled") fd.set("scheduled_for", localSchedule(String(fd.get("scheduled_for") ?? "")));
+				return await transitionAsset(assetId, fd);
+			} catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Invalid time." }; }
+		},
 		null
 	);
 
@@ -55,8 +64,8 @@ export function AssetTransition({
 			</label>
 			{to === "scheduled" ? (
 				<label className="flex flex-col gap-1.5">
-					<span className="dateline">Scheduled for</span>
-					<input
+					<span className="dateline">Scheduled for (your local timezone)</span>
+					<Input
 						type="datetime-local"
 						name="scheduled_for"
 						required
@@ -64,6 +73,7 @@ export function AssetTransition({
 					/>
 				</label>
 			) : null}
+			{to === "scheduled" ? <p className="text-sm text-muted-foreground">This reserves a calendar time. To deliver automatically, use the publishing controls after approval.</p> : null}
 			<label className="flex flex-col gap-1.5">
 				<span className="dateline">Note (optional)</span>
 				<Textarea name="note" rows={2} />

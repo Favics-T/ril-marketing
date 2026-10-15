@@ -1,241 +1,198 @@
 ---
-name: RIL Audience Intelligence
-<<<<<<< ours
-description: Open Lab runs the bench in RIL blue, black ink, and Open Sans.
-=======
-description: Authenticated marketing workspace for human-reviewed intelligence, content, leads, and operations.
->>>>>>> theirs
+name: RIL Marketing Workspace
+description: A composed marketing workspace with human approval at every release gate.
 colors:
-  white: "#ffffff"
-  ink: "#212120"
-  blue: "#177ae5"
-<<<<<<< ours
-  blue-deep: "#0f5ca8"
-  soft: "#3e4a56"
-  line: "#d9e2ec"
-  tint: "#eaf2fa"
-  need: "#b3261e"
+  primary: "hsl(213 86% 39%)"
+  brand-blue: "#177ae5"
+  surface-strong: "#182332"
+  surface-strong-selected: "#314766"
+  surface-strong-hover: "#223145"
+  surface-strong-border: "#354255"
+  surface-strong-muted: "#b8c6d8"
+  sidebar-foreground: "#35465f"
+  canvas: "hsl(220 25% 97%)"
+  card: "#ffffff"
+  foreground: "hsl(216 34% 17%)"
+  muted-foreground: "hsl(215 15% 40%)"
+  info-background: "#edf4fe"
+  info-foreground: "#20569e"
+  success-background: "#eef6f1"
+  success-foreground: "#24633d"
+  danger-background: "#fbeeee"
+  danger-foreground: "#a32d2d"
 typography:
   display:
     fontFamily: "Open Sans, system-ui, sans-serif"
-    fontSize: "clamp(2.5rem, 5vw, 4rem)"
-    fontWeight: 800
-    lineHeight: 1.05
-    letterSpacing: "-0.02em"
+    fontSize: "clamp(2.6rem, 4.4vw, 4rem)"
+    fontWeight: 700
+    lineHeight: 1.12
+    letterSpacing: "-0.055em"
   headline:
     fontFamily: "Open Sans, system-ui, sans-serif"
+    fontSize: "clamp(1.6rem, 2.4vw, 2rem)"
     fontWeight: 700
-    letterSpacing: "-0.02em"
+    lineHeight: 1.25
+    letterSpacing: "-0.045em"
   body:
     fontFamily: "Open Sans, system-ui, sans-serif"
     fontSize: "0.875rem"
+    fontWeight: 400
     lineHeight: 1.6
-  title:
+  label:
     fontFamily: "Open Sans, system-ui, sans-serif"
-    fontSize: "0.9375rem"
-    fontWeight: 600
-  small:
-    fontFamily: "Open Sans, system-ui, sans-serif"
-    fontSize: "0.8125rem"
-  tag:
-    fontFamily: "Open Sans, system-ui, sans-serif"
-    fontSize: "0.6875rem"
-    fontWeight: 700
-    letterSpacing: "0.08em"
-  mono:
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
     fontSize: "0.75rem"
+    fontWeight: 500
+    lineHeight: 1.6
+  navigation:
+    fontFamily: "Open Sans, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 500
+  status:
+    fontFamily: "Open Sans, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 600
+    lineHeight: 1.4
+  section-title:
+    fontFamily: "Open Sans, system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 600
+  field-mobile:
+    fontFamily: "Open Sans, system-ui, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 400
+  stat:
+    fontFamily: "Open Sans, system-ui, sans-serif"
+    fontSize: "1.75rem"
+    fontWeight: 600
+  metric:
+    fontFamily: "Open Sans, system-ui, sans-serif"
+    fontSize: "2.25rem"
+    fontWeight: 600
 rounded:
-  tag: "9999px"
-  btn: "8px"
-  bed: "12px"
-  close: "16px"
-  focus: "3px"
+  control: "6px"
+  panel: "12px"
+  composition: "16px"
+  status: "5px"
+  action-large: "8px"
+  menu: "10px"
 spacing:
-  section: "56px"
-  section-lg: "80px"
-  bed: "24px"
-  row: "14px"
+  sm: "8px"
+  md: "16px"
+  lg: "24px"
+  xl: "32px"
 components:
-  ril-btn-blue:
-    backgroundColor: "{colors.blue}"
-    textColor: "{colors.white}"
-    rounded: "{rounded.btn}"
-    padding: "10px 16px"
-  ril-btn-ink:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.white}"
-    rounded: "{rounded.btn}"
-    padding: "10px 16px"
-  ril-btn-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.btn}"
-    padding: "10px 16px"
-  ril-btn-paper:
-    backgroundColor: "{colors.white}"
-    textColor: "{colors.blue-deep}"
-    rounded: "{rounded.btn}"
-    padding: "10px 16px"
-  ril-tag:
-    backgroundColor: "{colors.tint}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.tag}"
-    padding: "3px 10px"
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.card}"
+    rounded: "{rounded.control}"
+    height: "40px"
+    padding: "8px 16px"
+  input:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.foreground}"
+    rounded: "{rounded.control}"
+  panel:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.foreground}"
+    rounded: "{rounded.panel}"
+  navigation-selected:
+    backgroundColor: "{colors.surface-strong-selected}"
+    textColor: "{colors.card}"
+    rounded: "{rounded.control}"
+  status-info:
+    backgroundColor: "{colors.info-background}"
+    textColor: "{colors.info-foreground}"
 ---
 
-# Design System: RIL Audience Intelligence
+# RIL Marketing Workspace
 
 ## Overview
 
-**Creative North Star: "Open Lab"**
+**Creative North Star: "A composed marketing workspace"**
 
-The bench is a white lab table, not a claim wall. Pending work waits in a review queue, the owner clears the approved forward, and the suppressed is set aside where it can never be recommended. One committed blue carries whole regions — rails, close field, primary actions — while black ink carries structure and tint tags stamp every state as a word first.
+A composed marketing workspace for the RIL team: white navigation and working surfaces, slate metadata, and blue reserved for the next action. Open Sans and the existing RIL logo preserve the user's established identity. On 15 October 2026 the user restored the light sidebar, original blue-art homepage and split-screen blue ASCII authentication design from their screenshots. Navy remains available for dashboard metrics and charts.
 
-The dashboard Operate surfaces inherit the same tokens through `src/app/globals.css` and the shared `ui/` components (paper slips on white ground, ink structure, blue decision marks, Open Sans stamps). The sign-in screen carries the one signature illustration: three Renaissance columns rendered as a stippled point cloud, white dots on the RIL blue brand panel. Landing and app share product truth, routes, and terminology.
+Full-project redesign, guided by Emil Kowalski's design engineering principles. ENERGY 2 / RHYTHM 2 / MOTION 1.
+
+The homepage uses the original “One event in. A whole campaign out.” hero with the blue RIL sculpture, followed by the tagline, six-step workflow, platform modules, approval, learning, FAQ and closing sections. Authentication places the form on white beside the existing animated ASCII mark on RIL blue. The sidebar uses a black logo, blue action button, pale blue selection and “You’re in control” footer. Signed-in visitors can still view the homepage and open their workspace explicitly. Recent navigation, form, AI settings and text-rendering fixes remain in place.
 
 **Key Characteristics:**
-- Committed blue owns regions (rail, close, primary action), never scattered accents.
-- Word-first stamps (Pending Review, Approved, Suppressed); single red reserved for failed/needs-action only.
-- Paper slips on white ground, hairline blue-tinted borders, quiet offset shadows.
-- Stippled column art as the single signature illustration, on auth only.
+- Navy navigation separates wayfinding from editing.
+- White panels and structured rows keep decisions scannable.
+- Status words communicate meaning alongside color.
+- Page changes use a short settling transition; keyboard search remains immediate.
 
 ## Colors
 
-Committed blue on white, black ink for structure, one red reserved for what needs action.
-
 ### Primary
-- **Blue** (#177ae5, RIL brand-kit blue): rails, primary buttons, the active mark, links, focus rings. The decision and brand color.
-- **Ink** (#212120): headings, body, structure.
+
+Action blue identifies the next action and keyboard focus. Brand blue remains available for brand and chart roles; its exact relationship to the official media kit is recorded in PRODUCT.md rather than asserted here.
 
 ### Neutral
-- **White** (#ffffff): app and card ground.
-- **Tint** (#eaf2fa): tags, wells, hover fills, progress tracks.
-- **Line** (#d9e2ec): hairline borders and ledger dividers.
-- **Soft** (#3e4a56): secondary text and metadata.
 
-### Reserved
-- **Need** (#b3261e): failed / needs-action only. Never decorative.
+Navy anchors navigation, metrics and chart panels. Selected navigation and hover surfaces use their own semantic tokens. White working surfaces sit on a pale slate canvas; slate text carries secondary detail.
 
-### Named Rules
-**The Stamp Before Color Rule.** Every status ships as an uppercase word (Pending, Approved, Suppressed); tint or blue backs the word, never replaces it.
-**The Committed Blue Rule.** Blue owns whole regions (rail, close field, primary action), not scattered accents. Red is reserved for what needs action.
+Information, success and danger treatments each have background, foreground and border tokens. Shared surface and status tokens live in `src/app/globals.css`. The light sidebar overrides its local navigation tokens in workspace.css; restored public/authentication blue is scoped in product.css. Dashboard charts and metrics retain their existing navy surfaces.
+
+**The Named State Rule.** Color supports a status word; it never replaces it.
 
 ## Typography
 
-**Display / Body Font:** Open Sans (`--font-ril-sans`), weight steps 400–800. Open Sans throughout, per the RIL brand kit — no second display face.
-**Label / Mono Font:** ui-monospace for counts, codes, and dates only.
+Open Sans remains the sole typeface, following the user's previous font choice. Weight and size establish hierarchy. The frontmatter records the current display, workspace heading, body and label styles; it does not introduce a new type direction.
 
-**Character:** A single workhorse sans carries headings and body with weight steps; mono carries measurement and appears in the uppercase `.dateline` for wire numbers, dates, and codes. No display serif.
+The existing navigation (13px), status (11px), panel title (15px), mobile field (16px), statistic (28px) and metric (36px) steps are documented too. Fluid public section headings, responsive metric reductions and local title variants are intentional extensions rather than a new typeface. Outbound email uses Arial as a client-compatible fallback; legacy logo fills are brand assets, not interface palette drift.
 
-### Hierarchy
-- **Display** (800, clamp 2.5–4rem, -0.02em): landing hero.
-- **Headline** (700, -0.02em): page and slip titles. Headings speak first; no kickers.
-- **Body** (400, 0.875rem, 1.6 line height, 65–75ch max): descriptions, list copy.
-- **Dateline / Tag** (700, 0.6875rem, 0.08em, uppercase): datelines, wire numbers, table heads, stamps.
-
-### Named Rules
-**The No Kicker Rule.** No eyebrow label above a heading.
-**The Mono Measures Rule.** Monospace is for code, data, and measurement only.
+Page headings lead, contextual dates and counts follow, and actions align with the heading. Tabular numerals support measurements. Factual copy and the product's approval terminology stay intact.
 
 ## Layout
 
-A calm bench, not a stat-card wall. Left rail: brand block → search (filters the nav) → grouped navigation (Essentials / Intelligence / Workspace) → operating-principle footer. Content maxes at ~7xl; sections separate generously while entries inside a slip group tightly under hairline dividers. Sidebar collapses to a horizontal scroll rail under the medium breakpoint. Spacing rhythm uses 12/16/24px steps, more space above a heading than below it.
+The workspace uses persistent desktop navigation and a mobile drawer. Content has a maximum width of 1440px. The Command Centre uses a 1.85:1 main/side layout: review, measured goals and source activity lead; calendar, content mix and lead follow-up sit alongside. Below 1100px these groups stack, with two side panels alongside each other where space allows. Editors place guidance alongside the form, then stack it below 1024px. Lists use structured rows and metadata wraps on mobile.
+
+Below 768px, controls have at least 44px targets, forms stack, and large tables scroll within their containers. Workspace search and standalone original-comment links meet the same target standard. Every editable Community reply has a visible associated label and distinguishing comment context in its accessible name.
 
 ## Elevation & Depth
 
-Quiet depth. Slips lift off the white ground with a soft two-layer offset shadow; rails and chrome stay flat. Buttons press with a scale response (0.96), not a lift.
-
-### Named Rules
-**The Quiet-Shadow Rule.** Shadows are barely-there and identical everywhere. No zero-offset halos, no hard offset block shadows.
+White panels use a quiet offset shadow (`0 2px 3px -2px #18233214`) and a light 1px boundary. Navigation stays flat; dialogs use a broader offset shadow for their temporary layer. The requested thick dark top-edge accents are removed.
 
 ## Shapes
 
-Soft, modern, ruled: tags at pill radius, buttons 8px, cards/beds 10–12px, close field 16px. Borders are 1px hairlines in Line. No gradient text, no glass.
+Controls, panels and large compositions use a 6/12/16px hierarchy. Status chips use 5px corners. Corners group related content without turning the whole interface into pills.
 
 ## Components
 
-### Buttons
-- **Primary (blue):** RIL blue fill, white text; press scales to 0.96.
-- **Ink / Ghost / Paper:** ink fill, transparent, or white-on-blue for the close field.
-- **Focus:** 2px blue ring with 2px offset everywhere.
+### Buttons and fields
 
-### Chips / Stamps
-- Tint-backed pill or squared stamp: mono uppercase 11px text; pending/review in blue, approved in emerald, failed/need in red, neutral in tint/soft. Text-first.
+Primary actions use blue, white text, visible focus and disabled feedback. Standard buttons are 40px high on desktop; large actions are 48px. Mobile minimums are 44px. Fields use white surfaces, bounded widths, associated labels and a visible focus ring.
 
-### Cards / Containers (`.slip`)
-- 10–12px corners, white surface on white ground, 1px line border, quiet offset shadow.
-- Entries inside divide with `.ledger` hairlines; internal padding 16–20px.
+### Navigation and status
 
-### Inputs / Fields
-- White ground, line border, rounded corners; 2px blue focus ring. Error keeps the ring in red with a named recovery message.
+Selected navigation uses the dark selection token, with a word and icon. Status treatments map to named information, success and danger families; neutral states use the shared muted tokens.
 
-### Navigation
-- App shell (dashboard): `@efferd/dashboard-5` block primitives — `AppShell`, sidebar, header, cards, share-bar lists — restyled to RIL tokens. Sidebar carries the RIL black logo, real user menu, and links only to real routes plus Command Centre queue anchors. The block's demo analytics widgets (visitors, top pages, web vitals) are not used; the Command Centre shows live workspace counts instead.
-- Left rail: brand mark + product name; search input filters nav labels live; items grouped under mono group labels. The active item fills tint/secondary and carries a blue dot (plus aria-current). Mobile collapses to a horizontal scroll rail. Footer carries the standing rule — AI recommends, humans decide.
+Lucide is the configured shadcn icon library across navigation, pagination, actions, feedback and disclosure controls. Button icons use `data-icon` placement and inherit their size from the component. Decorative icons are hidden from assistive technology; control labels carry the meaning. Provider and organization logos remain identity assets, and charts remain data graphics.
 
-### Auth
-- Split console: minimal form (ringed monogram, title, email/password with inline icons, blue Login button, sign-up link) on the left; the stippled Renaissance columns in white dots on the RIL blue brand panel at right. No frame or divider borders. The single signature illustration in the system.
+### Panels and charts
 
-### Decision Card
-- Signature pattern: mono item number, medium title, single decisive action (Review on the first wire, outline after). New items enter with one authored rise-and-fade stagger; the rest of the page is still.
+Panels share ordinary light borders with no decorative top stripe. The Command Centre's review header uses a full navy surface, named action and compact count; this is not a border accent. The content mix retains the requested rounded donut and established slate slices. Measured KPI progress has a chart and numeric percentage; goals without measurement sit in an accessible disclosure with their target values. Missing measurement remains distinct from zero. Other analytics views retain their existing chart layout.
+
+### Motion
+
+At the user's request on 15 October 2026, shared motion now covers the site. Workspace and authentication page content settles over 220ms while the shell stays still; streamed page replacement also receives this transition. Controls respond in 140ms, menus enter in 180ms and leave in 120ms, dialogs enter in 220ms, and mobile drawers enter in 260ms. Disclosures interpolate their content size where the browser supports it. AI connection forms and feedback have a brief arrival. The homepage hero coordinates copy and the RIL mark once, with existing section reveals following viewport entry. These effects use CSS or the Web Animations API without another animation library.
+
+Workspace search retains its existing header-anchored behavior matching the user's Efferd video reference. Mouse and touch clicks expand the field leftward and reveal results downward over 260ms. F when not typing and Ctrl/Cmd+K open instantly; grouped page results support arrow selection, Enter navigation and Escape. Reduced motion removes spatial effects, including active page animations, and keyboard focus remains immediate and visible.
+
+The user-requested content-mix animation settles its slices once on viewport entry (300ms per slice, staggered by 60ms). Fine-pointer hover offsets a slice by 4px with a 160ms transition. Reduced motion shows the static final chart; percentages, geometry and colors are unchanged. This is a local chart treatment, not a recurring page entrance.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** stamp every state as a word first with tabular counts beside it.
-- **Do** let committed blue own whole regions; keep structure in ink.
-- **Do** number sequences that carry process (Wire 01, Insight 01/12).
-- **Do** reserve red for what needs action only.
+- Do preserve the navy/blue palette, Open Sans and plain black/white RIL logo.
+- Do use semantic dark-surface and status tokens for repeated colors.
+- Do label editable fields and keep mobile targets at least 44px.
+- Do keep approval, consent, organization and publishing gates authoritative.
+- Do include text equivalents for charts and distinguish missing data from zero.
 
 ### Don't:
-- **Don't** rebuild the uniform icon-plus-heading stat-card grid; the ledger owns summary data.
-- **Don't** scatter blue as an accent, use kickers above headings, gradient text, glass, or hard offset shadows.
-- **Don't** set body copy or headings in monospace.
-- **Don't** invent testimonials, customers, benchmarks, or pricing; author demonstration data at full fidelity and label it synthetic.
-
-## Brand assets — later work
-
-These RIL Media Kit elements are committed brand but not yet built as assets:
-
-- **Signature shapes** — Momentum, Community, Flow, Excellence, Productivity: outline + semi-transparent fill of the outline colour; may be scaled, rotated, and combined into patterns. Secondary "Renaissance colours" apply to these/sub-brands only, never the logo.
-- **Illustration** — two stances: flat illustrations / doodles, and 3D illustrations.
-- **Blue confirmation** — the kit's text specifies hex only for White (#FFFFFF) and Black (#212120); the primary Blue lives in a colour swatch (image). The app ships **#177AE5** consistently; confirm this against the kit swatch and, if it differs, update `--ril-blue`, `--primary`/`--ring`/`--flag` (HSL), `--chart-1`, and this file's front-matter together.
-- **Voice for AI drafts** — the generation system prompt now carries the RIL voice (witty, optimistic, KISS, end on a high note) per the kit's "use a witty tone" mandate; keep it subordinate to the grounding rule.
-=======
-  paper: "#f6f6f4"
-  line: "#d9e2ec"
-  red: "#b3261e"
-typography:
-  family: "Open Sans, system-ui, sans-serif"
----
-
-# Dashboard design system — RIL Marketing Workspace
-
-The authenticated application is a printed flat plan: the month's work laid out as one ruled grid of content cells, each carrying its own stamped gate state. This replaces the earlier SaaS card-wall world (dark navigation rail, dark analytics modules, KPI card grid) across every dashboard route. Public landing and authentication pages retain their own presentation; the RIL brand mark, Open Sans, and the human approval principle remain shared.
-
-## Work model
-
-The main job is to scan what needs a decision, decide, and patch through so only approved intelligence feeds repurposing and the calendar. The plan sheet is densest where decisions live: a blue band flags the awaiting cells, queues and schedule follow as ruled sections, counts print in the gutter with leader lines, and the week runs along the sheet's bottom rule. Every cell wears its gate state as a stamped word — nothing auto-applies and nothing is implicit.
-
-## Visual rules
-
-- Bright warm paper ground (#f6f6f4), white plan sheets, ink #212120 type. Hairline rules #D9E2EC are the only divider; sheets are square-cornered (2–4px radius, no shadows). No floating cards — every module is a ruled region of a sheet.
-- RIL blue #177AE5 appears only as whole fields: the decision band, the selected navigation item, primary action stamps, today's cell in the week strip. Never tinted icons or accent borders. Red #B3261E is reserved for what needs action. Ink outlines name settled states; quiet paper names inactive ones.
-- Open Sans throughout: 800 tracked-uppercase for band heads and status stamps, 700 heads, 400/650 body, tabular figures for every count. Cell codes (D-01, F-01, T-01, S-01, A-01) are stable addresses so rows can be called out by number.
-- Charts are printed, not plotted: content mix is a share-of-column composition bar (blue leads, ink tints follow, aggregation buckets print last) over a ruled ledger; KPI progress is ink bars over a ticked ruler track with dashed hairlines for awaiting measurements.
-- Gutter counts use dotted leader lines pinning each number to its label, like a contents page. The week strip prints seven ruled day cells with today as the blue field.
-- Route intros: dateline in tracked uppercase, one display head, the day's actions to the right. Underline-rule filters and text-first states carry over from the prior system unchanged. Loading skeletons mirror the plan sheet structure exactly.
-
-## Antislop dials
-
-ENERGY 1 / RHYTHM 2 / MOTION 1. One authored moment: the blue decision band against ruled paper. No entrance animations on the sheet; motion is limited to 160ms background/colour transitions and the 1px active press.
-
-## Shared components and states
-
-`AppShell`, `AppSidebar` (paper index rail with the horizontal black logo), `AppHeader` (thin ruled masthead), `.flatplan`, `.plan-sheet`, `.plan-band` / `.plan-band-decision`, `.plan-cell`, `.plan-gutter`, `.week-strip`, `.ledger-sheet`, `.plan-module`, `StatusStamp`, shared buttons and inputs establish one rhythm across all authenticated routes. Status stamps: blue fields await decision, ink outlines are settled, red is urgent, quiet paper is inactive. Visible focus ring, `aria-current`, 44px touch targets below 768px, and zero horizontal overflow at 390px are required.
-
-## Product truth
-
-Only approved insights feed recommendations. Drafts, scheduled work, lead contact, reports, integrations, and automation preserve their existing human gates and organization scoping. Counts are real; capped queues (5 follow-ups / 8 tasks) print "+" so the sheet never understates. No value is illustrative unless explicitly labeled.
->>>>>>> theirs
+- Don't reintroduce the thick dark top-edge accents the user removed.
+- Don't revive the discarded Open Lab or Flatplan visual direction.
+- Don't invent testimonials, customers, statistics or claims.
+- Keep routine page transitions under 250ms and do not delay keyboard search.

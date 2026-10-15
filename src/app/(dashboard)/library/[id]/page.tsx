@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getAsset, listAssetApprovals } from "@/lib/content/assets";
@@ -10,6 +11,12 @@ import { DraftEditor } from "@/components/content/draft-editor";
 import { WordPressPublishAction } from "@/components/content/wordpress-publish-action";
 import { StrapiPublishAction } from "@/components/content/strapi-publish-action";
 import { createClient } from "@/lib/supabase/server";
+import { ManualPostAction } from "@/components/content/manual-post-action";
+import { isSocialAsset, parseLivePostUrl } from "@/lib/content/manual-posting";
+import { SocialPublishAction } from "@/components/content/social-publish-action";
+import { PublicationStatus } from "@/components/content/publication-status";
+import { getBufferStatus } from "@/lib/integrations/buffer";
+import { getWordPressConfig } from "@/lib/integrations/wordpress";
 
 export const metadata: Metadata = { title: "Content asset" };
 
@@ -27,6 +34,9 @@ export default async function AssetDetailPage({
 
 	const asset = await getAsset(orgId, id);
 	if (!asset) notFound();
+	const socialAsset = isSocialAsset(asset.channel, asset.platform);
+	const manualPost = asset.metadata?.manual_post as { url?: string; recorded_at?: string } | undefined;
+	const liveUrl = typeof manualPost?.url === "string" ? parseLivePostUrl(manualPost.url) : null;
 	const approvals = await listAssetApprovals(orgId, id);
 	const isCalendarProposal = asset.metadata?.calendar_generator === true;
 	const recommendationReason = typeof asset.metadata?.recommendation_reason === "string" ? asset.metadata.recommendation_reason : null;
@@ -41,8 +51,13 @@ export default async function AssetDetailPage({
 				]),
 			)
 		: [{ data: null }, { data: null }];
-	const wordpress = wpResult.data;
+	const wordpress = wpResult.data?.status === "connected" && await getWordPressConfig(orgId) ? wpResult.data : null;
 	const strapi = strapiResult.data;
+	const buffer = socialAsset && asset.status === "approved" ? await getBufferStatus(orgId) : null;
+	const publishingRecord = asset.metadata?.publishing as { provider?: string; state?: string } | undefined;
+	const publishing = publishingRecord?.state === "failed" ? undefined : publishingRecord;
+	const delivery = publishing && asset.status === "scheduled" ? await createClient().then(client => client.from("publications").select("error,external_id").eq("organization_id", orgId).eq("content_asset_id", id).eq("status", "queued").order("created_at", { ascending: false }).limit(1).maybeSingle()) : null;
+	const providerUrl = typeof asset.metadata?.published_url === "string" ? parseLivePostUrl(asset.metadata.published_url) : null;
 
 	const meta: Array<{ label: string; value: string | null }> = [
 		{ label: "Channel", value: asset.channel },
@@ -62,7 +77,7 @@ export default async function AssetDetailPage({
 					href="/library"
 					className="group inline-flex min-h-9 items-center gap-1.5 rounded-md text-[13px] font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				>
-					<span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> Content library
+                    <ArrowLeft aria-hidden="true" className="size-4" /> Content library
 				</Link>
 				<div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
 					<h1>
@@ -72,7 +87,7 @@ export default async function AssetDetailPage({
 				</div>
 			</header>
 
-			<div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<section className="slip flex flex-col lg:col-span-2">
 					<div className="px-5 py-5 sm:px-6">
 						{asset.body ? (
@@ -119,8 +134,12 @@ export default async function AssetDetailPage({
 							<p className="dateline">Approval pipeline</p>
 							<h2 className="mt-1 text-base font-bold">Move this asset</h2>
 						</div>
-						<AssetTransition assetId={asset.id} status={asset.status} />
+						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below.</p> : <AssetTransition assetId={asset.id} status={asset.status} manualSocialPosting={socialAsset} />}
 					</section>
+					{socialAsset && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
+					{buffer ? <SocialPublishAction assetId={asset.id} connected={buffer.connected} channels={buffer.channels} /> : null}
+					{publishing && asset.status === "scheduled" ? <PublicationStatus assetId={asset.id} provider={publishing.provider || "provider"} error={delivery?.data?.error} url={providerUrl} missingReceipt={!delivery?.data?.external_id} /> : null}
+					{providerUrl && asset.status === "published" ? <section className="slip p-5 sm:p-6"><p className="dateline">Published article</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live article</a></section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 

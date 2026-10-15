@@ -7,6 +7,7 @@ import { registerActivityAttachment, deleteActivityAttachment } from "@/actions/
 import { analyzeActivityAudioVideo, analyzeActivityImage, repurposeActivityDocument, type ImageAnalysisResult } from "@/actions/media";
 import type { ActivityAttachment } from "@/lib/content/attachments";
 import { Button } from "@/components/ui/button";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 
 const accept = [
   "image/jpeg", "image/png", "image/webp", "image/avif", "image/heic",
@@ -107,17 +108,17 @@ function AudioVideoAnalysisControl({ file, activityId }: { file: ActivityAttachm
   return (
     <div className="mt-2 space-y-2">
       <Button type="button" variant="outline" size="sm" disabled={busy || analysis?.status === "processing"} onClick={analyze}>
-        {busy || analysis?.status === "processing" ? "Analysing…" : analysis?.status === "completed" ? "Analyse again" : analysis?.status === "failed" ? "Retry analysis" : "Transcribe & find clip moments"}
+        {busy || analysis?.status === "processing" ? "Analysing…" : analysis?.status === "completed" ? "Check repurposing drafts" : analysis?.status === "failed" ? "Retry analysis" : "Transcribe & create drafts"}
       </Button>
       {message ? <p role={error ? "alert" : "status"} className={error ? "max-w-[48ch] text-xs text-destructive" : "max-w-[48ch] text-xs text-muted-foreground"}>{message}</p> : null}
       {analysis?.status === "completed" && details ? (
         <div className="max-w-[60ch] space-y-1 border-l-2 border-border pl-3 text-xs text-muted-foreground">
           {details.summary ? <p><span className="font-medium text-foreground">Summary:</span> {details.summary}</p> : null}
           {details.language ? <p><span className="font-medium text-foreground">Language:</span> {details.language}</p> : null}
-          {details.transcript ? <details><summary className="cursor-pointer font-medium text-foreground">Transcript</summary><p className="mt-1 whitespace-pre-wrap">{details.transcript}</p></details> : <p>No speech transcript was returned.</p>}
+          {details.transcript ? <details><DisclosureSummary className="cursor-pointer font-medium text-foreground">Transcript</DisclosureSummary><p className="mt-1 whitespace-pre-wrap">{details.transcript}</p></details> : <p>No speech transcript was returned.</p>}
           {details.keyMoments?.length ? <p><span className="font-medium text-foreground">Highlights:</span> {details.keyMoments.map((moment) => `${moment.time} ${moment.note}`).join(" · ")}</p> : null}
           {details.suggestedClips?.length ? <div><p className="font-medium text-foreground">Suggested clips</p><ul className="list-inside list-disc">{details.suggestedClips.map((clip, index) => <li key={`${clip.start}-${index}`}>{clip.start}–{clip.end}: {clip.title} — {clip.reason}</li>)}</ul></div> : null}
-          <p>Clip ranges are editorial suggestions; no media has been edited. Three source-linked drafts are in the Content Library · {analysis.model}</p>
+          <p>Clip ranges are editorial suggestions; no media has been edited. Blog, newsletter, social copy and short-form scripts are saved as drafts for review in the Content Library · {analysis.model}</p>
         </div>
       ) : null}
       {analysis?.status === "failed" && !message && analysis.error ? <p role="alert" className="max-w-[48ch] text-xs text-destructive">{analysis.error}</p> : null}

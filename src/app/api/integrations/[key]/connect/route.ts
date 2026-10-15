@@ -6,6 +6,7 @@ import {
   getOAuthProvider,
 } from "@/lib/integrations/oauth";
 import { bufferEnv, stageBufferHandshake } from "@/lib/integrations/buffer";
+import { getUserRole } from "@/lib/audience/access";
 
 /**
  * GET /api/integrations/[key]/connect — start OAuth.
@@ -44,6 +45,8 @@ export async function GET(
     if (!organizationId) {
       return NextResponse.json({ error: "No organization membership." }, { status: 403 });
     }
+    const role = await getUserRole(organizationId);
+    if (!role || !["owner", "admin", "marketing_manager"].includes(role)) return NextResponse.json({ error: "Connection settings require an owner, admin or marketing manager." }, { status: 403 });
     const { state, codeChallenge } = await stageBufferHandshake(organizationId);
     const redirectUri = new URL(`/api/integrations/${key}/callback`, request.url).toString();
     return NextResponse.redirect(

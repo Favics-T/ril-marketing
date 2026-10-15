@@ -59,8 +59,8 @@ export default async function SeoWorkspacePage() {
 
     {error ? <p role="alert" className="slip border-destructive p-5 text-sm text-destructive">SEO drafts could not be loaded. Refresh the page or check the database connection.</p> : null}
 
-    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {[{ label: "Website drafts", value: assets.length }, { label: "Analysed", value: analysisCount }, { label: "Metadata applied", value: appliedCount }].map((item) => <div className="slip px-4 py-3" key={item.label}><dt className="dateline">{item.label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{item.value}</dd></div>)}
+    <dl className="workspace-stat-strip">
+      {[{ label: "Website drafts", value: assets.length }, { label: "Analysed", value: analysisCount }, { label: "Metadata applied", value: appliedCount }].map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{error ? "Unavailable" : item.value}</dd></div>)}
     </dl>
 
     <section className="flex flex-col gap-3">

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { createLeadFollowUp, completeLeadFollowUp, type ActionResult } from "@/actions/leads";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type FollowUp = { id: string; title: string; due_at: string | null; outcome: string | null; completed_at: string | null; created_at: string };
 const empty: ActionResult | null = null;
@@ -15,7 +16,7 @@ export function LeadFollowUps({ leadId, items }: { leadId: string; items: Follow
       <div><p className="dateline">Human-led nurture</p><h2 className="mt-1 text-base font-bold">Follow-up plan</h2><p className="mt-1 text-sm text-muted-foreground">Track a relevant next step. Tasks do not send messages or change the lead’s consent.</p></div>
       <form action={createAction} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
         <label className="sr-only" htmlFor="follow-up-title">Next step</label><input id="follow-up-title" name="title" required minLength={2} maxLength={180} placeholder="e.g. Share the next programme briefing" className="h-10 rounded-md border border-border bg-card px-3 text-sm" />
-        <label className="sr-only" htmlFor="follow-up-due">Due date</label><input id="follow-up-due" name="due_at" type="date" className="h-10 rounded-md border border-border bg-card px-3 text-sm" />
+        <label className="sr-only" htmlFor="follow-up-due">Due date</label><Input id="follow-up-due" name="due_at" type="date" className="h-10 rounded-md border border-border bg-card px-3 text-sm" />
         <Button type="submit" variant="outline" disabled={creating}>{creating ? "Saving…" : "Add follow-up"}</Button>
       </form>
       {createState?.ok === false ? <p role="alert" className="text-sm text-destructive">{createState.error}</p> : null}

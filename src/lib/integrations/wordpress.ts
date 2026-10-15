@@ -2,6 +2,9 @@ import "server-only";
 import { lookup } from "node:dns/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret } from "@/lib/crypto/secret-box";
+import type { DeliveryPost } from "@/lib/content/publishing";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
+import { articleHtml } from "@/lib/content/article-html";
 
 type IntegrationRow = { status: string; config: Record<string, string> };
 export type WordPressConfig = { siteUrl: string; username: string; applicationPassword: string };
@@ -10,7 +13,7 @@ function normalizeSiteUrl(value: string) {
   let url: URL;
   try { url = new URL(value); } catch { throw new Error("Enter the full URL of your WordPress site."); }
   const host = url.hostname.toLowerCase();
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || host === "localhost" || !host.includes(".") || host.endsWith(".local") || host.endsWith(".internal") || /^\d+(\.\d+){3}$/.test(host) || host.includes(":")) {
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || host === "localhost" || !host.includes(".") || /\.(local|internal|localhost|example|invalid|test)$/.test(host) || /^\d+(\.\d+){3}$/.test(host) || host.includes(":")) {
     throw new Error("Use your public WordPress site URL over HTTPS, without query parameters or credentials.");
   }
   return `${url.origin}${url.pathname.replace(/\/$/, "")}`;
@@ -50,6 +53,7 @@ async function requestWordPress<T>(config: WordPressConfig, path: string, init: 
   const payload = await response.json().catch(() => ({})) as { message?: string } & T;
   if (!response.ok) {
     const detail = typeof payload.message === "string" ? payload.message.slice(0, 180) : `HTTP ${response.status}`;
+    if ([400, 401, 403, 422].includes(response.status)) throw new DeliveryRejected(`WordPress rejected the request: ${detail}`);
     throw new Error(response.status === 401 || response.status === 403 ? "WordPress rejected the application password or the account lacks publishing permission." : `WordPress request failed: ${detail}`);
   }
   return payload;
@@ -74,19 +78,33 @@ export async function getWordPressConfig(organizationId: string): Promise<WordPr
   } catch { return null; }
 }
 
-export async function publishWordPressPost(config: WordPressConfig, input: { title: string; body: string; excerpt: string; slug: string }) {
-  const query = `?slug=${encodeURIComponent(input.slug)}&context=edit`;
-  const existing = await requestWordPress<Array<{ id: number; link: string }>>(config, `/posts${query}`);
-  if (existing[0]?.id) return { id: existing[0].id, url: existing[0].link, alreadyCreated: true };
+type WordPressPost = { id: number; link: string; status: string; slug?: string; date_gmt?: string };
 
-  const content = input.body.split(/\r?\n\s*\r?\n/).map((paragraph) => paragraph.trim()).filter(Boolean)
-    .map((paragraph) => `<p>${paragraph.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`).join("\n");
-  const post = await requestWordPress<{ id: number; link: string }>(config, "/posts", {
+export function wordPressDelivery(post: WordPressPost): DeliveryPost {
+  if (!post.id || !post.link) throw new Error("WordPress returned no post receipt. Check WordPress before retrying.");
+  const date = post.date_gmt ? `${post.date_gmt.replace(/Z$/, "")}Z` : null;
+  return { id: String(post.id), url: post.link, sourceSlug: post.slug, status: post.status === "publish" ? "published" : post.status === "future" ? "queued" : "failed", scheduledFor: post.status === "future" ? date : null, publishedAt: post.status === "publish" ? date : null, ...(post.status !== "publish" && post.status !== "future" ? { error: `WordPress post is ${post.status}. Review it before publishing.` } : {}) };
+}
+
+export async function getWordPressPost(config: WordPressConfig, id: number) {
+  if (!Number.isSafeInteger(id) || id < 1) throw new Error("Invalid WordPress post receipt.");
+  return wordPressDelivery(await requestWordPress<WordPressPost>(config, `/posts/${id}?context=edit`));
+}
+
+export async function publishWordPressPost(config: WordPressConfig, input: { title: string; body: string; excerpt: string; slug: string; scheduledFor?: string }) {
+  const query = `?slug=${encodeURIComponent(input.slug)}&context=edit`;
+  let existing: WordPressPost[];
+  try { existing = await requestWordPress<WordPressPost[]>(config, `/posts${query}`); }
+  catch { throw new DeliveryRejected("WordPress could not check for an existing article. No new post was requested. Verify the connection before retrying."); }
+  const prior = existing[0];
+  if (prior?.id && ["publish", "future"].includes(prior.status)) return { ...wordPressDelivery(prior), alreadyCreated: true };
+
+  const content = articleHtml(input.body);
+  const post = await requestWordPress<WordPressPost>(config, prior?.id ? `/posts/${prior.id}` : "/posts", {
     method: "POST",
-    body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, slug: input.slug, status: "publish" }),
+    body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, slug: input.slug, status: input.scheduledFor ? "future" : "publish", ...(input.scheduledFor ? { date_gmt: input.scheduledFor.replace(/Z$/, "") } : {}) }),
   });
-  if (!post.id || !post.link) throw new Error("WordPress did not return the published post URL.");
-  return { id: post.id, url: post.link, alreadyCreated: false };
+  return { ...wordPressDelivery(post), alreadyCreated: Boolean(prior?.id) };
 }
 
 export function validateWordPressSiteUrl(value: string) { return normalizeSiteUrl(value); }

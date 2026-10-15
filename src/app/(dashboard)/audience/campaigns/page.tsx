@@ -24,7 +24,7 @@ export default async function CampaignsPage() {
     : [];
 
   return (
-    <div className="workspace-page flex flex-col gap-4 md:gap-6">
+    <div className="workspace-page workflow-page campaign-workspace">
       <div>
         <p className="dateline">
           {todayDateline()} · {campaigns.length} campaigns
@@ -46,9 +46,9 @@ export default async function CampaignsPage() {
           description="Campaigns group content, leads, and performance around one objective. They appear here once created."
         />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-6">
           {campaigns.map((c) => (
-            <li key={c.id} className="slip flex flex-col gap-3 px-5 py-4 sm:px-6">
+            <li key={c.id} className="slip flex flex-col gap-4 p-6">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusStamp status={c.status} />
                 {c.segment_name ? (
@@ -70,7 +70,7 @@ export default async function CampaignsPage() {
               </dl>
               <CampaignStatus campaignId={c.id} status={c.status} />
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold"><Link href={`/library?campaign=${encodeURIComponent(c.id)}`} className="-mx-1 inline-block px-1 py-1.5 text-primary underline-offset-2 hover:underline">Campaign content</Link><Link href={`/email?campaign=${encodeURIComponent(c.id)}`} className="-mx-1 inline-block px-1 py-1.5 text-primary underline-offset-2 hover:underline">Campaign email</Link><Link href={`/audience/landing-pages?campaign=${encodeURIComponent(c.id)}`} className="-mx-1 inline-block px-1 py-1.5 text-primary underline-offset-2 hover:underline">Campaign landing pages</Link></div>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 border-t border-border/80 pt-3 sm:grid-cols-3 lg:grid-cols-6">
+              <dl className="campaign-results grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-muted/50 p-4 sm:grid-cols-3 lg:grid-cols-6">
                 {[
                   { label: "Assets", value: String(c.assets) },
                   { label: "Views", value: c.views.toLocaleString() },

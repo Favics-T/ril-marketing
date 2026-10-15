@@ -1,5 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { DeliveryPost } from "@/lib/content/publishing";
+import { decryptSecret, encryptSecret, isEncryptionEnabled } from "@/lib/crypto/secret-box";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 import {
   codeChallengeFor,
   getOAuthProvider,
@@ -10,9 +13,7 @@ import {
 /**
  * Buffer connector, targeting the GraphQL API.
  *
- * Buffer retired its legacy REST API (`api.bufferapp.com/1/`) on 1 Feb 2027 and
- * replaced it with a single GraphQL endpoint. Key differences that shape this
- * module:
+ * Uses Buffer's GraphQL endpoint. Key differences that shape this module:
  *   - One endpoint, always POST, body is `{ query, variables }`.
  *   - Auth is a Bearer token (OAuth access token here; personal API keys also work).
  *   - Buffer's "profiles" are now "channels".
@@ -60,7 +61,8 @@ async function readConfig(
     .eq("organization_id", organizationId)
     .eq("key", "buffer")
     .maybeSingle<{ id: string; config: StoredConfig }>();
-  return { rowId: data?.id ?? null, config: data?.config ?? {} };
+  const config = data?.config ?? {};
+  return { rowId: data?.id ?? null, config: { ...config, accessToken: decryptSecret(config.accessToken ?? ""), refreshToken: decryptSecret(config.refreshToken ?? "") } };
 }
 
 async function writeConfig(
@@ -70,16 +72,19 @@ async function writeConfig(
   status: "connected" | "not_connected" | "error"
 ): Promise<void> {
   const admin = createAdminClient();
+  const stored = { ...config, accessToken: encryptSecret(config.accessToken ?? ""), refreshToken: encryptSecret(config.refreshToken ?? "") };
   if (rowId) {
-    await admin.from("integrations").update({ config, status }).eq("id", rowId);
+    const { error } = await admin.from("integrations").update({ config: stored, status }).eq("id", rowId).eq("organization_id", organizationId);
+    if (error) throw new Error("Could not save the Buffer connection.");
   } else {
-    await admin.from("integrations").insert({
+    const { error } = await admin.from("integrations").insert({
       organization_id: organizationId,
       key: "buffer",
       display_name: "Buffer",
       status,
-      config,
+      config: stored,
     });
+    if (error) throw new Error("Could not save the Buffer connection.");
   }
 }
 
@@ -122,11 +127,12 @@ async function bufferGraphQl<T>(
   }
 
   if (response.status === 401) {
-    throw new Error("Buffer didn't accept the connection. Reconnect in Settings.");
+    throw new DeliveryRejected("Buffer didn't accept the connection. Reconnect in Settings.");
   }
   if (response.status === 429) {
-    throw new Error("Buffer is rate limiting this account. Try again shortly.");
+    throw new DeliveryRejected("Buffer is rate limiting this account. Try again shortly.");
   }
+  if (response.status === 400 || response.status === 403) throw new DeliveryRejected(`Buffer rejected the request (HTTP ${response.status}).`);
 
   const payload = (await response.json().catch(() => null)) as
     | { data?: T; errors?: GraphQlError[] }
@@ -188,6 +194,8 @@ const CREATE_POST_MUTATION = `
           id
           text
           dueAt
+          status
+          sentAt
         }
       }
       ... on MutationError {
@@ -416,7 +424,7 @@ export async function getBufferChannels(
     channelsQuery(organization.id)
   );
   const channels = (data.channels ?? []).map(toChannel);
-  await writeConfig(organizationId, rowId, { ...config, accessToken, channels }, "connected");
+  await writeConfig(organizationId, rowId, { ...config, accessToken, channels, bufferOrganizationId: organization.id, bufferOrganizationName: organization.name }, "connected");
   return channels;
 }
 
@@ -425,7 +433,7 @@ export function cachedBufferChannels(config: StoredConfig): BufferChannel[] {
 }
 
 /**
- * Publish text to one channel now. Returns Buffer's post id.
+ * Submit text to one channel. Acceptance is not proof of delivery.
  * `mode` maps onto Buffer's sharing modes; the default publishes immediately
  * rather than dropping the post into the channel's queue.
  */
@@ -433,29 +441,56 @@ export async function publishToBuffer(
   organizationId: string,
   channelId: string,
   text: string,
-  mode: "shareNow" | "addToQueue" | "shareNext" = "shareNow"
-): Promise<string> {
+  scheduledFor?: string
+): Promise<DeliveryPost> {
   const { rowId, config } = await readConfig(organizationId);
   if (!config.accessToken) throw new Error("Buffer is not connected.");
   const accessToken = await refreshIfNeeded(organizationId, rowId, config);
 
   const data = await bufferGraphQl<{
-    createPost: { post?: { id?: string }; message?: string };
+    createPost: { post?: BufferPost; message?: string };
   }>(accessToken, CREATE_POST_MUTATION, {
     input: {
       text,
       channelId,
       schedulingType: "automatic",
-      mode,
+      mode: scheduledFor ? "customScheduled" : "shareNow",
+      ...(scheduledFor ? { dueAt: scheduledFor } : {}),
     },
   });
 
   // Buffer reports failures as a union member, not an HTTP status.
   const failure = data.createPost?.message;
-  if (failure) throw new Error(`Buffer rejected the post: ${failure}`);
-  const id = data.createPost?.post?.id;
-  if (!id) throw new Error("Buffer accepted the post but returned no id.");
-  return id;
+  if (failure) throw new DeliveryRejected(`Buffer rejected the post: ${failure}`);
+  return bufferDelivery(data.createPost?.post);
+}
+
+type BufferPost = { id: string; status: string; text?: string; dueAt?: string | null; sentAt?: string | null };
+
+export function bufferDelivery(post?: BufferPost): DeliveryPost {
+  if (!post?.id) throw new Error("Buffer returned no post receipt. Check Buffer before retrying.");
+  if (post.status === "sent") return { id: post.id, status: "published", publishedAt: post.sentAt, scheduledFor: post.dueAt, sourceText: post.text };
+  if (["error", "draft", "needs_approval"].includes(post.status)) return { id: post.id, status: "failed", error: `Buffer post status: ${post.status}. Review it in Buffer.`, scheduledFor: post.dueAt, sourceText: post.text };
+  return { id: post.id, status: "queued", scheduledFor: post.dueAt, sourceText: post.text };
+}
+
+export async function getBufferPost(organizationId: string, id: string): Promise<DeliveryPost> {
+  const { rowId, config } = await readConfig(organizationId);
+  const token = await refreshIfNeeded(organizationId, rowId, config);
+  const data = await bufferGraphQl<{ post: BufferPost }>(token, `query GetPost($input: PostInput!) { post(input: $input) { id text status dueAt sentAt } }`, { input: { id } });
+  return bufferDelivery(data.post);
+}
+
+export async function connectBufferApiKey(organizationId: string, apiKey: string) {
+  if (!isEncryptionEnabled()) throw new Error("Set AI_CONFIG_SECRET before storing a Buffer API key.");
+  const organizations = await fetchOrganizations(apiKey);
+  const organization = organizations[0];
+  if (!organization) throw new Error("This Buffer key has no accessible organization.");
+  const data = await bufferGraphQl<{ channels: BufferChannel[] }>(apiKey, channelsQuery(organization.id));
+  const channels = (data.channels ?? []).map(toChannel);
+  const { rowId } = await readConfig(organizationId);
+  await writeConfig(organizationId, rowId, { accessToken: apiKey, channels, bufferOrganizationId: organization.id, bufferOrganizationName: organization.name }, "connected");
+  return channels;
 }
 
 export async function disconnectBuffer(organizationId: string): Promise<void> {

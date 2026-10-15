@@ -8,6 +8,9 @@ import { requireOrganizationId } from "@/lib/supabase/organization";
 import { getUserRole, requireReviewer } from "@/lib/audience/access";
 import { decryptSecret, encryptSecret, isEncryptionEnabled } from "@/lib/crypto/secret-box";
 import { getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, type WordPressConfig } from "@/lib/integrations/wordpress";
+import { claimPublication, noteUncertainDelivery, saveDelivery } from "@/lib/content/publishing";
+import { futureSchedule } from "@/lib/content/scheduling";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 
 type ActionResult = { ok: boolean; message?: string; error?: string; url?: string };
 
@@ -67,13 +70,24 @@ export async function disconnectWordPress(): Promise<ActionResult> {
 }
 
 export async function publishApprovedBlog(assetId: string): Promise<ActionResult> {
+  return deliverApprovedBlog(assetId);
+}
+
+export async function scheduleApprovedBlog(assetId: string, scheduledFor: string): Promise<ActionResult> {
+  try { return await deliverApprovedBlog(assetId, futureSchedule(scheduledFor)); }
+  catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Invalid schedule." }; }
+}
+
+async function deliverApprovedBlog(assetId: string, scheduledFor?: string): Promise<ActionResult> {
+  let requestId = "";
+  let organizationId = "";
   try {
-    const organizationId = await requireOrganizationId();
+    organizationId = await requireOrganizationId();
     await requireReviewer(organizationId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { ok: false, error: "Sign in before publishing." };
-    const { data: asset, error: assetError } = await supabase.from("content_assets").select("id,title,body,format,channel,status,metadata").eq("organization_id", organizationId).eq("id", assetId).maybeSingle();
+    const { data: asset, error: assetError } = await supabase.from("content_assets").select("id,title,body,format,channel,status,metadata,updated_at").eq("organization_id", organizationId).eq("id", assetId).maybeSingle();
     if (assetError || !asset) return { ok: false, error: "Content asset not found." };
     if (asset.status !== "approved") return { ok: false, error: "Only approved content can be published to WordPress." };
     if (asset.format !== "blog" && asset.channel !== "website") return { ok: false, error: "WordPress publishing is only available for blog and website content." };
@@ -86,20 +100,22 @@ export async function publishApprovedBlog(assetId: string): Promise<ActionResult
     const seo = metadata.seo && typeof metadata.seo === "object" ? metadata.seo as { title?: string; description?: string } : {};
     const excerpt = seo.description?.trim() || asset.body.replace(/\s+/g, " ").trim().slice(0, 180);
     const slug = `ril-${asset.id}`;
-    const published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug });
-    const { data: saved, error: saveError } = await createAdminClient().from("content_assets").update({
-      status: "published",
-      published_at: new Date().toISOString(),
-      metadata: { ...metadata, wordpress_post_id: published.id, wordpress_url: published.url, wordpress_published_at: new Date().toISOString() },
-    }).eq("organization_id", organizationId).eq("id", assetId).eq("status", "approved").select("id").maybeSingle();
-    if (saveError || !saved) return { ok: false, error: `WordPress published the article, but the workspace could not update its status. Open the WordPress link and contact an admin before retrying.`, url: published.url };
-    await createAdminClient().from("asset_approvals").insert({ organization_id: organizationId, content_asset_id: assetId, actor_id: user.id, from_status: "approved", to_status: "published", note: `Published to WordPress · ${published.url}` });
+    requestId = await claimPublication(organizationId, asset, "wordpress", user.id, scheduledFor);
+    const published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug, scheduledFor });
+    await saveDelivery(organizationId, requestId, asset.id, published);
     revalidatePath("/library");
     revalidatePath(`/library/${assetId}`);
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
-    return { ok: true, message: published.alreadyCreated ? "Linked the existing WordPress post." : "Published to WordPress.", url: published.url };
+    return { ok: published.status !== "failed", message: published.status === "published" ? "WordPress confirmed publication." : published.status === "queued" ? "Scheduled on WordPress. Delivery will be confirmed after it goes live." : undefined, error: published.error, url: published.url };
   } catch (error) {
+    if (requestId) {
+      try {
+        if (error instanceof DeliveryRejected) await saveDelivery(organizationId, requestId, assetId, { id: "", status: "failed", error: error.message });
+        else await noteUncertainDelivery(organizationId, requestId, error instanceof Error ? error.message : "Request failed.");
+      } catch { /* Keep the reservation until the provider result can be recorded. */ }
+    }
+    if (requestId) revalidatePath(`/library/${assetId}`);
     return { ok: false, error: error instanceof Error ? error.message : "Could not publish to WordPress." };
   }
 }

@@ -26,7 +26,7 @@ export default async function PublicLandingPage({ params }: { params: Promise<{ 
   if (!page) notFound();
   return (
     <main id="main" className="published-page min-h-dvh bg-muted/30 text-foreground">
-      <header className="mx-auto flex max-w-6xl items-center justify-between border-b border-border/80 px-5 py-5 sm:px-8">
+      <header className="mx-auto flex max-w-6xl items-center justify-between border-b border-border/80 px-5 py-6 sm:px-8">
         <Link href="/" aria-label="Renaissance Innovation Labs home" className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"><Image src="/logo/blackLogo.svg" alt="Renaissance Innovation Labs" width={100} height={45} unoptimized className="h-9 w-auto dark:hidden" /><Image src="/logo/whiteLogo.svg" alt="Renaissance Innovation Labs" width={176} height={79} unoptimized className="hidden h-9 w-auto dark:block" /></Link>
         <span className="dateline hidden sm:inline">From Renaissance Innovation Labs</span>
       </header>
@@ -37,7 +37,7 @@ export default async function PublicLandingPage({ params }: { params: Promise<{ 
           {page.body ? <div className="mt-8 whitespace-pre-wrap text-base leading-8 text-muted-foreground sm:text-lg">{page.body}</div> : null}
           {page.registration_url ? <a href={page.registration_url} target="_blank" rel="noreferrer" className="mt-8 inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">View registration details</a> : null}
         </article>
-        <aside className="h-fit rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:p-7 lg:sticky lg:top-8">
+        <aside className="h-fit rounded-2xl border border-border/80 bg-card p-6 sm:p-8 lg:sticky lg:top-8">
           <p className="dateline">Get in touch</p>
           <h2 className="mt-1 text-balance text-xl font-bold tracking-tight">{page.cta_label}</h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">Share your details and the RIL team can follow up.</p>

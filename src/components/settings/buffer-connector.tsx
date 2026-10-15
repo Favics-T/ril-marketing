@@ -1,22 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { MegaphoneIcon } from "lucide-react";
 import {
   disconnectBufferAction,
   refreshBufferChannels,
+  saveBufferApiKey,
   type BufferChannel,
   type IntegrationResult,
 } from "@/actions/integrations";
 import { ConnectorCard } from "@/components/settings/connector-card";
 import { ChannelMark } from "@/components/settings/channel-icons";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-/**
- * Buffer is the one connector that signs in through the provider rather than
- * taking a pasted key, so "Connect" is a plain link into the OAuth route and
- * the callback returns here with a status banner.
- */
 export function BufferConnector({
   connected,
   envConfigured,
@@ -29,6 +26,7 @@ export function BufferConnector({
   channels: BufferChannel[];
   organizationName: string | null;
 }) {
+  const [open, setOpen] = useState(false);
   const [refresh, refreshAction, refreshing] = useActionState<
     IntegrationResult | null,
     FormData
@@ -37,9 +35,10 @@ export function BufferConnector({
     IntegrationResult | null,
     FormData
   >(async () => disconnectBufferAction(), null);
+  const [connection, connectAction, connecting] = useActionState<IntegrationResult | null, FormData>(async (_previous, fd) => saveBufferApiKey(fd), null);
 
-  const isConnected = disconnect?.ok ? false : connected;
-  const channelList = refresh?.ok && refresh.channels ? refresh.channels : channels;
+  const isConnected = connected;
+  const channelList = channels;
 
   // A paused queue silently stops scheduled posts from going out, and a
   // disconnected channel accepts a post then drops it. Both are worth surfacing.
@@ -51,7 +50,7 @@ export function BufferConnector({
     <ConnectorCard
       icon={<MegaphoneIcon />}
       title="Buffer"
-      blurb="Publish approved content to every social channel you have linked in Buffer."
+      blurb="Schedule approved posts to the social accounts you link in Buffer."
       connected={isConnected}
       badge={
         isConnected
@@ -117,15 +116,14 @@ export function BufferConnector({
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
+            <form action={refreshAction}><Button
               type="submit"
-              formAction={refreshAction}
               variant="outline"
               size="sm"
               disabled={refreshing || disconnecting}
             >
               {refreshing ? "Refreshing…" : "Refresh channels"}
-            </Button>
+            </Button></form>
             <form action={disconnectAction}>
               <Button
                 type="submit"
@@ -139,16 +137,19 @@ export function BufferConnector({
             </form>
           </div>
         </div>
-      ) : envConfigured ? (
-        <Button asChild size="sm">
-          <a href="/api/integrations/buffer/connect">Connect Buffer</a>
-        </Button>
-      ) : (
-        <p className="max-w-[60ch] text-[13px] leading-5 text-muted-foreground">
-          Social publishing isn&apos;t switched on for this workspace yet. Ask a
-          workspace owner to enable Buffer, then come back to this page.
-        </p>
-      )}
+      ) : open ? (
+        <div className="flex flex-col gap-3">
+          <p className="max-w-[60ch] text-[13px] leading-5 text-muted-foreground">Create a Buffer API key with publishing access, then paste it below. If someone manages Buffer for your team, ask them for this key.</p>
+          <form action={connectAction} className="flex max-w-lg flex-col gap-2">
+            <label className="flex flex-col gap-1.5 text-sm">Your Buffer connection key<Input name="api_key" type="password" autoComplete="off" required minLength={8} maxLength={2000} disabled={connecting} placeholder="Paste your key here" /></label>
+            <div className="flex gap-2"><Button type="submit" size="sm" className="w-fit" disabled={connecting}>{connecting ? "Checking connection…" : "Connect Buffer"}</Button><Button type="button" variant="ghost" size="sm" disabled={connecting} onClick={() => setOpen(false)}>Cancel</Button></div>
+          </form>
+          {envConfigured ? <Button asChild variant="outline" size="sm" className="w-fit"><a href="/api/integrations/buffer/connect">Sign in with Buffer instead</a></Button> : null}
+        </div>
+      ) : <Button type="button" variant="outline" className="w-fit" onClick={() => setOpen(true)}>Connect Buffer</Button>}
+
+      {connection?.error ? <p role="alert" className="mt-2 text-sm text-destructive">{connection.error}</p> : null}
+      {connection?.message ? <p role="status" className="mt-2 text-sm">{connection.message}</p> : null}
 
       {refresh?.error ? (
         <p role="alert" className="mt-2 text-sm text-destructive">

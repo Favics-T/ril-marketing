@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { createCampaign, type ActionResult } from "@/actions/content";
 import { Button } from "@/components/ui/button";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 import { CampaignFields } from "@/components/audience/campaign-fields";
 
 export function CampaignCreate({
@@ -13,7 +14,7 @@ export function CampaignCreate({
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(createCampaign, null);
   return (
     <details className="slip p-5">
-    <summary>Create a campaign</summary>
+    <DisclosureSummary>Create a campaign</DisclosureSummary>
     <form action={action} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
       <CampaignFields segments={segments} />
       <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-4 sm:flex-row sm:items-center sm:justify-between">

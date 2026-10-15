@@ -32,7 +32,7 @@ export function WordPressSettingsForm({
     : save?.ok
       ? true
       : initial.connected;
-  const [open, setOpen] = useState(!initial.connected);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     if (save?.ok) setOpen(false);
   }, [save?.ok]);
@@ -115,7 +115,6 @@ export function WordPressSettingsForm({
                   ? "Save changes"
                   : "Connect WordPress"}
             </Button>
-            {connected ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -126,7 +125,6 @@ export function WordPressSettingsForm({
               >
                 Cancel
               </Button>
-            ) : null}
           </div>
         </form>
       ) : (

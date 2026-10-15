@@ -41,7 +41,7 @@ export default async function ActivitiesPage() {
           action={{ label: "Log an activity", href: "/activities/new" }}
         />
       ) : (
-        <ul className="ledger slip divide-y divide-border/80 overflow-hidden">
+        <section className="slip overflow-hidden" aria-label="Logged activities"><div className="workspace-list-heading"><span>Activity and audience</span><span>Activity date</span></div><ul className="ledger divide-y divide-border/80">
           {activities.map((a) => (
             <li key={a.id}>
               <Link
@@ -56,9 +56,9 @@ export default async function ActivitiesPage() {
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1.5 truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
+                <h2 className="mt-1.5 text-sm font-semibold tracking-[-0.02em] text-foreground">
                   {a.title}
-                </p>
+                </h2>
                 <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
                   {a.description || "No description yet."}
                 </p>
@@ -83,7 +83,7 @@ export default async function ActivitiesPage() {
               </Link>
             </li>
           ))}
-        </ul>
+        </ul></section>
       )}
     </div>
   );

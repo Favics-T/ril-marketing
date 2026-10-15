@@ -36,7 +36,7 @@ export default async function AnalyticsPage() {
   const sourceRows=[...sources].sort((a,b)=>b[1]-a[1]);
   const partial=(leads.count??0)>leadRows.length||(assets.count??0)>assetRows.length;
   const failed=Boolean(leads.error||assets.error);
-  return <div className="workspace-page">
+  return <div className="workspace-page analytics-workspace">
     <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="dateline">{start.toLocaleDateString("en-GB",{day:"numeric",month:"short"})} – {end.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</p><h1>Marketing Analytics</h1><p className="mt-2 text-sm text-muted-foreground">Eight weeks of recorded lead capture and content performance.</p></div><Button asChild variant="outline"><Link href="/reports">Create a report</Link></Button></header>
     {(failed||partial)&&<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">{failed?"Some metrics could not be loaded. Refresh to retry.":"This view uses up to 5,000 records per dataset. Counts and charts below represent that sample."}</p>}
     <dl className="workspace-metrics">{[{label:"Captured leads",value:leads.error?"—":leadRows.length,detail:"In the last eight weeks"},{label:"Qualified leads",value:leads.error?"—":qualified,detail:"Marked qualified by your team"},{label:"Lead conversion",value:leads.error?"—":leadRows.length?`${(converted/leadRows.length*100).toFixed(1)}%`:"0%",detail:`${converted} recorded conversions`},{label:"Content views",value:assets.error?"—":views,detail:"Recorded asset counters"}].map(m=><div key={m.label} className="workspace-metric"><dt>{m.label}</dt><dd>{m.value.toLocaleString()}</dd><p>{m.detail}</p></div>)}</dl>

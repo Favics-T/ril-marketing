@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { createClient } from "@/lib/supabase/server";
 import { listSegments } from "@/lib/audience/segments";
 import { createNurtureSequence, transitionNurtureSequence, addNurtureStep, removeNurtureStep, saveNurtureSettings } from "@/actions/nurture";
 import { Button } from "@/components/ui/button";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 import { Input } from "@/components/ui/input";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -41,12 +43,12 @@ export default async function NurturePage() {
   const segmentNames = new Map(segments.map((segment) => [segment.id, segment.name]));
   const enabled = setting?.lead_capture_enabled ?? false;
 
-  return <div className="workspace-page flex flex-col gap-5 md:gap-7">
+  return <div className="workspace-page workflow-page">
     <header><p className="dateline">{todayDateline()} · consent-gated email</p><h1>Lead Nurture</h1><p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">Build email sequences for newly captured leads. Consent is checked before each message. Sending requires an active sequence and a connected sender.</p></header>
     <section className="slip p-5 sm:p-6"><div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4"><div><p className="dateline">New lead captured → enrol</p><h2 className="mt-1 text-lg font-bold">Automatic enrolment</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-muted-foreground">When enabled, a newly captured lead with active marketing consent is enrolled into every active sequence whose trigger is “new lead captured” and whose audience matches. The first step sends after its configured delay. Enrolment never overrides consent or suppression.</p></div><StatusStamp status={enabled ? "active" : "paused"}>{enabled ? "ENABLED" : "DISABLED"}</StatusStamp></div>
       <form action={saveNurtureSettings} className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/80 pt-4"><input type="hidden" name="lead_capture_enabled" value={enabled ? "false" : "true"} /><Button type="submit" variant={enabled ? "outline" : "default"} className="min-h-10 rounded-lg px-4 text-[13px] font-semibold">{enabled ? "Disable for future leads" : "Enable for future leads"}</Button><span className="text-[13px] leading-5 text-muted-foreground">Only owner, admin and marketing manager roles can change this. Existing leads are not retroactively enrolled.</span></form>
     </section>
-    <details className="slip p-5 sm:p-6" open={sequences.length === 0}><summary>Create a sequence</summary><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create a sequence</h2><p className="mt-1 text-sm text-muted-foreground">Draft a sequence, add its steps, then a second workspace reviewer activates it.</p></div>
+    <details className="slip p-5 sm:p-6" open={sequences.length === 0}><DisclosureSummary>Create a sequence</DisclosureSummary><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create a sequence</h2><p className="mt-1 text-sm text-muted-foreground">Draft a sequence, add its steps, then a second workspace reviewer activates it.</p></div>
       <form action={createNurtureSequence} className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5"><span className="dateline">Internal name</span><Input name="name" required minLength={3} maxLength={160} placeholder="Founder welcome drip" /></label>
         <label className="flex flex-col gap-1.5"><span className="dateline">Trigger</span><select name="trigger" defaultValue="lead_captured" className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="lead_captured">New lead captured</option><option value="manual">Manual enrolment only</option></select></label>
@@ -59,7 +61,7 @@ export default async function NurturePage() {
         <div className="flex flex-wrap items-center gap-2"><StatusStamp status={sequence.status} /><span className="dateline">{steps.length} steps · {activeCount} active enrolments</span><span className="ml-auto text-[13px] leading-5 text-muted-foreground">{triggerLabel(sequence.trigger)}</span></div>
         <div><h3 className="font-bold">{sequence.name}</h3><p className="mt-0.5 dateline">Audience · {sequence.audience_segment_id ? segmentNames.get(sequence.audience_segment_id) ?? "Segment" : "All opted-in contacts"}</p></div>
         {steps.length ? <ol className="ledger border-y border-border/80">{steps.map((step) => <li key={step.id} className="flex flex-wrap items-center gap-2 py-2.5"><span className="font-mono text-xs text-muted-foreground">{String(step.step_order).padStart(2, "0")}</span><span className="text-sm font-semibold tracking-[-0.01em]">{step.email_subject}</span><span className="dateline">sends {delayLabel(step.delay_hours)}</span>{sequence.status !== "active" ? <form action={removeNurtureStep} className="ml-auto"><input type="hidden" name="id" value={step.id} /><Button type="submit" size="sm" variant="ghost">Remove</Button></form> : null}</li>)}</ol> : <p className="text-sm text-muted-foreground">No steps yet. Add the first email below.</p>}
-        {sequence.status !== "active" && sequence.status !== "archived" ? <details className="rounded-lg border border-border/80 bg-muted/30 p-3"><summary className="cursor-pointer text-sm font-semibold">Add a step</summary>
+        {sequence.status !== "active" && sequence.status !== "archived" ? <details className="rounded-lg border border-border/80 bg-muted/30 p-3"><DisclosureSummary className="cursor-pointer text-sm font-semibold">Add a step</DisclosureSummary>
           <form action={addNurtureStep} className="mt-3 grid gap-3 sm:grid-cols-2"><input type="hidden" name="sequence_id" value={sequence.id} />
             <label className="flex flex-col gap-1.5"><span className="dateline">Wait before sending (hours)</span><Input name="delay_hours" type="number" min={0} max={8760} defaultValue={steps.length ? 24 : 0} required /></label>
             <label className="flex flex-col gap-1.5"><span className="dateline">Subject line</span><Input name="email_subject" required minLength={2} maxLength={200} placeholder="Welcome to Renaissance Innovation Labs" /></label>
@@ -71,7 +73,7 @@ export default async function NurturePage() {
           {sequence.status === "active" ? <form action={transitionNurtureSequence}><input type="hidden" name="id" value={sequence.id} /><input type="hidden" name="to" value="paused" /><Button type="submit" size="sm" variant="outline">Pause</Button></form> : null}
           {sequence.status === "paused" ? <form action={transitionNurtureSequence}><input type="hidden" name="id" value={sequence.id} /><input type="hidden" name="to" value="active" /><Button type="submit" size="sm" variant="outline">Resume</Button></form> : null}
           {sequence.status !== "archived" ? <form action={transitionNurtureSequence}><input type="hidden" name="id" value={sequence.id} /><input type="hidden" name="to" value="archived" /><Button type="submit" size="sm" variant="ghost">Archive</Button></form> : null}
-          <Link href={`/leads`} className="ml-auto inline-flex min-h-9 items-center self-center rounded-md py-2 text-[13px] text-muted-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">Enrol a lead manually →</Link>
+          <Link href={`/leads`} className="ml-auto inline-flex min-h-9 items-center gap-2 self-center rounded-md py-2 text-[13px] text-muted-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">Enrol a lead manually<ArrowRight className="size-4" aria-hidden="true" /></Link>
         </div>
       </li>})}</ul>}
     </section>

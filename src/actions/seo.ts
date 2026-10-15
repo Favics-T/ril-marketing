@@ -66,9 +66,9 @@ export async function analyzeSeoAsset(assetId: string, ...[,]: [Result | null, F
     if (!parsedId.success) return { ok: false, error: "Choose a valid content asset." };
     const supabase = await createClient();
     const { data: asset, error } = await supabase.from("content_assets")
-      .select("id,title,body,channel,format,topic,cta,status,metadata")
+      .select("id,title,body,channel,format,topic,cta,status,metadata,updated_at")
       .eq("organization_id", organizationId).eq("id", parsedId.data)
-      .maybeSingle<{id:string;title:string;body:string|null;channel:string|null;format:string|null;topic:string|null;cta:string|null;status:string;metadata:Record<string,unknown>|null}>();
+      .maybeSingle<{id:string;title:string;body:string|null;channel:string|null;format:string|null;topic:string|null;cta:string|null;status:string;metadata:Record<string,unknown>|null;updated_at:string}>();
     if (error || !asset) return { ok: false, error: "Website content was not found in this workspace." };
     if (!editableStatuses.includes(asset.status)) return { ok: false, error: "Return this asset to Editing before generating new SEO suggestions." };
     if (asset.format !== "blog" && asset.channel !== "website") return { ok: false, error: "SEO analysis is available for website and blog drafts." };
@@ -101,8 +101,8 @@ export async function analyzeSeoAsset(assetId: string, ...[,]: [Result | null, F
     }
 
     const metadata = { ...(asset.metadata ?? {}), seo: { ...((asset.metadata?.seo && typeof asset.metadata.seo === "object") ? asset.metadata.seo as Record<string, unknown> : {}), audit } };
-    const { error: saveError } = await supabase.from("content_assets").update({ metadata }).eq("organization_id", organizationId).eq("id", asset.id);
-    if (saveError) return { ok: false, error: "SEO plan was generated but could not be saved." };
+    const { data: saved, error: saveError } = await supabase.from("content_assets").update({ metadata }).eq("organization_id", organizationId).eq("id", asset.id).eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
+    if (saveError || !saved) return { ok: false, error: "SEO plan was generated but the draft changed or could not be saved. Refresh before retrying." };
     revalidateSeo(asset.id);
     return { ok: true, audit, message: audit.model === "local-content-checks" ? "Local SEO suggestions saved. Connect a model in AI & Integrations for topic-aware analysis." : "AI SEO recommendations saved for human review." };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not analyze this website draft." }; }
@@ -114,20 +114,20 @@ export async function applySeoMetadata(assetId: string, ...[,]: [Result | null, 
     const parsedId = idSchema.safeParse(assetId);
     if (!parsedId.success) return { ok: false, error: "Choose a valid content asset." };
     const supabase = await createClient();
-    const { data: asset } = await supabase.from("content_assets").select("id,status,metadata")
+    const { data: asset } = await supabase.from("content_assets").select("id,status,metadata,updated_at")
       .eq("organization_id", organizationId).eq("id", parsedId.data)
-      .maybeSingle<{id:string;status:string;metadata:Record<string,unknown>|null}>();
+      .maybeSingle<{id:string;status:string;metadata:Record<string,unknown>|null;updated_at:string}>();
     if (!asset) return { ok: false, error: "Website content was not found in this workspace." };
     if (!editableStatuses.includes(asset.status)) return { ok: false, error: "Return this asset to Editing before applying SEO metadata." };
     const metadata = asset.metadata ?? {};
     const seo = metadata.seo && typeof metadata.seo === "object" ? metadata.seo as Record<string, unknown> : {};
     const parsed = auditSchema.safeParse(seo.audit);
     if (!parsed.success) return { ok: false, error: "Generate an SEO plan before applying metadata." };
-    const { error } = await supabase.from("content_assets").update({ metadata: {
+    const { data: saved, error } = await supabase.from("content_assets").update({ metadata: {
       ...metadata,
       seo: { ...seo, title: parsed.data.seoTitle, description: parsed.data.metaDescription, keywords: parsed.data.focusKeywords, appliedAt: new Date().toISOString(), audit: parsed.data },
-    } }).eq("organization_id", organizationId).eq("id", asset.id);
-    if (error) return { ok: false, error: "Could not apply the selected metadata." };
+    } }).eq("organization_id", organizationId).eq("id", asset.id).eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
+    if (error || !saved) return { ok: false, error: "This draft changed or could not be saved. Refresh before applying metadata." };
     revalidateSeo(asset.id);
     return { ok: true, message: "Suggested title, description and focus terms were applied. Review the article headings and add any selected internal links before sending it to review." };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not apply SEO metadata." }; }

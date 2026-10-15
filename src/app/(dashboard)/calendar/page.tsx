@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listScheduled } from "@/lib/content/assets";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,7 @@ export default async function CalendarPage({
         <nav aria-label="Month" className="flex items-center gap-1">
           <Button variant="outline" size="sm" asChild>
             <Link href={`/calendar?m=${prev}`} aria-label="Previous month">
-              ←
+              <ChevronLeft data-icon="inline-start" aria-hidden="true" />
             </Link>
           </Button>
           <span className="min-w-[10ch] px-2 text-center text-[13px] font-bold tracking-[-0.01em] tabular-nums">
@@ -98,7 +99,7 @@ export default async function CalendarPage({
           </span>
           <Button variant="outline" size="sm" asChild>
             <Link href={`/calendar?m=${next}`} aria-label="Next month">
-              →
+              <ChevronRight data-icon="inline-end" aria-hidden="true" />
             </Link>
           </Button>
         </nav>
@@ -114,7 +115,7 @@ export default async function CalendarPage({
       ) : (
         <div className="flex flex-col gap-4">
           {days.map(([day, items]) => (
-            <section key={day} aria-label={dayLabel(day)}>
+            <section key={day} aria-label={dayLabel(day)} className="workspace-calendar-day">
               <p className="dateline mb-2">{dayLabel(day)}</p>
               <ul className="ledger slip overflow-hidden">
                 {items.map((a) => (

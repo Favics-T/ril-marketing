@@ -1,1 +1,443 @@
-{"components":[{"css":".ds-btn-blue { background: #1268c5; color: #ffffff; border: 1px solid transparent; border-radius: 12px; padding: 10px 16px; font: 600 14px/1.2 'Open Sans', system-ui, sans-serif; display: inline-flex; align-items: center; gap: 8px; transition: background 160ms, transform 150ms; } .ds-btn-blue:hover { background: #0d4f9a; } .ds-btn-blue:active { transform: scale(0.96); } .ds-btn-blue:focus-visible { outline: 2px solid #1268c5; outline-offset: 2px; }","description":"Committed-blue decisive action. White text on RIL Blue, deepens on hover.","html":"<a class=\"ds-btn-blue\">Get started <svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></a>","kind":"button","name":"Blue Button","refersTo":"ril-btn-blue"},{"css":".ds-btn-ink { background: #212120; color: #ffffff; border: 1px solid transparent; border-radius: 12px; padding: 10px 16px; font: 600 14px/1.2 'Open Sans', system-ui, sans-serif; display: inline-flex; align-items: center; gap: 8px; transition: background 160ms, transform 150ms; } .ds-btn-ink:hover { background: #000000; } .ds-btn-ink:active { transform: scale(0.96); } .ds-btn-ink:focus-visible { outline: 2px solid #1268c5; outline-offset: 2px; }","description":"Ink trial action for the masthead and structure-level primaries.","html":"<a class=\"ds-btn-ink\">Get started</a>","kind":"button","name":"Ink Button","refersTo":"ril-btn-ink"},{"css":".ds-btn-ghost { background: transparent; color: #212120; border: 1px solid #d9e2ec; border-radius: 12px; padding: 10px 16px; font: 600 14px/1.2 'Open Sans', system-ui, sans-serif; display: inline-flex; align-items: center; gap: 8px; transition: border-color 160ms, transform 150ms; } .ds-btn-ghost:hover { border-color: #212120; } .ds-btn-ghost:active { transform: scale(0.96); } .ds-btn-ghost:focus-visible { outline: 2px solid #1268c5; outline-offset: 2px; }","description":"Transparent secondary action with a hairline border that binds to ink on hover.","html":"<a class=\"ds-btn-ghost\">Sign in</a>","kind":"button","name":"Ghost Button","refersTo":"ril-btn-ghost"},{"css":".ds-btn-paper { background: #ffffff; color: #0d4f9a; border: 1px solid transparent; border-radius: 12px; padding: 10px 16px; font: 600 14px/1.2 'Open Sans', system-ui, sans-serif; display: inline-flex; align-items: center; gap: 8px; } .ds-btn-paper:hover { background: #eaf2fa; } .ds-btn-paper:active { transform: scale(0.96); } .ds-btn-paper:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }","description":"Paper action for use on committed-blue ground.","html":"<a class=\"ds-btn-paper\">Get started</a>","kind":"button","name":"Paper Button","refersTo":"ril-btn-paper"},{"css":".ds-tag { display: inline-flex; align-items: center; border-radius: 9999px; border: 1px solid #1268c5; background: #ffffff; color: #0d4f9a; padding: 3px 10px; font: 700 11px/1.4 'Open Sans', system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }","description":"Word-first status stamp. Color backs the word, never replaces it.","html":"<span class=\"ds-tag\">Pending review</span>","kind":"chip","name":"Status Tag","refersTo":"ril-tag"},{"css":".ds-bed { background: #ffffff; border: 1px solid #d9e2ec; border-radius: 18px; padding: 24px; box-shadow: 0 1px 2px rgba(33,33,32,0.06), 0 16px 36px -20px rgba(33,33,32,0.22); } .ds-bed h3 { font: 600 15px/1.4 'Open Sans', system-ui, sans-serif; color: #212120; margin: 0 0 8px; } .ds-bed p { font: 400 14px/1.6 'Open Sans', system-ui, sans-serif; color: #3e4a56; margin: 0; }","description":"White content bed with hairline border and quiet offset lift.","html":"<div class=\"ds-bed\"><h3>Review queue</h3><p>Three synthetic trays waiting for a stamp.</p></div>","kind":"card","name":"Bed Card","refersTo":"ril-bed"},{"css":".ds-tray { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 12px; border-top: 1px solid #d9e2ec; font-family: 'Open Sans', system-ui, sans-serif; } .ds-tray strong { display: block; font-size: 15px; color: #212120; } .ds-tray span { font-size: 13px; color: #3e4a56; }","description":"Signature review-tray row: tray number, word-first tag, title, one decisive action.","html":"<div class=\"ds-tray\"><div><strong>First-time buyers stall</strong><span>Synthetic demo — waiting for your call.</span></div><a class=\"ds-btn-blue\">Review</a></div>","kind":"custom","name":"Review Tray","refersTo":"ril-bed"}],"extensions":{"breakpoints":[{"name":"sm","value":"640px"},{"name":"md","value":"768px"},{"name":"lg","value":"1024px"}],"colorMeta":{"blue":{"canonical":"#1268c5","displayName":"RIL Blue","role":"primary","tonalRamp":["#0a2e56","#0d4f9a","#1268c5","#2f7fd0","#5a9ad9","#8ab6e3","#bcd4ee","#e3eef9"]},"blue-deep":{"canonical":"#0d4f9a","displayName":"Deep Lab Blue","role":"primary","tonalRamp":["#081f3d","#0a2e56","#0d4f9a","#1268c5","#2f7fd0","#5a9ad9","#8ab6e3","#bcd4ee"]},"ink":{"canonical":"#212120","displayName":"Lab Ink","role":"neutral","tonalRamp":["#131312","#1b1b1a","#212120","#3a3a38","#55554f","#71716a","#9a9a93","#c9c9c2"]},"line":{"canonical":"#d9e2ec","displayName":"Hairline","role":"neutral","tonalRamp":["#8fa3b8","#a7bccd","#c0cfdd","#d9e2ec","#e3ebf2","#edf2f7","#f4f7fa","#fafcfd"]},"need":{"canonical":"#b3261e","displayName":"Signal Red","role":"primary","tonalRamp":["#4d0f0b","#701512","#b3261e","#c64a42","#d47a72","#e2a7a1","#efc9c5","#f9e7e5"]},"soft":{"canonical":"#3e4a56","displayName":"Soft Ink","role":"neutral","tonalRamp":["#1c2126","#262d34","#3e4a56","#55636f","#75828d","#97a1ab","#bcc4cb","#e2e6e9"]},"tint":{"canonical":"#eaf2fa","displayName":"Lab Tint","role":"secondary","tonalRamp":["#8fa3b8","#a7bccd","#c0cfdd","#d9e2ec","#e3ebf2","#eaf2fa","#f2f7fc","#fafcfe"]},"white":{"canonical":"#ffffff","displayName":"Lab White","role":"neutral","tonalRamp":["#e2e6e9","#e9edf0","#eef1f4","#f2f5f7","#f5f8fa","#f8fafc","#fbfdfd","#ffffff"]}},"motion":[{"name":"ease-out","purpose":"Single authored entrance and 150-160ms state transitions.","value":"cubic-bezier(0.23, 1, 0.32, 1)"},{"name":"stamp-lift","purpose":"First-tray rise plus blur resolve (520ms) with stamp pop (260ms at 320ms). Reduced motion collapses to instant.","value":"520ms cubic-bezier(0.23, 1, 0.32, 1)"}],"shadows":[{"name":"bed-lift","purpose":"Beds and content beds only; rails stay flat.","value":"0 1px 2px rgba(33,33,32,0.06), 0 16px 36px -20px rgba(33,33,32,0.22)"}],"typographyMeta":{"body":{"displayName":"Body","purpose":"Descriptions, empty states, list copy at 0.875-1rem."},"display":{"displayName":"Display","purpose":"Landing statement only, balanced, max 16ch."},"headline":{"displayName":"Headline","purpose":"Section titles in Open Sans Bold."},"mono":{"displayName":"Mono Measures","purpose":"SQL gate line and route codes only."},"small":{"displayName":"Small","purpose":"Ledger notes and supporting rows."},"tag":{"displayName":"Tag","purpose":"Status stamps and datelines in tracked uppercase Open Sans."},"title":{"displayName":"Title","purpose":"Tray and card titles."}}},"generatedAt":"2026-09-18T10:45:00.000Z","narrative":{"dos":["Do stamp every state as a word first (Pending Review, Approved, Suppressed) with tabular counts beside it.","Do number sequences that carry process (seasons 01-09) so position is explicit; never number page sections.","Do theme landing browser surfaces from the palette: blue-tinted selection, blue caret, blue focus rings, 3px underline offset, tabular numerals.","Do keep controls named as actions (Review, Get started, Open the gate) with the primary action on the first undecided tray.","Do author demonstration data at full fidelity and label it synthetic; never invent testimonials, customers, benchmarks, or pricing.","Do set logos plain in black or white with clear margins; never recolor, rotate, outline, or stack them."],"donts":["Don't rebuild the uniform icon-plus-heading stat-card grid; the bench and ledgers own summary data.","Don't use kickers above headings, gradient text, glass, side stripes, hard offset shadows, or emoji/glyph icons.","Don't set tags or body copy in monospace, and don't use a non-Open-Sans display face as the display voice.","Don't place heritage green/serif Trial Grounds atoms (leaf buttons, kraft tags, sprout seals) inside an Open Lab composition.","Don't use red for decoration or story backgrounds; red is failed/needs-action only."],"keyCharacteristics":["Committed blue owns regions (rail, close, primary action), never scattered accents.","Word-first stamps (Pending Review, Approved, Suppressed); single red reserved for failed/needs-action only.","Outline brand shapes with semi-transparent fills as the only decoration, repeatable as patterns.","One authored moment per visit — the stamp-lift on the first tray — everything else instant."],"northStar":"Open Lab","overview":"The bench is a white lab table, not a claim wall. Pending work waits in a review queue, the owner clears the approved forward, and the suppressed is set aside where it can never be recommended. One committed blue carries whole regions — rails, close field, primary actions — while black ink carries structure and tint tags stamp every state as a word first. Official horizontal logos sit plain in black on light and white on blue or black, with no effects, rotation, or containing shapes.","rules":[{"body":"Blue owns whole regions (rail, close, primary action). Accents scattered over white ground are drift, not the system.","name":"The Committed Blue Rule","section":"colors"},{"body":"Only failed or needs-action is red. Everything else resolves to ink, blue, or soft.","name":"The Single-Red Rule","section":"colors"},{"body":"Every state ships as an uppercase word (Pending Review, Approved, Suppressed); color backs the word, never replaces it.","name":"The Stamp Before Color Rule","section":"colors"},{"body":"No eyebrow label above a heading, ever. The heading speaks first.","name":"The No Kicker Rule","section":"typography"},{"body":"Monospace is for code, data, and measurement only — never body copy, never decorative voice. Tags speak in tracked Open Sans caps, not mono.","name":"The Mono Measures Rule","section":"typography"},{"body":"Headlines are mixed case and as large as they need to be. All-caps is for tags and the logo asset, never headlines.","name":"The Mixed Case Rule","section":"typography"},{"body":"Shadows carry an offset and a soft blur. A zero-offset colored halo is decoration, and this world ships none.","name":"The Offset Depth Rule","section":"elevation"}]},"schemaVersion":2,"title":"Design System: RIL Audience Intelligence"}
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-14T17:50:12.658Z",
+  "title": "Design System: RIL Marketing Workspace",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "canonical": "hsl(213 86% 39%)",
+        "displayName": "primary",
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(from hsl(213 86% 39%) 0.15 c h)",
+          "oklch(from hsl(213 86% 39%) 0.26 c h)",
+          "oklch(from hsl(213 86% 39%) 0.37 c h)",
+          "oklch(from hsl(213 86% 39%) 0.48 c h)",
+          "oklch(from hsl(213 86% 39%) 0.59 c h)",
+          "oklch(from hsl(213 86% 39%) 0.7 c h)",
+          "oklch(from hsl(213 86% 39%) 0.82 c h)",
+          "oklch(from hsl(213 86% 39%) 0.95 c h)"
+        ]
+      },
+      "brand-blue": {
+        "canonical": "#177ae5",
+        "displayName": "brand blue",
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(from #177ae5 0.15 c h)",
+          "oklch(from #177ae5 0.26 c h)",
+          "oklch(from #177ae5 0.37 c h)",
+          "oklch(from #177ae5 0.48 c h)",
+          "oklch(from #177ae5 0.59 c h)",
+          "oklch(from #177ae5 0.7 c h)",
+          "oklch(from #177ae5 0.82 c h)",
+          "oklch(from #177ae5 0.95 c h)"
+        ]
+      },
+      "surface-strong": {
+        "canonical": "#182332",
+        "displayName": "surface strong",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #182332 0.15 c h)",
+          "oklch(from #182332 0.26 c h)",
+          "oklch(from #182332 0.37 c h)",
+          "oklch(from #182332 0.48 c h)",
+          "oklch(from #182332 0.59 c h)",
+          "oklch(from #182332 0.7 c h)",
+          "oklch(from #182332 0.82 c h)",
+          "oklch(from #182332 0.95 c h)"
+        ]
+      },
+      "surface-strong-selected": {
+        "canonical": "#314766",
+        "displayName": "surface strong selected",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #314766 0.15 c h)",
+          "oklch(from #314766 0.26 c h)",
+          "oklch(from #314766 0.37 c h)",
+          "oklch(from #314766 0.48 c h)",
+          "oklch(from #314766 0.59 c h)",
+          "oklch(from #314766 0.7 c h)",
+          "oklch(from #314766 0.82 c h)",
+          "oklch(from #314766 0.95 c h)"
+        ]
+      },
+      "surface-strong-hover": {
+        "canonical": "#223145",
+        "displayName": "surface strong hover",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #223145 0.15 c h)",
+          "oklch(from #223145 0.26 c h)",
+          "oklch(from #223145 0.37 c h)",
+          "oklch(from #223145 0.48 c h)",
+          "oklch(from #223145 0.59 c h)",
+          "oklch(from #223145 0.7 c h)",
+          "oklch(from #223145 0.82 c h)",
+          "oklch(from #223145 0.95 c h)"
+        ]
+      },
+      "surface-strong-border": {
+        "canonical": "#354255",
+        "displayName": "surface strong border",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #354255 0.15 c h)",
+          "oklch(from #354255 0.26 c h)",
+          "oklch(from #354255 0.37 c h)",
+          "oklch(from #354255 0.48 c h)",
+          "oklch(from #354255 0.59 c h)",
+          "oklch(from #354255 0.7 c h)",
+          "oklch(from #354255 0.82 c h)",
+          "oklch(from #354255 0.95 c h)"
+        ]
+      },
+      "surface-strong-muted": {
+        "canonical": "#b8c6d8",
+        "displayName": "surface strong muted",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #b8c6d8 0.15 c h)",
+          "oklch(from #b8c6d8 0.26 c h)",
+          "oklch(from #b8c6d8 0.37 c h)",
+          "oklch(from #b8c6d8 0.48 c h)",
+          "oklch(from #b8c6d8 0.59 c h)",
+          "oklch(from #b8c6d8 0.7 c h)",
+          "oklch(from #b8c6d8 0.82 c h)",
+          "oklch(from #b8c6d8 0.95 c h)"
+        ]
+      },
+      "canvas": {
+        "canonical": "hsl(220 25% 97%)",
+        "displayName": "canvas",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from hsl(220 25% 97%) 0.15 c h)",
+          "oklch(from hsl(220 25% 97%) 0.26 c h)",
+          "oklch(from hsl(220 25% 97%) 0.37 c h)",
+          "oklch(from hsl(220 25% 97%) 0.48 c h)",
+          "oklch(from hsl(220 25% 97%) 0.59 c h)",
+          "oklch(from hsl(220 25% 97%) 0.7 c h)",
+          "oklch(from hsl(220 25% 97%) 0.82 c h)",
+          "oklch(from hsl(220 25% 97%) 0.95 c h)"
+        ]
+      },
+      "card": {
+        "canonical": "#ffffff",
+        "displayName": "card",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #ffffff 0.15 c h)",
+          "oklch(from #ffffff 0.26 c h)",
+          "oklch(from #ffffff 0.37 c h)",
+          "oklch(from #ffffff 0.48 c h)",
+          "oklch(from #ffffff 0.59 c h)",
+          "oklch(from #ffffff 0.7 c h)",
+          "oklch(from #ffffff 0.82 c h)",
+          "oklch(from #ffffff 0.95 c h)"
+        ]
+      },
+      "foreground": {
+        "canonical": "hsl(216 34% 17%)",
+        "displayName": "foreground",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from hsl(216 34% 17%) 0.15 c h)",
+          "oklch(from hsl(216 34% 17%) 0.26 c h)",
+          "oklch(from hsl(216 34% 17%) 0.37 c h)",
+          "oklch(from hsl(216 34% 17%) 0.48 c h)",
+          "oklch(from hsl(216 34% 17%) 0.59 c h)",
+          "oklch(from hsl(216 34% 17%) 0.7 c h)",
+          "oklch(from hsl(216 34% 17%) 0.82 c h)",
+          "oklch(from hsl(216 34% 17%) 0.95 c h)"
+        ]
+      },
+      "muted-foreground": {
+        "canonical": "hsl(215 15% 40%)",
+        "displayName": "muted foreground",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from hsl(215 15% 40%) 0.15 c h)",
+          "oklch(from hsl(215 15% 40%) 0.26 c h)",
+          "oklch(from hsl(215 15% 40%) 0.37 c h)",
+          "oklch(from hsl(215 15% 40%) 0.48 c h)",
+          "oklch(from hsl(215 15% 40%) 0.59 c h)",
+          "oklch(from hsl(215 15% 40%) 0.7 c h)",
+          "oklch(from hsl(215 15% 40%) 0.82 c h)",
+          "oklch(from hsl(215 15% 40%) 0.95 c h)"
+        ]
+      },
+      "info-background": {
+        "canonical": "#edf4fe",
+        "displayName": "info background",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #edf4fe 0.15 c h)",
+          "oklch(from #edf4fe 0.26 c h)",
+          "oklch(from #edf4fe 0.37 c h)",
+          "oklch(from #edf4fe 0.48 c h)",
+          "oklch(from #edf4fe 0.59 c h)",
+          "oklch(from #edf4fe 0.7 c h)",
+          "oklch(from #edf4fe 0.82 c h)",
+          "oklch(from #edf4fe 0.95 c h)"
+        ]
+      },
+      "info-foreground": {
+        "canonical": "#20569e",
+        "displayName": "info foreground",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #20569e 0.15 c h)",
+          "oklch(from #20569e 0.26 c h)",
+          "oklch(from #20569e 0.37 c h)",
+          "oklch(from #20569e 0.48 c h)",
+          "oklch(from #20569e 0.59 c h)",
+          "oklch(from #20569e 0.7 c h)",
+          "oklch(from #20569e 0.82 c h)",
+          "oklch(from #20569e 0.95 c h)"
+        ]
+      },
+      "success-background": {
+        "canonical": "#eef6f1",
+        "displayName": "success background",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #eef6f1 0.15 c h)",
+          "oklch(from #eef6f1 0.26 c h)",
+          "oklch(from #eef6f1 0.37 c h)",
+          "oklch(from #eef6f1 0.48 c h)",
+          "oklch(from #eef6f1 0.59 c h)",
+          "oklch(from #eef6f1 0.7 c h)",
+          "oklch(from #eef6f1 0.82 c h)",
+          "oklch(from #eef6f1 0.95 c h)"
+        ]
+      },
+      "success-foreground": {
+        "canonical": "#24633d",
+        "displayName": "success foreground",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #24633d 0.15 c h)",
+          "oklch(from #24633d 0.26 c h)",
+          "oklch(from #24633d 0.37 c h)",
+          "oklch(from #24633d 0.48 c h)",
+          "oklch(from #24633d 0.59 c h)",
+          "oklch(from #24633d 0.7 c h)",
+          "oklch(from #24633d 0.82 c h)",
+          "oklch(from #24633d 0.95 c h)"
+        ]
+      },
+      "danger-background": {
+        "canonical": "#fbeeee",
+        "displayName": "danger background",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #fbeeee 0.15 c h)",
+          "oklch(from #fbeeee 0.26 c h)",
+          "oklch(from #fbeeee 0.37 c h)",
+          "oklch(from #fbeeee 0.48 c h)",
+          "oklch(from #fbeeee 0.59 c h)",
+          "oklch(from #fbeeee 0.7 c h)",
+          "oklch(from #fbeeee 0.82 c h)",
+          "oklch(from #fbeeee 0.95 c h)"
+        ]
+      },
+      "danger-foreground": {
+        "canonical": "#a32d2d",
+        "displayName": "danger foreground",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #a32d2d 0.15 c h)",
+          "oklch(from #a32d2d 0.26 c h)",
+          "oklch(from #a32d2d 0.37 c h)",
+          "oklch(from #a32d2d 0.48 c h)",
+          "oklch(from #a32d2d 0.59 c h)",
+          "oklch(from #a32d2d 0.7 c h)",
+          "oklch(from #a32d2d 0.82 c h)",
+          "oklch(from #a32d2d 0.95 c h)"
+        ]
+      },
+      "sidebar-foreground": {
+        "canonical": "#d7e0eb",
+        "displayName": "Sidebar foreground",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(from #d7e0eb 0.15 c h)",
+          "oklch(from #d7e0eb 0.26 c h)",
+          "oklch(from #d7e0eb 0.37 c h)",
+          "oklch(from #d7e0eb 0.48 c h)",
+          "oklch(from #d7e0eb 0.59 c h)",
+          "oklch(from #d7e0eb 0.7 c h)",
+          "oklch(from #d7e0eb 0.82 c h)",
+          "oklch(from #d7e0eb 0.95 c h)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Public product statement."
+      },
+      "headline": {
+        "displayName": "Workspace heading",
+        "purpose": "Page-level task context."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Working copy."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Secondary metadata and associated field labels."
+      },
+      "navigation": {
+        "displayName": "navigation",
+        "purpose": "Existing repeated navigation role."
+      },
+      "status": {
+        "displayName": "status",
+        "purpose": "Existing repeated status role."
+      },
+      "section-title": {
+        "displayName": "section-title",
+        "purpose": "Existing repeated section-title role."
+      },
+      "field-mobile": {
+        "displayName": "field-mobile",
+        "purpose": "Existing repeated field-mobile role."
+      },
+      "stat": {
+        "displayName": "stat",
+        "purpose": "Existing repeated stat role."
+      },
+      "metric": {
+        "displayName": "metric",
+        "purpose": "Existing repeated metric role."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel",
+        "value": "0 2px 3px -2px #18233214",
+        "purpose": "Quiet working-panel depth."
+      },
+      {
+        "name": "dialog",
+        "value": "0 24px 80px -20px #18233240",
+        "purpose": "Temporary dialog layer."
+      }
+    ],
+    "motion": [
+      {
+        "name": "press",
+        "value": "120ms",
+        "purpose": "Brief press feedback."
+      },
+      {
+        "name": "dialog",
+        "value": "180ms cubic-bezier(.23,1,.32,1)",
+        "purpose": "Occasional dialog entrance; search is instant."
+      },
+      {
+        "name": "content-mix-settle",
+        "value": "300ms cubic-bezier(.23,1,.32,1), 60ms stagger",
+        "purpose": "User-requested one-time viewport entrance; reduced motion is static."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Blue decisive action, with press and focus feedback.",
+      "html": "<button class=\"ds-primary\">Save changes</button>",
+      "css": ".ds-primary { background:hsl(var(--primary,213 86% 39%)); color:white; border:0; border-radius:6px; min-height:40px; padding:8px 16px; font:600 14px/1.4 \"Open Sans\",system-ui,sans-serif; transition:background-color 150ms,scale 120ms; } .ds-primary:hover { opacity:.9; } .ds-primary:active { scale:.98; } .ds-primary:focus-visible { outline:2px solid hsl(var(--ring,213 86% 39%)); outline-offset:3px; } .ds-primary:disabled { opacity:.5; } @media(prefers-reduced-motion:reduce) { .ds-primary { transition:none; } .ds-primary:active { scale:1; } }"
+    },
+    {
+      "name": "Outline button",
+      "kind": "button",
+      "description": "Secondary action on a working surface.",
+      "html": "<button class=\"ds-outline\">Cancel</button>",
+      "css": ".ds-outline { background:hsl(var(--background,220 25% 97%)); color:hsl(var(--foreground,216 34% 17%)); border:1px solid hsl(var(--input,216 20% 77%)); border-radius:6px; min-height:40px; padding:8px 16px; font:600 14px/1.4 \"Open Sans\",system-ui,sans-serif; } .ds-outline:hover { background:hsl(var(--accent,214 42% 94%)); } .ds-outline:focus-visible { outline:2px solid hsl(var(--ring,213 86% 39%)); outline-offset:3px; } .ds-outline:active { scale:.98; } @media(prefers-reduced-motion:reduce) { .ds-outline:active { scale:1; } }"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Visible label, white working surface and bounded focus.",
+      "html": "<label class=\"ds-field\">Review note<input placeholder=\"Context for the next reviewer\"></label>",
+      "css": ".ds-field { display:grid; gap:6px; font:500 12px/1.6 \"Open Sans\",system-ui,sans-serif; color:hsl(var(--foreground,216 34% 17%)); } .ds-field input { border:1px solid hsl(var(--input,216 20% 77%)); background:hsl(var(--card,0 0% 100%)); color:inherit; border-radius:6px; min-height:42px; padding:0 12px; font:400 14px/1.6 \"Open Sans\",system-ui,sans-serif; } .ds-field input:focus-visible { outline:2px solid hsl(var(--ring,213 86% 39%)); outline-offset:2px; }"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-selected",
+      "description": "Navy rail with a named selected destination.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Workspace\"><a href=\"/dashboard\" aria-current=\"page\">Command Centre</a><a href=\"/approvals\">Approvals</a></nav>",
+      "css": ".ds-nav { padding:12px; background:var(--surface-strong,#182332); display:grid; gap:4px; font:500 13px/1.6 \"Open Sans\",system-ui,sans-serif; } .ds-nav a { display:flex; align-items:center; min-height:40px; padding:0 12px; color:var(--sidebar-foreground,#d7e0eb); text-decoration:none; border-radius:6px; } .ds-nav a[aria-current] { background:var(--surface-strong-selected,#314766); color:white; } .ds-nav a:hover { background:var(--sidebar-accent,#2b3b50); } .ds-nav a:focus-visible { outline:2px solid var(--sidebar-ring,#a9cfff); outline-offset:2px; }"
+    },
+    {
+      "name": "Information status",
+      "kind": "chip",
+      "refersTo": "status-info",
+      "description": "A written state with supporting color.",
+      "html": "<span class=\"ds-status\">Pending review</span>",
+      "css": ".ds-status { display:inline-flex; border:1px solid var(--status-info-border,#d3e4fa); border-radius:5px; background:var(--status-info-background,#edf4fe); color:var(--status-info-foreground,#20569e); padding:4px 8px; font:600 11px/1.4 \"Open Sans\",system-ui,sans-serif; }"
+    },
+    {
+      "name": "Working panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Light ordinary border; no decorative top-edge accent.",
+      "html": "<section class=\"ds-panel\"><h2>Ready for your review</h2><p>Every item needs a human decision.</p></section>",
+      "css": ".ds-panel { background:hsl(var(--card,0 0% 100%)); color:hsl(var(--foreground,216 34% 17%)); border:1px solid hsl(var(--border,216 22% 88%)); border-radius:12px; padding:24px; box-shadow:0 2px 3px -2px #18233214; font:400 14px/1.6 \"Open Sans\",system-ui,sans-serif; } .ds-panel h2 { margin:0; font-size:15px; font-weight:650; } .ds-panel p { margin:4px 0 0; color:hsl(var(--muted-foreground,215 15% 40%)); font-size:12px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A composed marketing workspace",
+    "overview": "A composed marketing workspace for the RIL team: confident navy framing, white working surfaces, slate metadata, and blue reserved for the next action. Open Sans and the existing RIL logo preserve the user's established identity. Public pages, authentication, onboarding, campaign pages and all authenticated routes share these foundations.",
+    "keyCharacteristics": [
+      "Navy navigation separates wayfinding from editing.",
+      "White panels and structured rows keep decisions scannable.",
+      "Status words communicate meaning alongside color.",
+      "Routine page content and keyboard search appear without entrance animation."
+    ],
+    "rules": [
+      {
+        "name": "The Named State Rule",
+        "body": "Color supports a status word; it never replaces it.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do preserve the navy/blue palette, Open Sans and plain black/white RIL logo.",
+      "Do use semantic dark-surface and status tokens for repeated colors.",
+      "Do label editable fields and keep mobile targets at least 44px.",
+      "Do keep approval, consent, organization and publishing gates authoritative.",
+      "Do include text equivalents for charts and distinguish missing data from zero."
+    ],
+    "donts": [
+      "Don't reintroduce the thick dark top-edge accents the user removed.",
+      "Don't revive the discarded Open Lab or Flatplan visual direction.",
+      "Don't invent testimonials, customers, statistics or claims.",
+      "Don't add routine page entrances or delay keyboard search with animation."
+    ]
+  }
+}

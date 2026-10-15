@@ -30,7 +30,7 @@ export function NavUser({ email }: { email?: string }) {
 				<button
 					type="button"
 					aria-label="Open account menu"
-					className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+					className="flex size-11 items-center justify-center rounded-full border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 				>
 					<Avatar className="size-8">
 						<AvatarFallback>{user.email.charAt(0).toUpperCase() || "?"}</AvatarFallback>
@@ -38,7 +38,7 @@ export function NavUser({ email }: { email?: string }) {
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-60">
-				<DropdownMenuItem className="flex items-center justify-start gap-2">
+				<div className="flex items-center justify-start gap-2">
 					<DropdownMenuLabel className="flex items-center gap-3">
 						<Avatar className="size-10">
 							<AvatarFallback>{user.email.charAt(0).toUpperCase() || "?"}</AvatarFallback>
@@ -51,7 +51,7 @@ export function NavUser({ email }: { email?: string }) {
 							</div>
 						</div>
 					</DropdownMenuLabel>
-				</DropdownMenuItem>
+				</div>
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
 					<DropdownMenuItem asChild>

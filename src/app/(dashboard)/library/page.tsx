@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Plus, ArrowLeft, ArrowRight } from "lucide-react";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listAssets } from "@/lib/content/assets";
 import { ASSET_STATUSES } from "@/lib/content/transitions";
@@ -69,7 +70,7 @@ export default async function LibraryPage({
 
   return (
     <div className="workspace-page flex flex-col gap-4 md:gap-6">
-      <div>
+      <header className="flex flex-wrap items-end justify-between gap-4"><div>
         <p className="dateline">
           {todayDateline()} · {result.total} assets
         </p>
@@ -79,7 +80,7 @@ export default async function LibraryPage({
         <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
           Manage drafts, review content, and keep track of everything you publish.
         </p>
-      </div>
+      </div><Button asChild><Link href="/library/new"><Plus data-icon="inline-start" aria-hidden="true" />Add content</Link></Button></header>
 
       <form method="get" action="/library" className="slip grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
         {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
@@ -113,12 +114,14 @@ export default async function LibraryPage({
           }
         />
       ) : (
-        <ul className="ledger slip overflow-hidden">
+        <section className="slip overflow-hidden" aria-label="Content assets">
+        <div className="workspace-list-heading"><span>Content and channel</span><span>Last activity</span></div>
+        <ul className="ledger">
           {result.assets.map((a) => (
             <li key={a.id}>
               <Link
                 href={`/library/${a.id}`}
-                className="flex items-start justify-between gap-4 rounded-lg px-5 py-4 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
+                className="content-library-row flex items-start justify-between gap-4 px-5 py-4 outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
               >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -134,9 +137,9 @@ export default async function LibraryPage({
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1.5 truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
+                <h2 className="mt-2 text-sm font-semibold tracking-[-0.02em] text-foreground">
                   {a.title}
-                </p>
+                </h2>
                 <p className="mt-0.5 truncate text-[13px] leading-5 text-muted-foreground">
                   {[a.channel, a.platform, a.format].filter(Boolean).join(" · ") ||
                     "No channel set"}
@@ -150,14 +153,14 @@ export default async function LibraryPage({
               </Link>
             </li>
           ))}
-        </ul>
+        </ul></section>
       )}
 
       {totalPages > 1 ? (
         <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
           {page > 1 ? (
             <Link href={pageHref(page - 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              ← Previous
+              <ArrowLeft className="mr-2 size-4" aria-hidden="true" /> Previous
             </Link>
           ) : (
             <span />
@@ -167,7 +170,7 @@ export default async function LibraryPage({
           </span>
           {page < totalPages ? (
             <Link href={pageHref(page + 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              Next →
+              Next <ArrowRight className="ml-2 size-4" aria-hidden="true" />
             </Link>
           ) : (
             <span />

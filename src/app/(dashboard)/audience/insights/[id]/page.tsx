@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getInsight } from "@/lib/audience/insights";
@@ -46,7 +47,7 @@ export default async function InsightDetailPage({
 					href="/audience/insights"
 					className="group inline-flex min-h-9 items-center gap-1.5 rounded-md py-2 text-[13px] font-semibold text-primary outline-none transition-colors hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring"
 				>
-					<span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> Insights
+                    <ArrowLeft aria-hidden="true" className="size-4" /> Insights
 				</Link>
 				<div className="mt-1.5 flex flex-wrap items-center gap-3">
 					<span className="dateline">{humanize(insight.category)}</span>
@@ -57,7 +58,7 @@ export default async function InsightDetailPage({
 				</h1>
 			</header>
 
-			<div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<div className="flex flex-col gap-4 lg:col-span-2 lg:gap-6">
 					<section className="slip p-5 sm:p-6">
 						<p className="dateline">Recommendation</p>

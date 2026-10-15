@@ -25,7 +25,7 @@ export function ConnectorCard({
 }) {
   return (
     <section className="slip flex flex-col px-5 py-5 sm:px-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3.5">
           <span
             aria-hidden="true"
@@ -47,7 +47,7 @@ export function ConnectorCard({
           </div>
         </div>
         <StatusStamp variant={connected ? "approved" : "cold"}>
-          {connected ? "CONNECTED" : "NOT CONNECTED"}
+          {connected ? "Connected" : "Not connected"}
         </StatusStamp>
       </div>
       <div className="mt-4 border-t border-border/80 pt-4">{children}</div>

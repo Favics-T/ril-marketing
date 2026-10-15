@@ -12,7 +12,7 @@ export default async function AssistantPage() {
   const aiConnected = integration?.status === "connected" && integration.hasKey;
 
   return (
-    <div className="workspace-page mx-auto flex w-full max-w-4xl flex-col gap-5 md:gap-7">
+    <div className="workspace-page assistant-compose mx-auto w-full">
       <header>
         <p className="dateline">Audience intelligence · operations</p>
         <h1>Marketing Assistant</h1>

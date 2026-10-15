@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { analyzeSeoAsset, applySeoMetadata } from "@/actions/seo";
 import { Button } from "@/components/ui/button";
+import { Check, Circle } from "lucide-react";
 
 type SeoAudit = {
   searchIntent: "informational" | "commercial" | "transactional" | "navigational";
@@ -73,7 +74,7 @@ export function SeoAssetWorkflow({ asset }: {
           <p className="text-xs text-muted-foreground">Plan from {audit.model} · {new Date(audit.generatedAt).toLocaleDateString("en-GB")}. Suggestions need editorial fact-checking before publication.</p>
         </section>
         <section className="space-y-3">
-          <div><p className="dateline">On-page checks · {readinessState.score}%</p><ul className="mt-1 space-y-1.5 text-xs">{readinessState.checks.map((check) => <li key={check.label} className="flex items-start gap-2"><span aria-hidden="true" className="w-3 shrink-0">{check.complete ? "✓" : "·"}</span><span>{check.label}</span></li>)}</ul></div>
+          <div><p className="dateline">On-page checks · {readinessState.score}%</p><ul className="mt-1 space-y-1.5 text-xs">{readinessState.checks.map((check) => <li key={check.label} className="flex items-start gap-2">{check.complete ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <Circle aria-hidden="true" className="size-3.5 shrink-0" />}<span className="sr-only">{check.complete ? "Complete: " : "Incomplete: "}</span><span>{check.label}</span></li>)}</ul></div>
           <div><p className="dateline">Internal link opportunities</p>{audit.internalLinkSuggestions.length ? <ul className="mt-1 space-y-1 text-sm">{audit.internalLinkSuggestions.map((link) => <li key={link.path}><a href={link.path} className="underline underline-offset-2">{link.label}</a><span className="ml-2 text-xs text-muted-foreground">{link.path}</span></li>)}</ul> : <p className="mt-1 text-xs leading-5 text-muted-foreground">No published internal pages are available as verified link targets yet.</p>}</div>
           {audit.notes.length ? <ul className="list-inside list-disc space-y-1 text-xs leading-5 text-muted-foreground">{audit.notes.map((note, index) => <li key={index}>{note}</li>)}</ul> : null}
         </section>

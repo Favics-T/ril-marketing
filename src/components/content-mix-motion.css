@@ -1,0 +1,15 @@
+.content-mix-slice { transform-box: view-box; transform-origin: center; }
+.content-mix-motion[data-motion="waiting"] .content-mix-slice { opacity: .25; }
+.content-mix-motion[data-motion="playing"] .content-mix-slice { animation: content-mix-settle 300ms var(--ease-out) var(--slice-delay) both; }
+.content-mix-slice-body { transform-box: view-box; transform-origin: center; transition: transform 160ms var(--ease-out); }
+@keyframes content-mix-settle {
+  from { opacity: .25; transform: translate(var(--slice-x), var(--slice-y)) scale(.96); }
+  to { opacity: 1; transform: translate(0,0) scale(1); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .content-mix-slice:hover .content-mix-slice-body { transform: translate(var(--slice-x), var(--slice-y)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .content-mix-motion .content-mix-slice { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .content-mix-slice-body, .content-mix-slice:hover .content-mix-slice-body { transition: none; transform: none; }
+}

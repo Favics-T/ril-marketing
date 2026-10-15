@@ -25,7 +25,7 @@ export function CalendarGenerator() {
   return (
     <div className="flex flex-col items-start gap-2 sm:items-end">
       <Button type="button" variant="outline" onClick={generate} disabled={busy}>
-        {busy ? <LoaderCircle className="animate-spin" /> : <CalendarClock />}
+        {busy ? <LoaderCircle data-icon="inline-start" aria-hidden="true" className="animate-spin" /> : <CalendarClock data-icon="inline-start" aria-hidden="true" />}
         {busy ? "Building proposals…" : "Generate calendar proposals"}
       </Button>
       <p aria-live="polite" className="max-w-sm text-xs text-muted-foreground sm:text-right">

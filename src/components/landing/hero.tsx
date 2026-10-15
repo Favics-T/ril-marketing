@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 
 export function Hero() {
   return (
-    <section aria-labelledby="landing-title" className="overflow-hidden">
+    <section aria-labelledby="landing-title" className="landing-hero-motion overflow-hidden">
       <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-6 pb-14 pt-10 sm:px-8 sm:pb-20 sm:pt-14 lg:min-h-[620px] lg:grid-cols-[0.92fr_1.08fr] lg:gap-4 lg:py-16">
         <div className="relative z-10 py-5 lg:py-10">
           <h1

@@ -63,7 +63,7 @@ export default async function ActivityDetailPage({
 				</div>
 			</header>
 
-			<div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<section className="slip flex flex-col gap-0 lg:col-span-2">
 					<div className="ledger flex flex-col">
 						{facts.map((f) => (

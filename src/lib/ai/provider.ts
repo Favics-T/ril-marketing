@@ -18,6 +18,7 @@ import {
   type ProviderKey,
 } from "@/lib/ai/providers";
 import { decryptSecret } from "@/lib/crypto/secret-box";
+import { checkProviderModel } from "@/lib/ai/connection-check";
 
 export type { ProviderKey };
 
@@ -308,7 +309,7 @@ export async function getAiIntegration(organizationId: string): Promise<{
   return {
     status: data?.status ?? "not_connected",
     provider: provider.key,
-    hasKey: storedKey.length > 0,
+    hasKey: data?.status === "connected" && storedKey.length > 0,
     last4: storedKey.length >= 4 ? storedKey.slice(-4) : null,
     updatedAt: data?.updated_at ?? null,
     model: isSupportedModel(provider.key, data?.config?.model ?? "")
@@ -328,6 +329,7 @@ export async function testAiConnection(input: {
   model?: string;
 }): Promise<{ ok: boolean; models?: number; error?: string }> {
   const organizationId = await requireOrganizationId().catch(() => null);
+  if (!organizationId) return { ok: false, error: "Sign in to test your workspace connection." };
   const provider = getProvider(input.provider);
   let apiKey = input.apiKey?.trim() || "";
   if (!apiKey && organizationId) {
@@ -347,6 +349,7 @@ export async function testAiConnection(input: {
     apiKey = process.env.AI_API_KEY ?? "";
   }
   if (!apiKey) return { ok: false, error: "No API key to test — enter one first." };
+  if (input.model) return checkProviderModel(provider.key, input.model, apiKey);
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20_000);

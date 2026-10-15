@@ -42,7 +42,7 @@ export default async function SegmentsPage() {
           action={{ label: "Create segment", href: "/audience/segments/new" }}
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="segment-directory grid gap-5 lg:grid-cols-2">
           {segments.map((s) => (
             <Link
               key={s.id}
@@ -70,7 +70,7 @@ export default async function SegmentsPage() {
                   {s.needs_motivations.slice(0, 4).map((n) => (
                     <li
                       key={n}
-                      className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-secondary-foreground"
+                      className="rounded-md border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground"
                     >
                       {n}
                     </li>

@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/lead-nurture",
       "schedule": "17 * * * *"
+    },
+    {
+      "path": "/api/cron/content-publishing",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

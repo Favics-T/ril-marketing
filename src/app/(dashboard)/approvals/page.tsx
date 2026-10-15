@@ -20,7 +20,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     client.from("content_assets").select("id,title,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
     client.from("audience_insights").select("id,summary,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","PENDING_REVIEW").order("created_at").limit(100),
     client.from("email_campaigns").select("id,name,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
-    client.from("landing_pages").select("id,name,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
+    client.from("landing_pages").select("id,title,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
   ]);
   const names=["content","insights","email","pages"];
   const failures=results.flatMap((r,i)=>r.error?[names[i]]:[]);
@@ -28,14 +28,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     ...(results[0].data??[]).map(r=>({...r,category:"content",href:`/library/${r.id}`})),
     ...(results[1].data??[]).map(r=>({...r,title:r.summary,category:"insights",href:`/audience/insights/${r.id}`})),
     ...(results[2].data??[]).map(r=>({...r,title:r.name,category:"email",href:"/email"})),
-    ...(results[3].data??[]).map(r=>({...r,title:r.name,category:"pages",href:`/audience/landing-pages/${r.id}`})),
+    ...(results[3].data??[]).map(r=>({...r,category:"pages",href:`/audience/landing-pages/${r.id}`})),
   ];
   const visible=items.filter(item=>filter==="all"||item.category===filter).sort((a,b)=>a.created_at.localeCompare(b.created_at));
   const counts=Object.fromEntries(names.map((name,i)=>[name,results[i].count??0]));
   const total=Object.values(counts).reduce((a,b)=>a+b,0);
-  return <div className="workspace-page">
+  return <div className="workspace-page approval-workspace">
     <header><p className="dateline">Review & release</p><h1>Approval inbox</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Review the oldest requests first. Open an item to check its sources, edit the copy, and record your decision.</p></header>
-    <div className="flex items-start gap-3 rounded-lg border bg-secondary/50 p-4"><ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary"/><p className="text-xs leading-6 text-muted-foreground">AI drafts stay here until a person approves them. Sensitive content and important email campaigns require a separate named reviewer. Approval does not automatically publish or send.</p></div>
+    <div className="workspace-inline-note"><ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary"/><p>AI drafts stay here until a person approves them. Sensitive content and important email campaigns require a separate named reviewer. Approval does not automatically publish or send.</p></div>
     {failures.length>0&&<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">Could not load {failures.join(", ")}. Refresh to retry; the counts below may be incomplete.</p>}
     <nav aria-label="Filter by approval type">{categories.map(category=><Link key={category} href={category==="all"?"/approvals":`/approvals?type=${category}`} aria-current={filter===category?"page":undefined}>{category==="pages"?"Landing pages":category} <span className="ml-1 tabular-nums text-muted-foreground">{category==="all"?total:counts[category]}</span></Link>)}</nav>
     <section className="workspace-panel overflow-hidden" aria-label="Items awaiting approval"><div className="workspace-panel-heading"><div><h2>{visible.length?"Awaiting a decision":"Review queue"}</h2><p>{visible.length} items shown · up to 100 per type</p></div></div>

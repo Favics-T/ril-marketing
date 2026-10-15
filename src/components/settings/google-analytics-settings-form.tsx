@@ -8,6 +8,7 @@ import {
 } from "@/actions/google-analytics";
 import { ConnectorCard } from "@/components/settings/connector-card";
 import { Button } from "@/components/ui/button";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 import { Input } from "@/components/ui/input";
 
 type State = { ok: boolean; message?: string; error?: string };
@@ -40,9 +41,11 @@ export function GoogleAnalyticsSettingsForm({
     : save?.ok
       ? true
       : initial.connected;
-  const [open, setOpen] = useState(!initial.connected);
+  const [open, setOpen] = useState(false);
+  const [credentials, setCredentials] = useState("");
+  const [fileError, setFileError] = useState("");
   useEffect(() => {
-    if (save?.ok) setOpen(false);
+    if (save?.ok) { setOpen(false); setCredentials(""); setFileError(""); }
   }, [save?.ok]);
 
   return (
@@ -89,11 +92,11 @@ export function GoogleAnalyticsSettingsForm({
           </div>
 
           <details open={!connected} className="rounded-lg border border-border">
-            <summary className="cursor-pointer rounded-lg px-3 py-2.5 text-sm font-semibold tracking-[-0.01em] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+            <DisclosureSummary className="cursor-pointer rounded-lg px-3 py-2.5 text-sm font-semibold tracking-[-0.01em] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
               {connected
-                ? "Advanced: replace the Google key (optional)"
-                : "Advanced: add your Google key"}
-            </summary>
+                ? "Replace your Google access key (optional)"
+                : "Set up Google access"}
+            </DisclosureSummary>
             <div className="border-t border-border/80 px-3 py-3">
               <ol className="list-decimal space-y-1 pl-4 text-[13px] leading-5 text-muted-foreground">
                 <li>
@@ -108,12 +111,33 @@ export function GoogleAnalyticsSettingsForm({
                   Give the service account&apos;s email address Viewer access to
                   your GA4 property, and add it as a user in Search Console.
                 </li>
-                <li>Paste the JSON key file below.</li>
+                <li>Upload the downloaded key file below.</li>
               </ol>
-              <label className="mt-3 flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
-                Service-account JSON key
+              <label className="mt-3 flex flex-col gap-1.5 text-sm font-semibold">
+                Upload the Google key file
+                <Input type="file" accept=".json,application/json" disabled={saving || disconnecting} onChange={async event => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  setFileError(""); setCredentials("");
+                  if (file.size > 12000) { setFileError("Choose the Google JSON key file, up to 12 KB."); return; }
+                  try {
+                    const text = await file.text();
+                    const parsed = JSON.parse(text);
+                    if (parsed.type !== "service_account" || !parsed.client_email || !parsed.private_key) throw new Error();
+                    setCredentials(text);
+                  } catch { setFileError("This does not look like a Google service-account key. Download its JSON key file and try again."); }
+                }} />
+              </label>
+              {fileError ? <p role="alert" className="mt-2 text-sm text-destructive">{fileError}</p> : null}
+              {credentials ? <p role="status" className="mt-2 text-sm text-emerald-700">Key added. Connect below to check access and save it.</p> : null}
+              <details className="mt-3">
+              <DisclosureSummary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">Paste the key manually instead</DisclosureSummary>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
+                Key file contents
                 <textarea
                   name="credentialsJson"
+                  value={credentials}
+                  onChange={event => { setCredentials(event.target.value); setFileError(""); }}
                   autoComplete="off"
                   spellCheck={false}
                   rows={5}
@@ -126,11 +150,11 @@ export function GoogleAnalyticsSettingsForm({
                   className="w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </label>
+              </details>
               <p className="mt-2 text-[13px] leading-5 text-muted-foreground">
                 The key is encrypted before storage. It is never included in
                 reports and never sent to your AI provider. Use a dedicated,
-                least-privilege account and revoke the key if it is ever
-                exposed.
+                read-only account.
               </p>
             </div>
           </details>
@@ -143,18 +167,16 @@ export function GoogleAnalyticsSettingsForm({
                   ? "Save changes"
                   : "Connect Google Analytics"}
             </Button>
-            {connected ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className="text-muted-foreground"
-                onClick={() => setOpen(false)}
+                onClick={() => { setOpen(false); setCredentials(""); setFileError(""); }}
                 disabled={saving}
               >
                 Cancel
               </Button>
-            ) : null}
           </div>
         </form>
       ) : (

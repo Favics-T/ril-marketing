@@ -3,118 +3,111 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationId } from "@/lib/supabase/organization";
-import {
-  disconnectBuffer,
-  getBufferChannels,
-  publishToBuffer,
-  type BufferChannel,
-} from "@/lib/integrations/buffer";
+import { getUserRole, requireReviewer } from "@/lib/audience/access";
+import { connectBufferApiKey, disconnectBuffer, getBufferChannels, publishToBuffer, type BufferChannel } from "@/lib/integrations/buffer";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
+import { claimPublication, noteUncertainDelivery, saveDelivery, syncPublication, recoverPublicationReceipt } from "@/lib/content/publishing";
+import { futureSchedule } from "@/lib/content/scheduling";
+import { isSocialAsset } from "@/lib/content/manual-posting";
 
 export type { BufferChannel };
+export interface IntegrationResult { ok: boolean; error?: string; message?: string; channels?: BufferChannel[]; publicationId?: string }
 
-export interface IntegrationResult {
-  ok: boolean;
-  error?: string;
-  channels?: BufferChannel[];
-  publicationId?: string;
+function refreshAsset(id: string) {
+  for (const path of ["/library", `/library/${id}`, "/calendar", "/dashboard", "/approvals"]) revalidatePath(path);
+}
+
+async function requireIntegrationManager(org: string) {
+  const role = await getUserRole(org);
+  if (!role || !["owner", "admin", "marketing_manager"].includes(role)) throw new Error("Connection settings require an owner, admin or marketing manager.");
 }
 
 export async function refreshBufferChannels(): Promise<IntegrationResult> {
   try {
-    const organizationId = await requireOrganizationId();
-    const channels = await getBufferChannels(organizationId);
+    const org = await requireOrganizationId();
+    await requireReviewer(org);
+    const channels = await getBufferChannels(org);
     revalidatePath("/settings/ai");
     return { ok: true, channels };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
-  }
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not load channels." }; }
 }
 
 export async function disconnectBufferAction(): Promise<IntegrationResult> {
   try {
-    const organizationId = await requireOrganizationId();
-    await disconnectBuffer(organizationId);
+    const org = await requireOrganizationId();
+    await requireIntegrationManager(org);
+    await disconnectBuffer(org);
     revalidatePath("/settings/ai");
     return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not disconnect Buffer." }; }
+}
+
+export async function saveBufferApiKey(formData: FormData): Promise<IntegrationResult> {
+  try {
+    const org = await requireOrganizationId();
+    await requireIntegrationManager(org);
+    const key = String(formData.get("api_key") ?? "").trim();
+    if (key.length < 8 || key.length > 2000) return { ok: false, error: "Enter a valid Buffer API key." };
+    const channels = await connectBufferApiKey(org, key);
+    revalidatePath("/settings/ai");
+    return { ok: true, channels, message: "Buffer connection verified and saved." };
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not connect Buffer." }; }
+}
+
+export async function publishAssetViaBuffer(assetId: string, channelId: string, scheduledFor?: string): Promise<IntegrationResult> {
+  let org = "", requestId = "";
+  try {
+    org = await requireOrganizationId();
+    await requireReviewer(org);
+    const date = scheduledFor ? futureSchedule(scheduledFor) : undefined;
+    const client = await createClient();
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in before publishing." };
+    const { data: asset, error } = await client.from("content_assets").select("id,title,body,status,channel,platform,format,metadata,updated_at").eq("organization_id", org).eq("id", assetId).maybeSingle();
+    if (error || !asset) return { ok: false, error: "Content not found in this workspace." };
+    if (asset.status !== "approved") return { ok: false, error: "Approve this content before sending it to Buffer." };
+    if (!isSocialAsset(asset.channel, asset.platform) || asset.format === "short-form video") return { ok: false, error: "Buffer text publishing is for social copy. Upload and publish video files directly in your social tool." };
+    if (!asset.body?.trim()) return { ok: false, error: "Add and approve the post copy first." };
+    const channels = await getBufferChannels(org);
+    const channel = channels.find(c => c.id === channelId);
+    if (!channel || channel.isDisconnected || channel.isLocked || channel.isQueuePaused) return { ok: false, error: "Choose an available channel from this workspace's Buffer connection." };
+    const service = channel.service.toLowerCase().replace("twitter", "x");
+    const platform = (asset.platform || asset.channel || "").toLowerCase().replace("twitter", "x");
+    if (!["linkedin", "x", "facebook", "threads", "bluesky", "mastodon"].includes(service)) return { ok: false, error: "This channel requires media. Use the manual posting workflow instead." };
+    if (platform !== "social" && platform !== service) return { ok: false, error: "Choose a Buffer channel matching this asset's platform." };
+    requestId = await claimPublication(org, asset, "buffer", user.id, date);
+    const post = await publishToBuffer(org, channel.id, asset.body.trim(), date);
+    await saveDelivery(org, requestId, assetId, post);
+    refreshAsset(assetId);
+    return { ok: post.status !== "failed", publicationId: requestId, error: post.error, message: post.status === "published" ? "Buffer confirmed publication." : "Accepted by Buffer. This asset stays scheduled until delivery is confirmed." };
+  } catch (error) {
+    if (requestId) {
+      try {
+        if (error instanceof DeliveryRejected) await saveDelivery(org, requestId, assetId, { id: "", status: "failed", error: error.message });
+        else await noteUncertainDelivery(org, requestId, error instanceof Error ? error.message : "Request failed.");
+      } catch { /* Keep the reservation when the database cannot confirm the provider result. */ }
+      refreshAsset(assetId);
+    }
+    return { ok: false, error: error instanceof Error ? error.message : "Could not submit the post." };
   }
 }
 
-/**
- * Publish an Approved asset to one Buffer channel (§6.9). Records a
- * Publication row either way: `published` with Buffer's id, or `failed`
- * with the error — the asset itself stays Approved on failure (§13).
- */
-export async function publishAssetViaBuffer(
-  assetId: string,
-  channelId: string
-): Promise<IntegrationResult> {
+export async function refreshPublicationStatus(assetId: string): Promise<IntegrationResult> {
   try {
-    const organizationId = await requireOrganizationId();
-    const supabase = await createClient();
+    const org = await requireOrganizationId();
+    await requireReviewer(org);
+    const message = await syncPublication(org, assetId);
+    refreshAsset(assetId);
+    return { ok: true, message };
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not check delivery." }; }
+}
 
-    const { data: asset, error: assetError } = await supabase
-      .from("content_assets")
-      .select("id, title, body, status")
-      .eq("id", assetId)
-      .eq("organization_id", organizationId)
-      .maybeSingle<{ id: string; title: string; body: string | null; status: string }>();
-    if (assetError || !asset) return { ok: false, error: "Asset not found." };
-    // Publishing executes the scheduled→published step on the asset's behalf;
-    // the manual stepper still enforces §11 order everywhere else.
-    if (asset.status !== "approved" && asset.status !== "scheduled") {
-      return { ok: false, error: "Only approved or scheduled assets can be published." };
-    }
-    const text = asset.body?.trim() || asset.title;
-    if (!text) return { ok: false, error: "Asset has no text to publish." };
-
-    try {
-      const externalId = await publishToBuffer(organizationId, channelId, text);
-      const { data: pub } = await supabase
-        .from("publications")
-        .insert({
-          organization_id: organizationId,
-          content_asset_id: assetId,
-          channel: "buffer",
-          external_id: externalId,
-          status: "published",
-          published_at: new Date().toISOString(),
-        })
-        .select("id")
-        .single<{ id: string }>();
-      await supabase
-        .from("content_assets")
-        .update({ status: "published", published_at: new Date().toISOString() })
-        .eq("id", assetId)
-        .eq("organization_id", organizationId);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      await supabase.from("asset_approvals").insert({
-        organization_id: organizationId,
-        content_asset_id: assetId,
-        actor_id: user?.id ?? null,
-        from_status: asset.status,
-        to_status: "published",
-        note: "Published via Buffer.",
-      });
-      revalidatePath(`/library/${assetId}`);
-      revalidatePath("/calendar");
-      return { ok: true, publicationId: pub?.id };
-    } catch (publishError) {
-      const message =
-        publishError instanceof Error ? publishError.message : "Publish failed.";
-      await supabase.from("publications").insert({
-        organization_id: organizationId,
-        content_asset_id: assetId,
-        channel: "buffer",
-        status: "failed",
-        error: message.slice(0, 1000),
-      });
-      return { ok: false, error: message };
-    }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
-  }
+export async function recoverPublishingRequest(assetId: string, formData: FormData): Promise<IntegrationResult> {
+  try {
+    const org = await requireOrganizationId();
+    await requireReviewer(org);
+    const message = await recoverPublicationReceipt(org, assetId, String(formData.get("external_id") ?? ""));
+    refreshAsset(assetId);
+    return { ok: true, message };
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not recover delivery." }; }
 }

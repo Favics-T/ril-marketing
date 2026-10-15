@@ -17,7 +17,7 @@ export default async function LandingPagesPage({ searchParams }: { searchParams:
   const organizationId = await getCallerOrganizationId();
   const pages = organizationId ? await listLandingPages(organizationId, campaignId) : [];
   return (
-    <div className="workspace-page flex flex-col gap-4 md:gap-6">
+    <div className="workspace-page landing-directory">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div><p className="dateline">{todayDateline()} · {pages.length} pages</p><h1>Landing Pages</h1><p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">Create campaign pages, review them with a second approver, then capture attributable leads.{campaignId ? " Showing this campaign’s pages." : ""}</p></div>
         <Button asChild className="min-h-10 rounded-lg px-4 text-[13px] font-semibold"><Link href="/audience/landing-pages/new">Create landing page</Link></Button>

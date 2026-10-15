@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ExternalLink } from "lucide-react";
 
 export function LeadCaptureForm({ page, pageKey }: {
   page: { cta_label: string; registration_url: string | null };
@@ -55,7 +56,7 @@ export function LeadCaptureForm({ page, pageKey }: {
       <label className="flex items-start gap-2 text-xs leading-5 text-muted-foreground"><input name="marketing_consent" type="checkbox" className="mt-1" /><span>Send me occasional updates about RIL programmes and events. This is optional and separate from this enquiry.</span></label>
       <p className="text-xs leading-5 text-muted-foreground">RIL will use your details to respond to this enquiry. Contact details are not sent to the AI content assistant.</p>
       {message ? <p role={error ? "alert" : "status"} className={error ? "text-sm text-destructive" : "text-sm text-emerald-700 dark:text-emerald-400"}>{message}</p> : null}
-      {success && page.registration_url ? <a href={page.registration_url} target="_blank" rel="noreferrer" className="text-sm font-medium text-primary underline">Continue to registration ↗</a> : null}
+      {success && page.registration_url ? <a href={page.registration_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-medium text-primary underline">Continue to registration<ExternalLink className="size-4" aria-hidden="true" /></a> : null}
       <Button type="submit" disabled={busy}>{busy ? "Sending…" : page.cta_label}</Button>
     </form>
   );

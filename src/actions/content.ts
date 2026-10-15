@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isSocialAsset } from "@/lib/content/manual-posting";
+import { futureSchedule } from "@/lib/content/scheduling";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,7 +18,7 @@ import {
 } from "@/lib/content/transitions";
 import { REPURPOSE_KINDS, type RepurposeKind } from "@/lib/ai/types";
 import { testAiConnection } from "@/lib/ai/provider";
-import { encryptSecret } from "@/lib/crypto/secret-box";
+import { decryptSecret, encryptSecret } from "@/lib/crypto/secret-box";
 import { syncIndustryTrends } from "@/jobs/trend-monitoring";
 import {
   defaultModel,
@@ -589,10 +591,10 @@ export async function updateContentDraft(
     const { data: { user } } = await supabase.auth.getUser();
     const { data: asset } = await supabase
       .from("content_assets")
-      .select("status,metadata")
+      .select("status,metadata,updated_at")
       .eq("organization_id", organizationId)
       .eq("id", assetId)
-      .maybeSingle<{ status: string; metadata: Record<string, unknown> | null }>();
+      .maybeSingle<{ status: string; metadata: Record<string, unknown> | null; updated_at: string }>();
     if (!asset) return { ok: false, error: "Content draft not found." };
     if (!["idea", "ai_generated", "editing"].includes(asset.status)) {
       return { ok: false, error: "Move this asset back to Editing before changing its copy." };
@@ -610,7 +612,7 @@ export async function updateContentDraft(
         appliedAt: null,
       },
     };
-    const { error } = await supabase
+    const { data: saved, error } = await supabase
       .from("content_assets")
       .update({
         title: parsed.data.title,
@@ -623,8 +625,9 @@ export async function updateContentDraft(
         status: nextStatus,
       })
       .eq("organization_id", organizationId)
-      .eq("id", assetId);
+      .eq("id", assetId).eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
     if (error) return { ok: false, error: error.message };
+    if (!saved) return { ok: false, error: "This draft changed. Refresh before saving." };
     if (nextStatus !== asset.status) {
       await supabase.from("asset_approvals").insert({
         organization_id: organizationId,
@@ -677,11 +680,13 @@ export async function transitionAsset(
 
     const { data: asset, error: assetError } = await supabase
       .from("content_assets")
-      .select("id, status, sensitivity")
+      .select("id, status, sensitivity, channel, platform, metadata, updated_at")
       .eq("id", assetId)
       .eq("organization_id", organizationId)
-      .maybeSingle<{ id: string; status: string; sensitivity: string }>();
+      .maybeSingle<{ id: string; status: string; sensitivity: string; channel: string | null; platform: string | null; metadata: Record<string, unknown> | null; updated_at: string }>();
     if (assetError || !asset) return { ok: false, error: "Asset not found." };
+    if (!user) return { ok: false, error: "Sign in before changing content status." };
+    if (asset.metadata?.publishing && (asset.metadata.publishing as { state?: string }).state !== "failed" && asset.status === "scheduled") return { ok: false, error: "The provider is handling delivery. Check its publishing status before changing this asset." };
     if (!canTransitionAsset(asset.status, to)) {
       return { ok: false, error: `Cannot move from ${asset.status} to ${to}.` };
     }
@@ -706,20 +711,27 @@ export async function transitionAsset(
     }
 
     const patch: Record<string, unknown> = { status: to };
+    if (["scheduled", "published"].includes(to) && !isReviewerRole(role)) return { ok: false, error: "Scheduling and publishing require a reviewer role." };
+    if (to === "published" && isSocialAsset(asset.channel, asset.platform)) {
+      return { ok: false, error: "Use Post manually and save the live post link to mark social content as posted." };
+    }
     if (to === "scheduled") {
       if (!parsed.data.scheduled_for) {
         return { ok: false, error: "Scheduling needs a date and time." };
       }
-      patch.scheduled_for = new Date(parsed.data.scheduled_for).toISOString();
+      patch.scheduled_for = futureSchedule(parsed.data.scheduled_for);
     }
+    if (asset.status === "scheduled" && to === "approved") patch.scheduled_for = null;
     if (to === "published") patch.published_at = new Date().toISOString();
 
-    const { error } = await supabase
+    const { data: saved, error } = await supabase
       .from("content_assets")
       .update(patch)
       .eq("id", assetId)
-      .eq("organization_id", organizationId);
+      .eq("organization_id", organizationId)
+      .eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
     if (error) return { ok: false, error: error.message };
+    if (!saved) return { ok: false, error: "This content changed. Refresh before updating its status." };
 
     await supabase.from("asset_approvals").insert({
       organization_id: organizationId,
@@ -940,61 +952,13 @@ const aiSettingsSchema = z.object({
 });
 
 /** AI provider settings — provider + key + curated model. Key blank keeps stored. */
-export async function saveAiSettings(formData: FormData): Promise<ActionResult> {  try {
-    const organizationId = await requireOrganizationId();
-    const parsed = aiSettingsSchema.safeParse({
-      provider: formData.get("provider") ?? "",
-      apiKey: formData.get("apiKey") ?? "",
-      model: formData.get("model") ?? "",
-      disconnect: formData.get("disconnect") ?? undefined,
-    });
-    if (!parsed.success) return { ok: false, error: "Invalid settings." };
-    if (!isProviderKey(parsed.data.provider)) {
-      return { ok: false, error: "Pick OpenAI, Claude or Gemini." };
-    }
-    const provider = parsed.data.provider;
-    const model = parsed.data.model || defaultModel(provider);
-    if (!isSupportedModel(provider, model)) {
-      return { ok: false, error: "That model isn't offered for the chosen provider." };
-    }
-    const supabase = await createClient();
-    if (parsed.data.disconnect) {
-      await supabase
-        .from("integrations")
-        .update({ status: "not_connected", config: { provider } })
-        .eq("organization_id", organizationId)
-        .eq("key", "ai");
-    } else {
-      // Preserve the stored key when the field is left blank.
-      let apiKey = parsed.data.apiKey;
-      if (!apiKey) {
-        const { data: existing } = await supabase
-          .from("integrations")
-          .select("config")
-          .eq("organization_id", organizationId)
-          .eq("key", "ai")
-          .maybeSingle<{ config: Record<string, string> }>();
-        apiKey = existing?.config?.apiKey ?? "";
-      }
-      if (!apiKey) {
-        return { ok: false, error: "Enter an API key first — or test, then save." };
-      }
-      await supabase.from("integrations").upsert(
-        {
-          organization_id: organizationId,
-          key: "ai",
-          display_name: `${getProvider(provider).label} (${model})`,
-          status: "connected",
-          config: { provider, apiKey: encryptSecret(apiKey), model },
-        },
-        { onConflict: "organization_id,key" }
-      );
-    }
-    revalidatePath("/settings/ai");
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
-  }
+export async function saveAiSettings(formData: FormData): Promise<ActionResult> {
+  return formData.get("disconnect") ? disconnectAiProvider() : connectAiProvider(formData);
+}
+
+async function requireAiManager(organizationId: string) {
+  const role = await getUserRole(organizationId);
+  if (!role || !["owner", "admin", "marketing_manager"].includes(role)) throw new Error("An owner, admin or marketing manager must manage AI connections.");
 }
 
 export interface TestResult {
@@ -1006,13 +970,17 @@ export interface TestResult {
 /** Free connectivity check — never spends a generation call. */
 export async function testAiSettings(formData: FormData): Promise<TestResult> {
   try {
-    await requireOrganizationId();
+    const organizationId = await requireOrganizationId();
+    await requireAiManager(organizationId);
     const asText = (v: FormDataEntryValue | null): string =>
       typeof v === "string" ? v : "";
+    const provider = asText(formData.get("provider"));
+    const model = asText(formData.get("model"));
+    if (!isProviderKey(provider) || !isSupportedModel(provider, model)) return { ok: false, error: "Choose a supported provider and model." };
     return await testAiConnection({
-      provider: asText(formData.get("provider")),
+      provider,
       apiKey: asText(formData.get("apiKey")),
-      model: asText(formData.get("model")),
+      model,
     });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
@@ -1023,6 +991,7 @@ export interface ConnectAiResult {
   ok: boolean;
   error?: string;
   providerLabel?: string;
+  provider?: string;
   /** Friendly model name, e.g. "GPT-4o mini" — safe to render. */
   modelLabel?: string;
   model?: string;
@@ -1041,6 +1010,8 @@ export async function connectAiProvider(
 ): Promise<ConnectAiResult> {
   try {
     const organizationId = await requireOrganizationId();
+    await requireAiManager(organizationId);
+    if (process.env.AI_API_KEY) return { ok: false, error: "AI is managed by the server configuration. Ask your administrator to change it." };
     const parsed = aiSettingsSchema.safeParse({
       provider: formData.get("provider") ?? "",
       apiKey: formData.get("apiKey") ?? "",
@@ -1061,12 +1032,13 @@ export async function connectAiProvider(
     const def = getProvider(provider);
     const supabase = await createClient();
     const typed = parsed.data.apiKey;
-    const { data: existing } = await supabase
+    const { data: existing, error: readError } = await supabase
       .from("integrations")
       .select("config")
       .eq("organization_id", organizationId)
       .eq("key", "ai")
       .maybeSingle<{ config: Record<string, string> }>();
+    if (readError) return { ok: false, error: "Could not read the saved connection. Try again." };
     let apiKey = typed;
     if (!apiKey) {
       // Changing the model within one provider keeps the verified stored key.
@@ -1077,19 +1049,14 @@ export async function connectAiProvider(
           error: `Paste your ${def.label} API key to switch provider.`,
         };
       }
-      apiKey = existing?.config?.apiKey ?? "";
+      apiKey = decryptSecret(existing?.config?.apiKey ?? "");
     }
     if (!apiKey) {
       return { ok: false, error: `Paste your ${def.label} API key to connect.` };
     }
 
-    // Only verify a freshly pasted key — a stored one was verified when saved.
-    if (typed) {
-      const check = await testAiConnection({ provider, apiKey: typed, model });
-      if (!check.ok) {
-        return { ok: false, error: check.error ?? `Could not verify that ${def.label} key.` };
-      }
-    }
+    const check = await testAiConnection({ provider, apiKey, model });
+    if (!check.ok) return { ok: false, error: check.error ?? `Could not verify that ${def.label} key.` };
 
     const { error } = await supabase.from("integrations").upsert(
       {
@@ -1106,6 +1073,7 @@ export async function connectAiProvider(
     revalidatePath("/settings/ai");
     return {
       ok: true,
+      provider,
       providerLabel: def.label,
       model,
       modelLabel: getModel(provider, model).label,
@@ -1123,6 +1091,8 @@ export async function connectAiProvider(
 export async function disconnectAiProvider(): Promise<ConnectAiResult> {
   try {
     const organizationId = await requireOrganizationId();
+    await requireAiManager(organizationId);
+    if (process.env.AI_API_KEY) return { ok: false, error: "AI is managed by the server configuration. Ask your administrator to disconnect it." };
     const supabase = await createClient();
     const { data } = await supabase
       .from("integrations")
