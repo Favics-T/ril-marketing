@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { PublicationRow } from "@/lib/content/publications";
+import { CALENDAR_STATUSES, calendarAt } from "@/lib/content/calendar";
 import { reminderState, type ReminderState } from "@/lib/content/reminders";
 
 export interface ContentAssetRow {
@@ -125,6 +126,10 @@ export async function listAssetPublications(
   return (data ?? []) as PublicationRow[];
 }
 
+/**
+ * Calendar assets between two ISO instants, earliest first. An asset sits at
+ * calendarAt: its scheduled_for, or its published_at when it has no date.
+ */
 export async function listScheduled(
   organizationId: string,
   from: string,
@@ -135,13 +140,16 @@ export async function listScheduled(
     .from("content_assets")
     .select("*")
     .eq("organization_id", organizationId)
-    .in("status", ["scheduled", "published"])
-    .gte("scheduled_for", from)
-    .lte("scheduled_for", to)
-    .order("scheduled_for")
+    .in("status", [...CALENDAR_STATUSES])
+    // from/to are ISO instants from our own range helpers: no commas or parentheses to escape.
+    .or(
+      `and(scheduled_for.gte.${from},scheduled_for.lte.${to}),` +
+        `and(scheduled_for.is.null,published_at.gte.${from},published_at.lte.${to})`
+    )
     .limit(500);
   if (error) throw new Error(`Failed to load calendar: ${error.message}`);
-  return (data ?? []) as ContentAssetRow[];
+  // PostgREST can't order by a coalesce, so sort here.
+  return ((data ?? []) as ContentAssetRow[]).sort((a, b) => (calendarAt(a) ?? "").localeCompare(calendarAt(b) ?? ""));
 }
 
 export interface SocialReminder {
