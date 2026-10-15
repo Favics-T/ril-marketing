@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getPublishedLandingPage } from "@/lib/landing-pages";
-import { publicLandingPagePath } from "@/lib/landing-page-url";
+import { leadFormPage, publicLandingPagePath } from "@/lib/landing-page-url";
 import { LeadCaptureForm } from "@/components/landing-pages/lead-capture-form";
 import { PageCopy } from "@/components/landing-pages/page-copy";
 
@@ -42,7 +42,7 @@ export default async function PublicLandingPage({ params }: { params: Promise<{ 
           <p className="dateline">Get in touch</p>
           <h2 className="mt-1 text-balance text-xl font-bold tracking-tight">{page.cta_label}</h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">Share your details and the RIL team can follow up.</p>
-          <div className="mt-5"><LeadCaptureForm page={page} pageKey={publicLandingPagePath(page).slice(3)} /></div>
+          <div className="mt-5"><LeadCaptureForm page={leadFormPage(page)} pageKey={publicLandingPagePath(page).slice(3)} /></div>
         </aside>
       </div>
       <footer className="mx-auto max-w-6xl border-t border-border/80 px-5 py-5 text-xs text-muted-foreground sm:px-8">Renaissance Innovation Labs</footer>
