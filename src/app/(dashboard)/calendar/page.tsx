@@ -54,7 +54,7 @@ export default async function CalendarPage({
             Content Calendar
           </h1>
           <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-            Every approved asset with a date, in the order it goes out. Times are in {WORKSPACE_TIME_ZONE_LABEL}.
+            Scheduled content and past posts, grouped by their scheduled date. Times are in {WORKSPACE_TIME_ZONE_LABEL}.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-4">

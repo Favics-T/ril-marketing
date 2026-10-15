@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { databaseMock, type Query } from "@/test/database-mock";
 import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 
-const mocks = vi.hoisted(() => ({ client: vi.fn(), admin: vi.fn(), org: vi.fn(), reviewer: vi.fn(), role: vi.fn(), connect: vi.fn(), channels: vi.fn(), buffer: vi.fn(), wordpress: vi.fn(), wpConfig: vi.fn(), revalidate: vi.fn(), status: vi.fn() }));
+const mocks = vi.hoisted(() => ({ client: vi.fn(), admin: vi.fn(), org: vi.fn(), reviewer: vi.fn(), role: vi.fn(), connect: vi.fn(), channels: vi.fn(), buffer: vi.fn(), wordpress: vi.fn(), wpConfig: vi.fn(), revalidate: vi.fn(), status: vi.fn(), wpScheduleCheck: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.client }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
 vi.mock("@/lib/supabase/organization", () => ({ requireOrganizationId: mocks.org }));
 vi.mock("@/lib/audience/access", () => ({ requireReviewer: mocks.reviewer, getUserRole: mocks.role }));
 vi.mock("@/lib/integrations/buffer", () => ({ getBufferChannels: mocks.channels, publishToBuffer: mocks.buffer, getBufferPost: mocks.status, disconnectBuffer: vi.fn(), connectBufferApiKey: mocks.connect }));
-vi.mock("@/lib/integrations/wordpress", () => ({ getWordPressConfig: mocks.wpConfig, publishWordPressPost: mocks.wordpress, getWordPressPost: mocks.status, validateWordPressSiteUrl: vi.fn(), verifyWordPressConnection: vi.fn(), verifyWordPressSeoPlugin: vi.fn(), WORDPRESS_SEO_PLUGINS: ["none", "yoast", "rankmath"] }));
+vi.mock("@/lib/integrations/wordpress", () => ({ assertSchedulable: mocks.wpScheduleCheck, getWordPressConfig: mocks.wpConfig, publishWordPressPost: mocks.wordpress, getWordPressPost: mocks.status, validateWordPressSiteUrl: vi.fn(), verifyWordPressConnection: vi.fn(), verifyWordPressSeoPlugin: vi.fn(), WORDPRESS_SEO_PLUGINS: ["none", "yoast", "rankmath"] }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 import { publishAssetViaBuffer, refreshPublicationStatus, recoverPublishingRequest, saveBufferApiKey } from "./integrations";
 import { publishApprovedBlog, scheduleApprovedBlog } from "./wordpress";
@@ -38,11 +38,38 @@ beforeEach(() => {
 });
 
 describe("approved publishing workflows", () => {
+  it("checks the WordPress scheduling margin before reserving the asset", async () => {
+    const state = setup({ format: "blog", channel: "website" });
+    mocks.wpScheduleCheck.mockImplementationOnce(() => { throw new Error("Choose a time at least 2 minutes from now."); });
+    expect(await scheduleApprovedBlog("asset", new Date(Date.now() + 90000).toISOString())).toMatchObject({ ok: false, error: expect.stringContaining("2 minutes") });
+    expect(state.database.queries).toHaveLength(0);
+    expect(mocks.wordpress).not.toHaveBeenCalled();
+  });
+  it("does not send an AI thread bundle as one Buffer post", async () => {
+    setup({ channel: "x", platform: "x", body: "Main post\n\n— Optional thread (post each separately) —\n\nPart one\n\nPart two" });
+    mocks.channels.mockResolvedValueOnce([{ ...channel, service: "twitter" }]);
+    expect(await publishAssetViaBuffer("asset", "channel")).toMatchObject({ ok: false, error: expect.stringContaining("separate X thread") });
+    expect(mocks.buffer).not.toHaveBeenCalled();
+  });
+  it("keeps WordPress SEO warnings and the publication history receipt together", async () => {
+    const state = setup({ format: "blog", channel: "website" });
+    mocks.wordpress.mockResolvedValueOnce({ id: 123, status: "published", url: "https://site.example/article", seoSaved: false });
+    expect(await publishApprovedBlog("asset")).toMatchObject({ ok: true, warning: expect.stringContaining("SEO") });
+    expect(state.publication()).toMatchObject({ external_id: "123", url: "https://site.example/article", actor_id: "actor", status: "published" });
+    expect(state.asset().metadata).toMatchObject({ wordpress_post_id: "123", wordpress_url: "https://site.example/article", wordpress_seo_saved: false });
+  });
+  it("blocks copy over the selected Buffer channel's limit before reserving or publishing", async () => {
+    const state = setup({ channel: "x", platform: "x", body: "x".repeat(281) });
+    mocks.channels.mockResolvedValueOnce([{ ...channel, service: "twitter" }]);
+    expect(await publishAssetViaBuffer("asset", "channel")).toMatchObject({ ok: false, error: expect.stringContaining("280") });
+    expect(mocks.buffer).not.toHaveBeenCalled();
+    expect(state.database.queries.some(q => q.operation === "update")).toBe(false);
+  });
   it.each(["member", "leadership"])("does not let a %s replace publishing credentials", async role => { mocks.role.mockResolvedValueOnce(role); const fd = new FormData(); fd.set("api_key", "test-buffer-key"); expect((await saveBufferApiKey(fd)).ok).toBe(false); expect(mocks.connect).not.toHaveBeenCalled(); });
   it("records Buffer acceptance as scheduled, with a durable receipt and workspace/version guards", async () => {
     const state = setup(); expect((await publishAssetViaBuffer("asset", "channel")).ok).toBe(true);
     expect(state.asset()).toMatchObject({ status: "scheduled", published_at: null });
-    expect(state.publication()).toMatchObject({ status: "queued", external_id: "buffer-post" });
+    expect(state.publication()).toMatchObject({ status: "queued", external_id: "buffer-post", actor_id: "actor" });
     const claim = state.database.queries.find(q => q.table === "content_assets" && q.operation === "update")!;
     expect(claim.filters).toEqual(expect.arrayContaining([{ method: "eq", column: "organization_id", value: "org" }, { method: "eq", column: "status", value: "approved" }, { method: "eq", column: "updated_at", value: "2026-10-14T12:00:00Z" }]));
   });

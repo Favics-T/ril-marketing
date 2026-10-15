@@ -9,6 +9,7 @@ import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 import { claimPublication, noteUncertainDelivery, saveDelivery, syncPublication, recoverPublicationReceipt } from "@/lib/content/publishing";
 import { futureSchedule } from "@/lib/content/scheduling";
 import { isSocialAsset } from "@/lib/content/manual-posting";
+import { checkChannelLimits } from "@/lib/content/channels";
 
 export type { BufferChannel };
 export interface IntegrationResult { ok: boolean; error?: string; message?: string; channels?: BufferChannel[]; publicationId?: string }
@@ -75,6 +76,9 @@ export async function publishAssetViaBuffer(assetId: string, channelId: string, 
     const platform = (asset.platform || asset.channel || "").toLowerCase().replace("twitter", "x");
     if (!["linkedin", "x", "facebook", "threads", "bluesky", "mastodon"].includes(service)) return { ok: false, error: "This channel requires media. Use the manual posting workflow instead." };
     if (platform !== "social" && platform !== service) return { ok: false, error: "Choose a Buffer channel matching this asset's platform." };
+    if (service === "x" && asset.body.includes("— Optional thread (post each separately) —")) return { ok: false, error: "This draft includes a separate X thread. Post each part manually, or edit it to a single post and approve it again before using Buffer." };
+    const lengthCheck = checkChannelLimits(service, asset.body, asset.format);
+    if (lengthCheck.problems.length) return { ok: false, error: `Shorten the copy before publishing. ${lengthCheck.problems.join(" ")}` };
     requestId = await claimPublication(org, asset, "buffer", user.id, date);
     const post = await publishToBuffer(org, channel.id, asset.body.trim(), date);
     await saveDelivery(org, requestId, assetId, post);

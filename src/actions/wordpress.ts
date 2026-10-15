@@ -12,7 +12,7 @@ import { futureSchedule } from "@/lib/content/scheduling";
 import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 import { joinWarnings } from "@/lib/content/record-publication";
 import { runWordPressConnectionTest, type ConnectionCheck } from "@/lib/integrations/wordpress-diagnostics";
-import { getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, verifyWordPressSeoPlugin, WORDPRESS_SEO_PLUGINS, type WordPressConfig, type WordPressSeoPlugin } from "@/lib/integrations/wordpress";
+import { assertSchedulable, getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, verifyWordPressSeoPlugin, WORDPRESS_SEO_PLUGINS, type WordPressConfig, type WordPressSeoPlugin } from "@/lib/integrations/wordpress";
 
 type ActionResult = { ok: boolean; message?: string; warning?: string; error?: string; url?: string };
 
@@ -102,7 +102,11 @@ export async function publishApprovedBlog(assetId: string): Promise<ActionResult
 }
 
 export async function scheduleApprovedBlog(assetId: string, scheduledFor: string): Promise<ActionResult> {
-  try { return await deliverApprovedBlog(assetId, futureSchedule(scheduledFor)); }
+  try {
+    const at = futureSchedule(scheduledFor);
+    assertSchedulable(new Date(at));
+    return await deliverApprovedBlog(assetId, at);
+  }
   catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Invalid schedule." }; }
 }
 
@@ -139,7 +143,8 @@ async function deliverApprovedBlog(assetId: string, scheduledFor?: string): Prom
   } catch (error) {
     if (requestId) {
       try {
-        if (error instanceof DeliveryRejected) await saveDelivery(organizationId, requestId, assetId, { id: "", status: "failed", error: error.message });
+        const httpStatus = error instanceof Error && "status" in error ? Number(error.status) : 0;
+        if (error instanceof DeliveryRejected || [400, 401, 403, 422].includes(httpStatus)) await saveDelivery(organizationId, requestId, assetId, { id: "", status: "failed", error: error instanceof Error ? error.message : "WordPress rejected the request." });
         else await noteUncertainDelivery(organizationId, requestId, error instanceof Error ? error.message : "Request failed.");
       } catch { /* Keep the reservation until the provider result can be recorded. */ }
     }

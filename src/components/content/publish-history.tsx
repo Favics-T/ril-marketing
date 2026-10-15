@@ -41,7 +41,7 @@ export function PublishHistory({
 										rel="noreferrer"
 										className="w-fit text-sm font-medium text-primary underline underline-offset-2"
 									>
-										View live post
+										{p.status === "published" ? "View live post" : "View provider post"}
 									</a>
 								) : null}
 								{p.status === "failed" && p.error ? (
