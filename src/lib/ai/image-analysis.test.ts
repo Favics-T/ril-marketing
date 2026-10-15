@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanHashtags, imageAnalysisInstructions, imageAnalysisSchema, MAX_HASHTAGS, parseImageAnalysis } from "@/lib/ai/image-analysis";
+import { cleanHashtags, failedResponseSnapshot, imageAnalysisInstructions, imageAnalysisSchema, MAX_FAILED_RESPONSE_LENGTH, MAX_HASHTAGS, parseImageAnalysis } from "@/lib/ai/image-analysis";
 
 const caption = (overrides: Record<string, unknown> = {}) => ({
   platform: "instagram",
@@ -133,6 +133,39 @@ describe("parseImageAnalysis", () => {
   it("reports malformed JSON", () => {
     expect(() => parseImageAnalysis('{"sceneSummary": "cut off')).toThrow(/did not return the required structured result/);
     expect(() => parseImageAnalysis('{"sceneSummary": }')).toThrow(/^Could not validate the image analysis: /);
+  });
+});
+
+describe("failedResponseSnapshot", () => {
+  it("leaves ordinary text unchanged", () => {
+    const text = '{"sceneSummary": "A presenter on stage", "captions": "none"}';
+    expect(failedResponseSnapshot(text)).toBe(text);
+  });
+
+  it(`truncates to ${MAX_FAILED_RESPONSE_LENGTH} characters`, () => {
+    expect(failedResponseSnapshot("a".repeat(5000))).toBe("a".repeat(MAX_FAILED_RESPONSE_LENGTH));
+  });
+
+  it.each([
+    ["an OpenAI key", `sk-${"A1b2".repeat(10)}`],
+    ["an OpenAI project key", `sk-proj-${"A1b2_".repeat(10)}`],
+    ["an Anthropic key", `sk-ant-api03-${"A1b2-".repeat(10)}`],
+    ["a Google key", `AIza${"Sy0_-".repeat(7)}`],
+    ["a JWT", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTYifQ.c2lnbmF0dXJlLXZhbHVl"],
+  ])("redacts %s", (_label, secret) => {
+    const snapshot = failedResponseSnapshot(`Slide text: ${secret} end`);
+    expect(snapshot).toBe("Slide text: [redacted] end");
+  });
+
+  it("redacts bearer tokens", () => {
+    expect(failedResponseSnapshot("Authorization: Bearer abcDEF123456ghiJKL789==")).toBe("Authorization: [redacted]");
+  });
+
+  it("redacts before truncating, so a key cut at the limit cannot leak", () => {
+    const key = `sk-${"k".repeat(40)}`;
+    const snapshot = failedResponseSnapshot(`${"a".repeat(MAX_FAILED_RESPONSE_LENGTH - 10)} ${key}`);
+    expect(snapshot).toHaveLength(MAX_FAILED_RESPONSE_LENGTH);
+    expect(snapshot).not.toContain("kkkkk");
   });
 });
 

@@ -65,6 +65,24 @@ export function imageAnalysisInstructions(platforms: ImagePlatform[]): string {
 Hashtag rules: "hashtags" is a JSON array with one tag per string. Every tag starts with a single "#" followed only by letters, digits or underscores: no spaces, hyphens, punctuation or emoji. Join several words in CamelCase (#PitchDay, not "Pitch Day"). No duplicates, and do not repeat the hashtags inside "caption". Hashtags per platform: ${counts}.`;
 }
 
+export const MAX_FAILED_RESPONSE_LENGTH = 2000;
+const SECRET_PATTERNS = [
+  /\bsk-(?:ant-)?[A-Za-z0-9_-]{16,}/g,
+  /\bAIza[0-9A-Za-z_-]{35}/g,
+  /\bBearer\s+[A-Za-z0-9._~+/-]{16,}=*/gi,
+  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
+];
+
+/**
+ * A copy of a model response that failed parsing, safe to store for
+ * diagnosis: anything shaped like an API key or token is redacted, then the
+ * text is truncated.
+ */
+export function failedResponseSnapshot(text: string): string {
+  const redacted = SECRET_PATTERNS.reduce((value, pattern) => value.replace(pattern, "[redacted]"), text);
+  return redacted.slice(0, MAX_FAILED_RESPONSE_LENGTH);
+}
+
 /** Parses and validates the model's image analysis text, with a readable error on failure. */
 export function parseImageAnalysis(text: string): ImageAnalysis {
   const start = text.indexOf("{");

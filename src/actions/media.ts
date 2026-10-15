@@ -9,7 +9,7 @@ import { getBrandGuidance } from "@/lib/brand/knowledge";
 import { analyzeAudioVideoWithConfiguredProvider, analyzeImageWithConfiguredProvider } from "@/lib/ai/provider";
 import { completeWithConfiguredProvider } from "@/lib/ai/provider";
 import { extractDocumentText } from "@/lib/content/document-text";
-import { imageAnalysisInstructions, imageAnalysisSchema, parseImageAnalysis } from "@/lib/ai/image-analysis";
+import { failedResponseSnapshot, imageAnalysisInstructions, imageAnalysisSchema, parseImageAnalysis, type ImageAnalysis } from "@/lib/ai/image-analysis";
 
 export interface ImageAnalysisResult {
   ok: boolean;
@@ -45,6 +45,7 @@ function preferredImagePlatforms(values: string[] | null | undefined): Array<"li
 export async function analyzeActivityImage(attachmentId: string, activityId: string): Promise<ImageAnalysisResult> {
   let organizationId = "";
   let analysisId = "";
+  let failedResponse: string | null = null;
   try {
     organizationId = await requireOrganizationId();
     const ids = z.object({ attachmentId: z.string().uuid(), activityId: z.string().uuid() }).safeParse({ attachmentId, activityId });
@@ -107,7 +108,15 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
         base64: imageBuffer.toString("base64"), system, prompt,
       });
       if (!completion) throw new Error("Connect a vision-capable OpenAI, Claude or Gemini model in AI & Integrations to analyze images.");
-      const parsed = parseImageAnalysis(completion.text);
+      let parsed: ImageAnalysis;
+      try { parsed = parseImageAnalysis(completion.text); }
+      catch (error) {
+        // The provider was paid for this response, so record the failed run and
+        // keep a redacted copy of what the model said for diagnosis.
+        failedResponse = failedResponseSnapshot(completion.text);
+        try { await admin.from("ai_generations").insert({ organization_id: organizationId, activity_id: activityId, kind: "image_analysis_captioning_failed", model: completion.model }); } catch { /* the analysis error matters more than its provenance */ }
+        throw error;
+      }
       result = { success: true, data: parsed };
       model = completion.model;
       const { error: saveAnalysisError } = await supabase.from("activity_media_analyses").update({ analysis: parsed, model }).eq("organization_id", organizationId).eq("id", analysisId);
@@ -153,7 +162,9 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
     if (organizationId && analysisId) {
       try {
         const supabase = await createClient();
-        await supabase.from("activity_media_analyses").update({ status: "failed", error: message.slice(0, 1200) }).eq("organization_id", organizationId).eq("id", analysisId).eq("status", "processing");
+        // Only a response that failed parsing replaces the analysis; any later
+        // failure keeps the validated analysis saved for resuming.
+        await supabase.from("activity_media_analyses").update({ status: "failed", error: message.slice(0, 1200), ...(failedResponse === null ? {} : { analysis: { failedResponse } }) }).eq("organization_id", organizationId).eq("id", analysisId).eq("status", "processing");
       } catch { /* leave the original failure visible in the action result */ }
     }
     return { ok: false, error: message };
