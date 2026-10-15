@@ -7,12 +7,14 @@ import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationId } from "@/lib/supabase/organization";
 import { getUserRole, requireReviewer } from "@/lib/audience/access";
 import { decryptSecret, encryptSecret, isEncryptionEnabled } from "@/lib/crypto/secret-box";
-import { getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, type WordPressConfig } from "@/lib/integrations/wordpress";
 import { claimPublication, noteUncertainDelivery, saveDelivery } from "@/lib/content/publishing";
 import { futureSchedule } from "@/lib/content/scheduling";
 import { DeliveryRejected } from "@/lib/integrations/delivery-error";
+import { joinWarnings } from "@/lib/content/record-publication";
+import { runWordPressConnectionTest, type ConnectionCheck } from "@/lib/integrations/wordpress-diagnostics";
+import { getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, verifyWordPressSeoPlugin, WORDPRESS_SEO_PLUGINS, type WordPressConfig, type WordPressSeoPlugin } from "@/lib/integrations/wordpress";
 
-type ActionResult = { ok: boolean; message?: string; error?: string; url?: string };
+type ActionResult = { ok: boolean; message?: string; warning?: string; error?: string; url?: string };
 
 async function requireCmsManager(organizationId: string) {
   const role = await getUserRole(organizationId);
@@ -23,6 +25,7 @@ const settingsSchema = z.object({
   siteUrl: z.string().trim().url().max(500),
   username: z.string().trim().min(1).max(120),
   applicationPassword: z.string().trim().max(300).default(""),
+  seoPlugin: z.enum(WORDPRESS_SEO_PLUGINS as [WordPressSeoPlugin, ...WordPressSeoPlugin[]]).default("none"),
 });
 
 export async function saveWordPressConnection(formData: FormData): Promise<ActionResult> {
@@ -30,7 +33,7 @@ export async function saveWordPressConnection(formData: FormData): Promise<Actio
     const organizationId = await requireOrganizationId();
     await requireCmsManager(organizationId);
     if (!isEncryptionEnabled()) return { ok: false, error: "Set AI_CONFIG_SECRET before storing a WordPress application password." };
-    const parsed = settingsSchema.safeParse({ siteUrl: formData.get("siteUrl"), username: formData.get("username"), applicationPassword: formData.get("applicationPassword") ?? "" });
+    const parsed = settingsSchema.safeParse({ siteUrl: formData.get("siteUrl"), username: formData.get("username"), applicationPassword: formData.get("applicationPassword") ?? "", seoPlugin: formData.get("seoPlugin") ?? "none" });
     if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the WordPress settings." };
     let siteUrl: string;
     try { siteUrl = validateWordPressSiteUrl(parsed.data.siteUrl); }
@@ -40,20 +43,45 @@ export async function saveWordPressConnection(formData: FormData): Promise<Actio
     const { data: current } = await admin.from("integrations").select("config").eq("organization_id", organizationId).eq("key", "cms_wordpress").maybeSingle<{ config: Record<string, string> }>();
     const password = parsed.data.applicationPassword.replace(/\s/g, "") || decryptSecret(current?.config.applicationPassword ?? "");
     if (!password) return { ok: false, error: "Create a WordPress Application Password for a user allowed to publish posts." };
-    const config: WordPressConfig = { siteUrl, username: parsed.data.username, applicationPassword: password };
+    const config: WordPressConfig = { siteUrl, username: parsed.data.username, applicationPassword: password, seoPlugin: parsed.data.seoPlugin };
     const profile = await verifyWordPressConnection(config);
+    await verifyWordPressSeoPlugin(config);
     const { error } = await admin.from("integrations").upsert({
       organization_id: organizationId,
       key: "cms_wordpress",
       display_name: "WordPress publishing",
       status: "connected",
-      config: { siteUrl, username: parsed.data.username, applicationPassword: encryptSecret(password), user: profile.user },
+      config: { siteUrl, username: parsed.data.username, applicationPassword: encryptSecret(password), user: profile.user, seoPlugin: config.seoPlugin },
     }, { onConflict: "organization_id,key" });
     if (error) return { ok: false, error: "Could not save the verified WordPress connection." };
     revalidatePath("/settings/ai");
     return { ok: true, message: `Connected as ${profile.user}.` };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not connect WordPress." };
+  }
+}
+
+export type ConnectionTestResult = { ok: boolean; checks?: ConnectionCheck[]; error?: string };
+
+/**
+ * Run the connection checks on the form's values without saving anything.
+ * A blank password falls back to the saved one, as saving does.
+ */
+export async function testWordPressConnection(formData: FormData): Promise<ConnectionTestResult> {
+  try {
+    const organizationId = await requireOrganizationId();
+    await requireCmsManager(organizationId);
+    const parsed = settingsSchema.safeParse({ siteUrl: formData.get("siteUrl"), username: formData.get("username"), applicationPassword: formData.get("applicationPassword") ?? "", seoPlugin: formData.get("seoPlugin") ?? "none" });
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the WordPress settings." };
+    let password = parsed.data.applicationPassword.replace(/\s/g, "");
+    if (!password) {
+      const { data: current } = await createAdminClient().from("integrations").select("config").eq("organization_id", organizationId).eq("key", "cms_wordpress").maybeSingle<{ config: Record<string, string> }>();
+      password = decryptSecret(current?.config.applicationPassword ?? "");
+    }
+    if (!password) return { ok: false, error: "Paste the application password to test the connection." };
+    return await runWordPressConnectionTest({ siteUrl: parsed.data.siteUrl, username: parsed.data.username, applicationPassword: password, seoPlugin: parsed.data.seoPlugin });
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not test the WordPress connection." };
   }
 }
 
@@ -101,13 +129,13 @@ async function deliverApprovedBlog(assetId: string, scheduledFor?: string): Prom
     const excerpt = seo.description?.trim() || asset.body.replace(/\s+/g, " ").trim().slice(0, 180);
     const slug = `ril-${asset.id}`;
     requestId = await claimPublication(organizationId, asset, "wordpress", user.id, scheduledFor);
-    const published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug, scheduledFor });
-    await saveDelivery(organizationId, requestId, asset.id, published);
+    const published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug, scheduledFor, seo: { title: seo.title ?? "", description: seo.description ?? "" } });
+    await saveDelivery(organizationId, requestId, asset.id, { ...published, id: String(published.id) });
     revalidatePath("/library");
     revalidatePath(`/library/${assetId}`);
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
-    return { ok: published.status !== "failed", message: published.status === "published" ? "WordPress confirmed publication." : published.status === "queued" ? "Scheduled on WordPress. Delivery will be confirmed after it goes live." : undefined, error: published.error, url: published.url };
+    return { ok: published.status !== "failed", message: published.status === "published" ? "WordPress confirmed publication." : published.status === "queued" ? "Scheduled on WordPress. Delivery will be confirmed after it goes live." : undefined, warning: joinWarnings(published.seoSaved === false ? "The SEO title and description were not saved. Check the WordPress SEO settings." : undefined), error: published.error, url: published.url };
   } catch (error) {
     if (requestId) {
       try {

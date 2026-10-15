@@ -6,7 +6,8 @@ export function futureSchedule(value: string, now = Date.now()): string {
 }
 
 export function localSchedule(value: string): string {
-  const time = new Date(value);
-  if (!value || !Number.isFinite(time.getTime())) throw new Error("Choose a valid date and time.");
+  const time = zonedWallTimeToDate(value);
+  if (!value || !time) throw new Error("Choose a valid date and time in WAT.");
   return time.toISOString();
 }
+import { zonedWallTimeToDate } from "@/lib/time";

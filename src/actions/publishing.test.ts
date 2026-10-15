@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
 vi.mock("@/lib/supabase/organization", () => ({ requireOrganizationId: mocks.org }));
 vi.mock("@/lib/audience/access", () => ({ requireReviewer: mocks.reviewer, getUserRole: mocks.role }));
 vi.mock("@/lib/integrations/buffer", () => ({ getBufferChannels: mocks.channels, publishToBuffer: mocks.buffer, getBufferPost: mocks.status, disconnectBuffer: vi.fn(), connectBufferApiKey: mocks.connect }));
-vi.mock("@/lib/integrations/wordpress", () => ({ getWordPressConfig: mocks.wpConfig, publishWordPressPost: mocks.wordpress, getWordPressPost: mocks.status, validateWordPressSiteUrl: vi.fn(), verifyWordPressConnection: vi.fn() }));
+vi.mock("@/lib/integrations/wordpress", () => ({ getWordPressConfig: mocks.wpConfig, publishWordPressPost: mocks.wordpress, getWordPressPost: mocks.status, validateWordPressSiteUrl: vi.fn(), verifyWordPressConnection: vi.fn(), verifyWordPressSeoPlugin: vi.fn(), WORDPRESS_SEO_PLUGINS: ["none", "yoast", "rankmath"] }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 import { publishAssetViaBuffer, refreshPublicationStatus, recoverPublishingRequest, saveBufferApiKey } from "./integrations";
 import { publishApprovedBlog, scheduleApprovedBlog } from "./wordpress";

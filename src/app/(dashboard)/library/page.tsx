@@ -9,6 +9,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { formatDay, todayDateline } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { reminderState } from "@/lib/content/reminders";
+import { ReminderFlag } from "@/components/content/reminder-flag";
 
 export const metadata: Metadata = { title: "Content Library" };
 
@@ -43,6 +45,7 @@ export default async function LibraryPage({
     ? await listAssets(orgId, { status, page, q, channel, activityId: activity, campaignId: campaign })
     : { assets: [], total: 0 };
 
+  const now = new Date();
   const totalPages = Math.max(1, Math.ceil(result.total / 20));
   const filters = ["all", ...ASSET_STATUSES] as const;
 
@@ -126,6 +129,7 @@ export default async function LibraryPage({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusStamp status={a.status} />
+                  <ReminderFlag state={reminderState(a, now)} />
                   {a.metadata?.calendar_generator === true ? (
                     <span className="rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Calendar proposal

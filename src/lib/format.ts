@@ -3,6 +3,8 @@
  *  Real data only; no synthetic benchmarks.
  */
 
+import { formatInZone } from "@/lib/time";
+
 export const RIL_LOCALE = "en-US";
 
 export function formatInteger(value: number): string {
@@ -26,24 +28,17 @@ export function wireLabel(index: number): string {
   return `Item ${String(index + 1).padStart(2, "0")}`;
 }
 
-/** Dateline date for list rows: "12 Sep 2026". */
+/** Dateline date for list rows, in the workspace zone: "12 Sep 2026". */
 export function formatDay(value: string | null | undefined): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatInZone(value, "date");
 }
 
-/** Today's dateline header, shared by every dashboard surface. */
+/** Date and time for event rows, in the workspace zone: "12 Sep 2026, 14:05 WAT". */
+export function formatDayTime(value: string | null | undefined): string {
+  return formatInZone(value, "dateTime");
+}
+
+/** Today's dateline header in the workspace zone, shared by every dashboard surface. */
 export function todayDateline(): string {
-  return new Date().toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return formatInZone(new Date(), "dateline");
 }

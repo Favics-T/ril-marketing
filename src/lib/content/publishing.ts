@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getBufferPost } from "@/lib/integrations/buffer";
 import { getWordPressConfig, getWordPressPost } from "@/lib/integrations/wordpress";
 
-export type DeliveryPost = { id: string; status: "queued" | "published" | "failed"; scheduledFor?: string | null; publishedAt?: string | null; url?: string; error?: string; sourceText?: string; sourceSlug?: string };
+export type DeliveryPost = { id: string; status: "queued" | "published" | "failed"; scheduledFor?: string | null; publishedAt?: string | null; url?: string; error?: string; sourceText?: string; sourceSlug?: string; seoSaved?: boolean | null };
 export type PublishingAsset = { id: string; status: string; updated_at: string; metadata: Record<string, unknown> | null };
 
 // Claim the asset version before any provider call; a second click cannot submit the same approved copy.
@@ -18,7 +18,7 @@ export async function claimPublication(org: string, asset: PublishingAsset, prov
     metadata: { ...asset.metadata, publishing: { provider, publication_id: id } },
   }).eq("organization_id", org).eq("id", asset.id).eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
   if (error || !data) throw new Error("This asset changed or could not be reserved. Refresh before publishing.");
-  const { error: recordError } = await admin.from("publications").insert({ id, organization_id: org, content_asset_id: asset.id, channel: provider, status: "queued", scheduled_for: scheduledFor ?? null });
+  const { error: recordError } = await admin.from("publications").insert({ id, organization_id: org, content_asset_id: asset.id, channel: provider, status: "queued", scheduled_for: scheduledFor ?? null, actor_id: actorId });
   if (recordError) {
     await admin.from("content_assets").update({ status: asset.status, scheduled_for: null, metadata: asset.metadata ?? {} }).eq("organization_id", org).eq("id", asset.id).contains("metadata", { publishing: { publication_id: id } });
     throw new Error("Could not record the publishing request. Nothing was sent to the provider.");
@@ -30,12 +30,19 @@ export async function claimPublication(org: string, asset: PublishingAsset, prov
 export async function saveDelivery(org: string, publicationId: string, assetId: string, post: DeliveryPost) {
   const admin = createAdminClient();
   // Keep the request queued until both the asset and provider receipt are saved. Sync can recover a partial write.
-  const { error: receiptError } = await admin.from("publications").update({ external_id: post.id, scheduled_for: post.scheduledFor ?? null, error: post.error ?? null }).eq("organization_id", org).eq("id", publicationId).eq("status", "queued");
+  const { error: receiptError } = await admin.from("publications").update({ external_id: post.id, url: post.url ?? null, scheduled_for: post.scheduledFor ?? null, error: post.error ?? null }).eq("organization_id", org).eq("id", publicationId).eq("status", "queued");
   if (receiptError) throw new Error("Provider accepted the request, but its receipt could not be saved. Check the provider before retrying.");
   const { data: asset, error: loadError } = await admin.from("content_assets").select("metadata,status").eq("organization_id", org).eq("id", assetId).maybeSingle();
   if (loadError || !asset) throw new Error("Provider receipt saved. Refresh delivery status to finish updating the asset.");
   const metadata = { ...(asset.metadata ?? {}) };
   if (post.url) metadata.published_url = post.url;
+  const request = metadata.publishing as { provider?: string } | undefined;
+  if (request?.provider === "wordpress" && post.status !== "failed") {
+    metadata.wordpress_post_id = post.id;
+    if (post.url) metadata.wordpress_url = post.url;
+    if (post.status === "published") metadata.wordpress_published_at = post.publishedAt ?? new Date().toISOString();
+    if (post.seoSaved !== undefined) metadata.wordpress_seo_saved = post.seoSaved;
+  }
   if (post.status === "failed") metadata.publishing = { ...(metadata.publishing as Record<string, unknown>), state: "failed" };
   const { data: updated, error: assetError } = await admin.from("content_assets").update({
     status: post.status === "published" ? asset.status === "analysing" ? "analysing" : "published" : post.status === "failed" ? "approved" : "scheduled",

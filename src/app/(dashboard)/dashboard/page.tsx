@@ -8,7 +8,9 @@ import { CommandGoals } from "@/components/dashboard/command-goals";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { createClient } from "@/lib/supabase/server";
 import { listInsights } from "@/lib/audience/insights";
-import { listAssets, listScheduled } from "@/lib/content/assets";
+import { listAssets, listScheduled, listSocialReminders } from "@/lib/content/assets";
+import { formatReminderTime } from "@/lib/content/reminders";
+import { ReminderFlag } from "@/components/content/reminder-flag";
 import { listActivities } from "@/lib/content/activities";
 import { listLeads, listLeadsNeedingFollowUp } from "@/lib/leads/leads";
 import { listOpenTasks } from "@/lib/audience/tasks";
@@ -25,9 +27,9 @@ export default async function CommandCentrePage() {
   const errors: string[] = [];
   async function load<T>(name: string, task: Promise<T>, fallback: T) { try { return await task; } catch { errors.push(name); return fallback; } }
   const now = new Date();
-  const today = now.toISOString().slice(0,10);
-  const end = new Date(now.getTime()+30*86400000).toISOString().slice(0,10);
-  const [insights,review,assets,leads,scheduled,tasks,followups,kpis,activities] = await Promise.all([
+  const today = now.toISOString();
+  const end = new Date(now.getTime()+30*86400000).toISOString();
+  const [insights,review,assets,leads,scheduled,tasks,followups,kpis,activities,reminders] = await Promise.all([
     load("Insights",listInsights(org,{status:"PENDING_REVIEW",pageSize:3}),{insights:[],total:0,page:1,pageSize:3,totalPages:1}),
     load("Reviews",listAssets(org,{status:"review"}),{assets:[],total:0}),
     load("Content",listAssets(org,{}),{assets:[],total:0}),
@@ -37,6 +39,7 @@ export default async function CommandCentrePage() {
     load("Follow-up",listLeadsNeedingFollowUp(org,4),[]),
     load("Goals",getKpiProgress(org),[]),
     load("Activities",listActivities(org),[]),
+    load("Reminders",listSocialReminders(org,now),[]),
   ]);
   const supabase = await createClient();
   const mixResult = await supabase.from("content_assets").select("channel").eq("organization_id",org).limit(5000);
@@ -59,6 +62,7 @@ export default async function CommandCentrePage() {
     {errors.length>0&&<div role="alert" className="command-data-alert"><AlertCircle className="size-5 shrink-0" aria-hidden="true"/><p>Some data could not be loaded: {errors.join(", ")}. Refresh to retry. Affected counts are unavailable.</p></div>}
     <dl className="command-metrics">{metrics.map(metric=><div key={metric.label}><Link href={metric.href}><div className="command-metric-label"><dt>{metric.label}</dt><ArrowUpRight aria-hidden="true" /></div><dd>{metric.value.toLocaleString()}</dd><p>{metric.detail}</p></Link></div>)}</dl>
 
+    {reminders.length > 0 && <section className="workspace-panel" aria-labelledby="reminders-heading"><header className="workspace-panel-heading"><div><h2 id="reminders-heading">Social post reminders</h2><p>Scheduled posts due today or overdue. Record the live link after posting.</p></div><Link href="/calendar" className="text-sm text-primary">Calendar</Link></header><ul>{reminders.slice(0,6).map(({asset,state})=><li key={asset.id}><Link href={`/library/${asset.id}`} className="workspace-row"><div className="min-w-0 flex-1"><p className="workspace-row-meta">{formatReminderTime(asset.scheduled_for!)}</p><p className="workspace-row-title">{asset.title}</p><p className="workspace-row-meta">{channelLabel(asset.platform || asset.channel)}</p></div><ReminderFlag state={state}/></Link></li>)}</ul>{reminders.length>6&&<p className="workspace-empty">{reminders.length-6} more posts need attention. Open the scheduled content library to see them all.</p>}</section>}
     <div className="command-layout">
       <div className="command-main">
         <section className="workspace-panel command-review" aria-labelledby="decisions-heading">

@@ -22,11 +22,11 @@
     },
     {
       "path": "/api/cron/lead-nurture",
-      "schedule": "17 * * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/content-publishing",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }

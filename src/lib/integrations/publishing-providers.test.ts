@@ -11,11 +11,11 @@ import { publishWordPressPost, getWordPressPost, wordPressDelivery, validateWord
 const config = { siteUrl: "https://site.example", username: "editor", applicationPassword: "test-password" };
 const fetchMock = vi.fn();
 beforeEach(() => {
-  vi.clearAllMocks(); vi.stubGlobal("fetch", fetchMock);
+  vi.clearAllMocks(); fetchMock.mockReset(); vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-15T09:00:00Z")); vi.stubGlobal("fetch", fetchMock);
   mocks.lookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
   mocks.admin.mockReturnValue(databaseMock(() => ({ data: { id: "connection", config: { accessToken: "test-key" } } })));
 });
-afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("provider delivery contracts", () => {
   it("passes Buffer a custom UTC dueAt without claiming a scheduled post is published", async () => {
@@ -51,12 +51,12 @@ describe("provider delivery contracts", () => {
   });
   it("creates a WordPress future post with UTC date_gmt and semantic article content", async () => {
     fetchMock.mockResolvedValueOnce(Response.json([])).mockResolvedValueOnce(Response.json({ id: 123, link: "https://site.example/article", status: "future", date_gmt: "2026-10-15T10:00:00" }));
-    expect(await publishWordPressPost(config, { title: "Article", body: "## Heading\n\nSource copy", excerpt: "SEO description", slug: "ril-asset", scheduledFor: "2026-10-15T10:00:00.000Z" })).toMatchObject({ status: "queued", id: "123", scheduledFor: "2026-10-15T10:00:00Z" });
+    expect(await publishWordPressPost(config, { title: "Article", body: "## Heading\n\nSource copy", excerpt: "SEO description", slug: "ril-asset", scheduledFor: "2026-10-15T10:00:00.000Z" })).toMatchObject({ status: "queued", id: 123, scheduledFor: "2026-10-15T10:00:00Z" });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ status: "future", date_gmt: "2026-10-15T10:00:00.000", content: "<h2>Heading</h2>\n<p>Source copy</p>", excerpt: "SEO description" });
   });
   it("links an existing scheduled article without creating a duplicate", async () => {
     fetchMock.mockResolvedValueOnce(Response.json([{ id: 123, link: "https://site.example/article", status: "future", date_gmt: "2026-10-15T10:00:00" }]));
-    expect((await publishWordPressPost(config, { title: "Article", body: "Copy", excerpt: "Description", slug: "ril-asset" })).status).toBe("queued"); expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((await publishWordPressPost(config, { title: "Article", body: "Copy", excerpt: "Description", slug: "ril-asset", scheduledFor: "2026-10-15T10:00:00Z" })).status).toBe("queued"); expect(fetchMock).toHaveBeenCalledTimes(1);
   });
   it("republishes a withdrawn draft by updating the same WordPress ID", async () => {
     fetchMock.mockResolvedValueOnce(Response.json([{ id: 123, link: "https://site.example/article", status: "draft" }])).mockResolvedValueOnce(Response.json({ id: 123, link: "https://site.example/article", status: "publish" }));

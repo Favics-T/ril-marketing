@@ -2,6 +2,7 @@ import type {
   AiProvider,
   DraftSpec,
   GenerationContext,
+  GenerationOutcome,
   RepurposeKind,
 } from "@/lib/ai/types";
 
@@ -15,7 +16,11 @@ import type {
 export class TemplateProvider implements AiProvider {
   readonly modelLabel = "template-v1";
 
-  async generate(kind: RepurposeKind, ctx: GenerationContext): Promise<DraftSpec[]> {
+  async generate(kind: RepurposeKind, ctx: GenerationContext): Promise<GenerationOutcome> {
+    return { drafts: this.draftsFor(kind, ctx), warnings: [] };
+  }
+
+  private draftsFor(kind: RepurposeKind, ctx: GenerationContext): DraftSpec[] {
     switch (kind) {
       case "blog":
         return [blogDraft(ctx)];

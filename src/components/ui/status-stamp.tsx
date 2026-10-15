@@ -27,12 +27,14 @@ const stampVariants = cva(
         // Urgent — the reserved red field.
         hot: "border-transparent bg-destructive text-destructive-foreground",
         failed: "border-transparent bg-destructive text-destructive-foreground",
+        missed: "border-transparent bg-destructive text-destructive-foreground",
         // Intermediate and inactive — quiet paper.
         warm: "border-foreground/35 bg-card text-foreground/85",
         cold: "border-border bg-transparent text-muted-foreground",
         paused: "border-border bg-transparent text-muted-foreground",
         idea: "border-border bg-transparent text-muted-foreground",
         suppressed: "border-border bg-transparent text-muted-foreground",
+        cancelled: "border-border bg-transparent text-muted-foreground",
       },
     },
     defaultVariants: {
@@ -82,6 +84,11 @@ function mapStatusToVariant(status: string): StatusStampProps["variant"] {
       return "failed";
     case "scheduled":
       return "scheduled";
+    case "missed":
+      return "missed";
+    case "cancelled":
+    case "canceled":
+      return "cancelled";
     case "published":
       return "published";
     case "review":

@@ -26,7 +26,7 @@ export function SocialPublishAction({ assetId, connected, channels: initialChann
       <form action={action} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1.5 text-sm">Buffer channel<select name="channel" required disabled={pending} defaultValue="" className="h-10 min-w-0 rounded-md border border-border bg-card px-3"><option value="" disabled>Choose a channel</option>{channels.map(channel => <option key={channel.id} value={channel.id} disabled={channel.isDisconnected || channel.isLocked || channel.isQueuePaused}>{channel.displayName || channel.name} · {channel.descriptor}</option>)}</select></label>
         <label className="flex flex-col gap-1.5 text-sm">Delivery<select value={mode} disabled={pending} onChange={e => setMode(e.target.value)} className="h-10 rounded-md border border-border bg-card px-3"><option value="now">Publish now</option><option value="schedule">Schedule a post</option></select></label>
-        {mode === "schedule" ? <label className="flex flex-col gap-1.5 text-sm">Publishing time (your local timezone)<Input name="scheduled_for" type="datetime-local" required disabled={pending} /></label> : null}
+        {mode === "schedule" ? <label className="flex flex-col gap-1.5 text-sm">Publishing time (WAT)<Input name="scheduled_for" type="datetime-local" required disabled={pending} /></label> : null}
         <p className="text-sm leading-5 text-muted-foreground">Sends the approved text. Channels requiring a photo or video use manual posting. Delivery is confirmed separately.</p>
         <Button type="submit" disabled={pending || !channels.length}>{pending ? "Submitting…" : mode === "schedule" ? "Schedule through Buffer" : "Publish through Buffer"}</Button>
       </form>

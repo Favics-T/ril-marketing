@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationId } from "@/lib/supabase/organization";
 import { requireReviewer } from "@/lib/audience/access";
-import { publicLandingPagePath } from "@/lib/landing-page-url";
+import { LANDING_PAGE_COPY_MAX, publicLandingPagePath } from "@/lib/landing-page-url";
 
 export interface LandingPageActionResult { ok: boolean; id?: string; error?: string; }
 
@@ -14,7 +14,8 @@ const pageSchema = z.object({
   title: z.string().trim().min(3).max(160),
   slug: z.string().trim().min(3).max(80).regex(slugPattern, "Use a lowercase URL slug with letters, numbers, and hyphens."),
   headline: z.string().trim().min(5).max(200),
-  body: z.string().trim().max(6000).default(""),
+  // Markdown from the rich editor; the limit includes formatting characters.
+  body: z.string().trim().max(LANDING_PAGE_COPY_MAX, "Page copy is too long. Shorten it before saving.").default(""),
   cta_label: z.string().trim().min(2).max(60),
   registration_url: z.union([z.string().trim().url().max(1000), z.literal("")]),
   meta_description: z.string().trim().max(320).default(""),

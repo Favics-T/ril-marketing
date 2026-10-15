@@ -15,3 +15,6 @@ coverage/
 /*.png
 dev-server-refresh.log
 dev-server-refresh-error.log
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

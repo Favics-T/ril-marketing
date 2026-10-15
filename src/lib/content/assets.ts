@@ -1,5 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import type { PublicationRow } from "@/lib/content/publications";
+import { reminderState, type ReminderState } from "@/lib/content/reminders";
 
 export interface ContentAssetRow {
   id: string;
@@ -107,6 +109,22 @@ export async function listAssetApprovals(
   return (data ?? []) as AssetApprovalRow[];
 }
 
+export async function listAssetPublications(
+  organizationId: string,
+  assetId: string
+): Promise<PublicationRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("publications")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("content_asset_id", assetId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(`Failed to load publications: ${error.message}`);
+  return (data ?? []) as PublicationRow[];
+}
+
 export async function listScheduled(
   organizationId: string,
   from: string,
@@ -124,4 +142,32 @@ export async function listScheduled(
     .limit(500);
   if (error) throw new Error(`Failed to load calendar: ${error.message}`);
   return (data ?? []) as ContentAssetRow[];
+}
+
+export interface SocialReminder {
+  asset: ContentAssetRow;
+  state: ReminderState;
+}
+
+/** Scheduled social posts that are overdue or due later today, most urgent first. */
+export async function listSocialReminders(
+  organizationId: string,
+  now: Date = new Date()
+): Promise<SocialReminder[]> {
+  const supabase = await createClient();
+  // Anything due today in the workspace zone is within the next 25 hours.
+  const horizon = new Date(now.getTime() + 25 * 3600000).toISOString();
+  const { data, error } = await supabase
+    .from("content_assets")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("status", "scheduled")
+    .lte("scheduled_for", horizon)
+    .order("scheduled_for")
+    .limit(200);
+  if (error) throw new Error(`Failed to load reminders: ${error.message}`);
+  return ((data ?? []) as ContentAssetRow[]).flatMap((asset) => {
+    const state = reminderState(asset, now);
+    return state ? [{ asset, state }] : [];
+  });
 }

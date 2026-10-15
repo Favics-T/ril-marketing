@@ -3,13 +3,14 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
-import { getAsset, listAssetApprovals } from "@/lib/content/assets";
+import { getAsset, listAssetApprovals, listAssetPublications } from "@/lib/content/assets";
 import { AssetTransition } from "@/components/content/asset-transition";
 import { StatusStamp } from "@/components/ui/status-stamp";
-import { formatDay } from "@/lib/format";
+import { formatDay, formatDayTime } from "@/lib/format";
 import { DraftEditor } from "@/components/content/draft-editor";
 import { WordPressPublishAction } from "@/components/content/wordpress-publish-action";
 import { StrapiPublishAction } from "@/components/content/strapi-publish-action";
+import { PublishHistory } from "@/components/content/publish-history";
 import { createClient } from "@/lib/supabase/server";
 import { ManualPostAction } from "@/components/content/manual-post-action";
 import { isSocialAsset, parseLivePostUrl } from "@/lib/content/manual-posting";
@@ -17,6 +18,8 @@ import { SocialPublishAction } from "@/components/content/social-publish-action"
 import { PublicationStatus } from "@/components/content/publication-status";
 import { getBufferStatus } from "@/lib/integrations/buffer";
 import { getWordPressConfig } from "@/lib/integrations/wordpress";
+import { formatReminderTime, reminderState } from "@/lib/content/reminders";
+import { ReminderFlag } from "@/components/content/reminder-flag";
 
 export const metadata: Metadata = { title: "Content asset" };
 
@@ -37,7 +40,8 @@ export default async function AssetDetailPage({
 	const socialAsset = isSocialAsset(asset.channel, asset.platform);
 	const manualPost = asset.metadata?.manual_post as { url?: string; recorded_at?: string } | undefined;
 	const liveUrl = typeof manualPost?.url === "string" ? parseLivePostUrl(manualPost.url) : null;
-	const approvals = await listAssetApprovals(orgId, id);
+	const [approvals, publications] = await Promise.all([listAssetApprovals(orgId, id), listAssetPublications(orgId, id)]);
+	const reminder = reminderState(asset);
 	const isCalendarProposal = asset.metadata?.calendar_generator === true;
 	const recommendationReason = typeof asset.metadata?.recommendation_reason === "string" ? asset.metadata.recommendation_reason : null;
 	const suggestedAt = typeof asset.metadata?.suggested_publish_at === "string" ? asset.metadata.suggested_publish_at : null;
@@ -66,7 +70,7 @@ export default async function AssetDetailPage({
 		{ label: "Topic", value: asset.topic },
 		{ label: "Hook", value: asset.hook },
 		{ label: "CTA", value: asset.cta },
-		{ label: "Scheduled", value: asset.scheduled_for ? formatDay(asset.scheduled_for) : null },
+		{ label: "Scheduled", value: asset.scheduled_for ? formatReminderTime(asset.scheduled_for) : null },
 		{ label: "Published", value: asset.published_at ? formatDay(asset.published_at) : null },
 	].filter((m) => m.value);
 
@@ -120,10 +124,32 @@ export default async function AssetDetailPage({
 					</section>
 
 				<div className="flex flex-col gap-4 lg:gap-6">
+					{reminder && asset.scheduled_for ? (
+						<section
+							aria-labelledby="reminder-heading"
+							className={`slip flex h-fit flex-col gap-3 border-l-4 p-5 sm:p-6 ${reminder === "overdue" ? "border-l-destructive" : "border-l-flag"}`}
+						>
+							<div className="flex items-center justify-between gap-3">
+								<div>
+									<p className="dateline">Posting reminder</p>
+									<h2 id="reminder-heading" className="mt-1 text-base font-bold">
+										{reminder === "overdue" ? "This post is overdue" : "Post this today"}
+									</h2>
+								</div>
+								<ReminderFlag state={reminder} />
+							</div>
+							<p className="text-sm leading-6 text-muted-foreground">
+								{reminder === "overdue"
+									? `It was due ${formatReminderTime(asset.scheduled_for)}. Post it now, or move it back to Approved to pick a new time.`
+									: `Due ${formatReminderTime(asset.scheduled_for)}. Once it's live on ${asset.platform || asset.channel || "the channel"}, mark it as posted.`}
+							</p>
+							<a href="#manual-post-heading" className="text-sm font-semibold text-primary underline underline-offset-4">Record the live post link</a>
+						</section>
+					) : null}
 					{isCalendarProposal ? (
 						<section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
 							<div><p className="dateline">Calendar proposal</p><h2 className="mt-1 text-base font-bold">Recommendation</h2></div>
-							{suggestedAt ? <p className="text-sm"><span className="text-muted-foreground">Suggested timing: </span>{new Date(suggestedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</p> : null}
+							{suggestedAt ? <p className="text-sm"><span className="text-muted-foreground">Suggested timing: </span>{formatDayTime(suggestedAt)}</p> : null}
 							{typeof asset.metadata?.objective === "string" ? <p className="text-sm"><span className="text-muted-foreground">Objective: </span>{asset.metadata.objective}</p> : null}
 							{typeof asset.metadata?.funnel_stage === "string" ? <p className="text-sm"><span className="text-muted-foreground">Funnel stage: </span>{asset.metadata.funnel_stage}</p> : null}
 							{recommendationReason ? <p className="text-sm leading-6 text-muted-foreground">{recommendationReason}</p> : null}
@@ -134,7 +160,7 @@ export default async function AssetDetailPage({
 							<p className="dateline">Approval pipeline</p>
 							<h2 className="mt-1 text-base font-bold">Move this asset</h2>
 						</div>
-						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below.</p> : <AssetTransition assetId={asset.id} status={asset.status} manualSocialPosting={socialAsset} />}
+						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below.</p> : <AssetTransition assetId={asset.id} status={asset.status} manualSocialPosting={socialAsset} scheduledFor={asset.scheduled_for} />}
 					</section>
 					{socialAsset && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
 					{buffer ? <SocialPublishAction assetId={asset.id} connected={buffer.connected} channels={buffer.channels} /> : null}
@@ -142,6 +168,8 @@ export default async function AssetDetailPage({
 					{providerUrl && asset.status === "published" ? <section className="slip p-5 sm:p-6"><p className="dateline">Published article</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live article</a></section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
+
+					<PublishHistory publications={publications} assetStatus={asset.status} />
 
 					<section className="slip flex h-fit flex-col p-5 sm:p-6">
 						<p className="dateline">History</p>
