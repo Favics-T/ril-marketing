@@ -7,6 +7,7 @@ import { registerActivityAttachment, deleteActivityAttachment } from "@/actions/
 import { analyzeActivityAudioVideo, analyzeActivityImage, repurposeActivityDocument, type ImageAnalysisResult } from "@/actions/media";
 import type { ActivityAttachment } from "@/lib/content/attachments";
 import { Button } from "@/components/ui/button";
+import { isPreviewableImage } from "@/lib/content/activity-display";
 
 const accept = [
   "image/jpeg", "image/png", "image/webp", "image/avif", "image/heic",
@@ -19,6 +20,27 @@ const accept = [
 const formatSize = (bytes: number) => bytes < 1024 * 1024
   ? `${Math.max(1, Math.round(bytes / 1024))} KB`
   : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+/**
+ * The file's name, linking to its signed URL. Images also get a small preview
+ * from that same short-lived signed URL; the bucket stays private. A plain
+ * <img> keeps the URL out of Next's image optimiser and its cache. If the
+ * preview can't load (an expired URL, an unsupported format), only the link shows.
+ */
+function AttachmentLink({ file }: { file: ActivityAttachment }) {
+  const [previewFailed, setPreviewFailed] = useState(false);
+  if (!file.signed_url) return <p className="truncate text-sm font-medium">{file.file_name}</p>;
+  const preview = isPreviewableImage(file.mime_type) && !previewFailed;
+  return (
+    <a href={file.signed_url} target="_blank" rel="noreferrer" className="group flex min-w-0 items-center gap-3 text-sm font-medium hover:text-primary">
+      {preview ? (
+        // eslint-disable-next-line @next/next/no-img-element -- private signed URL; must not go through the image optimiser
+        <img src={file.signed_url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setPreviewFailed(true)} className="size-16 shrink-0 rounded-md border border-border bg-muted object-cover" />
+      ) : null}
+      <span className="truncate group-hover:underline">{file.file_name}</span>
+    </a>
+  );
+}
 
 function ImageAnalysisControl({ file, activityId }: { file: ActivityAttachment; activityId: string }) {
   const router = useRouter();
@@ -206,7 +228,7 @@ export function ActivityAttachments({
           {attachments.map((file) => (
             <li key={file.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
               <div className="min-w-0 flex-1">
-                {file.signed_url ? <a href={file.signed_url} target="_blank" rel="noreferrer" className="truncate text-sm font-medium hover:text-primary hover:underline">{file.file_name}</a> : <p className="truncate text-sm font-medium">{file.file_name}</p>}
+                <AttachmentLink file={file} />
                 <p className="dateline mt-0.5">{file.mime_type} · {formatSize(file.byte_size)}</p>
                 <ImageAnalysisControl file={file} activityId={activityId} />
                 <AudioVideoAnalysisControl file={file} activityId={activityId} />
