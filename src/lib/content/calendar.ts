@@ -1,10 +1,32 @@
-import { zonedDayKey, zonedWallTimeToDate } from "@/lib/time";
+import { shiftDayKey, WORKSPACE_TIME_ZONE, zonedDayKey, zonedWallTimeToDate } from "@/lib/time";
+import { reminderState, type ReminderState } from "@/lib/content/reminders";
+
+export const CALENDAR_STATUSES = ["approved", "scheduled", "published"] as const;
+
+interface CalendarAsset {
+  status: string;
+  channel: string | null;
+  platform: string | null;
+  format: string | null;
+  scheduled_for: string | null;
+  published_at: string | null;
+}
+
+export function calendarAt(asset: Pick<CalendarAsset, "scheduled_for" | "published_at">): string | null {
+  return asset.scheduled_for ?? asset.published_at;
+}
+
+export function calendarFlag(asset: CalendarAsset, now: Date = new Date(), timeZone: string = WORKSPACE_TIME_ZONE): ReminderState | null {
+  const reminder = reminderState(asset, now, timeZone);
+  if (reminder) return reminder;
+  if (!["approved", "scheduled"].includes(asset.status) || !asset.scheduled_for) return null;
+  const due = Date.parse(asset.scheduled_for);
+  return Number.isFinite(due) && due < now.getTime() ? "overdue" : null;
+}
 
 export type CalendarView = "day" | "week" | "month";
 export function shiftDay(day: string, amount: number) {
-  const date = new Date(`${day}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + amount);
-  return date.toISOString().slice(0, 10);
+  return shiftDayKey(day, amount);
 }
 export function calendarDays(day: string, view: CalendarView): string[] {
   if (view === "day") return [day];
