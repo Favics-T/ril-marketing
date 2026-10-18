@@ -34,6 +34,11 @@ describe("provider delivery contracts", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).variables).toEqual({ input: { id: "post" } });
   });
   it("treats provider errors as failed and unknown statuses conservatively as queued", () => { expect(bufferDelivery({ id: "post", status: "error" }).status).toBe("failed"); expect(bufferDelivery({ id: "post", status: "unknown" }).status).toBe("queued"); expect(() => bufferDelivery()).toThrow(); });
+  it("preserves the social channel and public URL only after Buffer confirms delivery", () => {
+    expect(bufferDelivery({ id: "post", channelId: "channel", status: "sent", externalLink: "https://www.linkedin.com/feed/update/123", sentAt: "2026-10-18T10:00:00Z" })).toMatchObject({ status: "published", sourceChannelId: "channel", url: "https://www.linkedin.com/feed/update/123" });
+    expect(bufferDelivery({ id: "post", status: "sent", externalLink: "javascript:alert(1)" }).url).toBeUndefined();
+    expect(bufferDelivery({ id: "post", status: "error", error: { message: "Reconnect this account" } }).error).toBe("Reconnect this account");
+  });
   it("does not save an invalid API key or contact Buffer without encryption configured", async () => {
     vi.stubEnv("AI_CONFIG_SECRET", ""); await expect(connectBufferApiKey("org", "key")).rejects.toThrow("AI_CONFIG_SECRET"); expect(fetchMock).not.toHaveBeenCalled();
   });

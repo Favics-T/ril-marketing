@@ -1,7 +1,8 @@
-const socialChannels = new Set(["linkedin", "instagram", "facebook", "x", "twitter", "youtube", "tiktok", "threads", "bluesky", "pinterest", "mastodon"]);
+export const SOCIAL_PLATFORMS = ["linkedin", "instagram", "facebook", "x", "twitter", "youtube", "tiktok", "threads", "bluesky", "pinterest", "mastodon", "social"] as const;
+const socialChannels = new Set<string>(SOCIAL_PLATFORMS);
 
 export function isSocialAsset(channel: string | null, platform: string | null) {
-  return socialChannels.has((channel ?? "").toLowerCase()) || socialChannels.has((platform ?? "").toLowerCase());
+  return socialChannels.has((channel ?? "").trim().toLowerCase()) || socialChannels.has((platform ?? "").trim().toLowerCase());
 }
 
 export function parseLivePostUrl(value: string): string | null {

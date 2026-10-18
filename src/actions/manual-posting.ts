@@ -30,7 +30,7 @@ export async function recordManualPost(assetId: string, formData: FormData): Pro
       p_live_url: liveUrl, p_note: "Manually posted: " + liveUrl,
     });
     if (saveError) return { ok: false, error: saveError.message };
-    for (const path of ["/library", `/library/${assetId}`, "/calendar", "/dashboard", "/analytics", "/approvals"]) revalidatePath(path);
+    for (const path of ["/library", `/library/${assetId}`, "/publishing", "/calendar", "/dashboard", "/analytics", "/approvals"]) revalidatePath(path);
     return { ok: true };
   } catch { return { ok: false, error: "Could not record the post. Check your connection and try again." }; }
 }

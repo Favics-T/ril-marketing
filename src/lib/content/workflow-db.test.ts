@@ -42,6 +42,19 @@ beforeEach(async()=>{
 });
 afterEach(async()=>{await db.exec("ROLLBACK; RESET ROLE;");});
 afterAll(async()=>{await db.close();});
+it("backfills activity timestamps without inventing recent edits and tracks later changes", async () => {
+  await db.exec("CREATE TABLE activities(id integer PRIMARY KEY, title text, created_at timestamptz NOT NULL DEFAULT now()); INSERT INTO activities VALUES(1,'Original','2026-09-01T12:00:00Z');");
+  const sql = await readFile(new URL("../../../supabase/migrations/20261017000000_activities_updated_at.sql", import.meta.url), "utf8");
+  await db.exec(sql);
+  const before = (await db.query<{ created_at: Date; updated_at: Date }>("SELECT created_at,updated_at FROM activities WHERE id=1")).rows[0];
+  expect(before.updated_at).toEqual(before.created_at);
+  await db.exec("UPDATE activities SET title='Edited' WHERE id=1");
+  const after = (await db.query<{ created_at: Date; updated_at: Date }>("SELECT created_at,updated_at FROM activities WHERE id=1")).rows[0];
+  expect(after.created_at).toEqual(before.created_at);
+  expect(after.updated_at.getTime()).toBeGreaterThan(before.updated_at.getTime());
+  await db.exec(sql);
+  expect((await db.query<{ updated_at: Date }>("SELECT updated_at FROM activities WHERE id=1")).rows[0].updated_at).toEqual(after.updated_at);
+});
 async function as(user=reviewer,role="authenticated") { await db.exec(`RESET ROLE; SELECT set_config('request.jwt.claim.sub','${user}',true),set_config('request.jwt.claim.role','${role}',true); SET ROLE ${role};`); }
 async function row() { return (await db.query<{status:string;updated_at:Date;approval_revision:number;second_reviewer_id:string}>("select status,updated_at,approval_revision,second_reviewer_id from content_assets where id=$1",[asset])).rows[0]; }
 async function move(to:string,second:string|null=null,schedule:string|null=null) { const a=await row(); return db.query("select workflow_transition_asset($1,$2,$3,$4,'Test decision',$5) as result",[asset,to,a.updated_at.toISOString(),schedule,second]); }

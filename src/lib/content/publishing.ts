@@ -5,11 +5,11 @@ import { getBufferPost } from "@/lib/integrations/buffer";
 import { getWordPressConfig, getWordPressPost } from "@/lib/integrations/wordpress";
 import { getStrapiConfig, getStrapiDelivery } from "@/lib/integrations/strapi";
 
-export type DeliveryPost = { id: string; status: "queued" | "published" | "failed"; scheduledFor?: string | null; publishedAt?: string | null; url?: string; error?: string; sourceText?: string; sourceSlug?: string; seoSaved?: boolean | null };
+export type DeliveryPost = { id: string; status: "queued" | "published" | "failed"; scheduledFor?: string | null; publishedAt?: string | null; url?: string; error?: string; sourceText?: string; sourceChannelId?: string; sourceSlug?: string; seoSaved?: boolean | null };
 export type PublishingAsset = { id: string; status: string; updated_at: string; metadata: Record<string, unknown> | null };
 
 // Claim the asset version before any provider call; a second click cannot submit the same approved copy.
-export async function claimPublication(org: string, asset: PublishingAsset, provider: "buffer" | "wordpress" | "strapi", actorId: string, scheduledFor?: string) {
+export async function claimPublication(org: string, asset: PublishingAsset, provider: "buffer" | "wordpress" | "strapi", actorId: string, scheduledFor?: string, bufferChannelId?: string) {
   const previous = asset.metadata?.publishing as { state?: string } | undefined;
   if (previous && previous.state !== "failed") throw new Error("This asset already has a publishing request. Check its delivery status first.");
   const admin = createAdminClient();
@@ -18,7 +18,7 @@ export async function claimPublication(org: string, asset: PublishingAsset, prov
   const id = randomUUID();
   const { data, error } = await admin.from("content_assets").update({
     status: "scheduled", scheduled_for: scheduledFor ?? new Date().toISOString(),
-    metadata: { ...asset.metadata, publishing: { provider, publication_id: id } },
+    metadata: { ...asset.metadata, publishing: { provider, publication_id: id, ...(bufferChannelId ? { buffer_channel_id: bufferChannelId } : {}) } },
   }).eq("organization_id", org).eq("id", asset.id).eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
   if (error || !data) throw new Error("This asset changed or could not be reserved. Refresh before publishing.");
   const { error: recordError } = await admin.from("publications").insert({ id, organization_id: org, content_asset_id: asset.id, channel: provider, status: "queued", scheduled_for: scheduledFor ?? null, actor_id: actorId });
@@ -88,7 +88,7 @@ export async function recoverPublicationReceipt(org: string, assetId: string, ex
   if (!externalId.trim() || externalId.length > 200) throw new Error("Enter the provider's post ID.");
   const admin = createAdminClient();
   const { data: asset } = await admin.from("content_assets").select("id,status,body,metadata").eq("organization_id", org).eq("id", assetId).maybeSingle();
-  const publishing = asset?.metadata?.publishing as { provider?: string; publication_id?: string } | undefined;
+  const publishing = asset?.metadata?.publishing as { provider?: string; publication_id?: string; buffer_channel_id?: string } | undefined;
   if (asset?.status !== "scheduled" || !publishing?.publication_id) throw new Error("There is no reserved publishing request to recover.");
   const { data: publication } = await admin.from("publications").select("id,external_id").eq("organization_id", org).eq("content_asset_id", assetId).eq("id", publishing.publication_id).in("status", ["queued", "scheduled", "missed"]).maybeSingle();
   if (!publication || publication.external_id) throw new Error("This request already has a receipt. Use Check delivery status.");
@@ -96,6 +96,8 @@ export async function recoverPublicationReceipt(org: string, assetId: string, ex
   if (publishing.provider === "buffer") {
     post = await getBufferPost(org, externalId.trim());
     if (!asset.body?.trim() || post.sourceText?.trim() !== asset.body.trim()) throw new Error("That Buffer post does not match this asset's approved text.");
+    if (!publishing.buffer_channel_id) throw new Error("This older request has no recorded Buffer channel. Verify it directly in Buffer before changing its delivery record.");
+    if (post.sourceChannelId !== publishing.buffer_channel_id) throw new Error("That Buffer post belongs to a different channel. Use the post ID from the channel selected for this request.");
   } else if (publishing.provider === "wordpress") {
     const config = await getWordPressConfig(org);
     if (!config) throw new Error("Reconnect WordPress to recover delivery.");

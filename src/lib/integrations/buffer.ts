@@ -196,6 +196,9 @@ const CREATE_POST_MUTATION = `
           dueAt
           status
           sentAt
+          channelId
+          externalLink
+          error { message }
         }
       }
       ... on MutationError {
@@ -465,19 +468,22 @@ export async function publishToBuffer(
   return bufferDelivery(data.createPost?.post);
 }
 
-type BufferPost = { id: string; status: string; text?: string; dueAt?: string | null; sentAt?: string | null };
+type BufferPost = { id: string; status: string; text?: string; dueAt?: string | null; sentAt?: string | null; channelId?: string; externalLink?: string | null; error?: { message?: string } | null };
 
 export function bufferDelivery(post?: BufferPost): DeliveryPost {
   if (!post?.id) throw new Error("Buffer returned no post receipt. Check Buffer before retrying.");
-  if (post.status === "sent") return { id: post.id, status: "published", publishedAt: post.sentAt, scheduledFor: post.dueAt, sourceText: post.text };
-  if (["error", "draft", "needs_approval"].includes(post.status)) return { id: post.id, status: "failed", error: `Buffer post status: ${post.status}. Review it in Buffer.`, scheduledFor: post.dueAt, sourceText: post.text };
-  return { id: post.id, status: "queued", scheduledFor: post.dueAt, sourceText: post.text };
+  let url: string | undefined;
+  try { const parsed = new URL(post.externalLink ?? ""); if (parsed.protocol === "https:" && !parsed.username && !parsed.password) url = parsed.href; } catch { /* No public link is available yet. */ }
+  const receipt = { id: post.id, scheduledFor: post.dueAt, sourceText: post.text, sourceChannelId: post.channelId, url };
+  if (post.status === "sent") return { ...receipt, status: "published", publishedAt: post.sentAt };
+  if (["error", "draft", "needs_approval"].includes(post.status)) return { ...receipt, status: "failed", error: post.error?.message || `Buffer post status: ${post.status}. Review it in Buffer.` };
+  return { ...receipt, status: "queued" };
 }
 
 export async function getBufferPost(organizationId: string, id: string): Promise<DeliveryPost> {
   const { rowId, config } = await readConfig(organizationId);
   const token = await refreshIfNeeded(organizationId, rowId, config);
-  const data = await bufferGraphQl<{ post: BufferPost }>(token, `query GetPost($input: PostInput!) { post(input: $input) { id text status dueAt sentAt } }`, { input: { id } });
+  const data = await bufferGraphQl<{ post: BufferPost }>(token, `query GetPost($input: PostInput!) { post(input: $input) { id text status dueAt sentAt channelId externalLink error { message } } }`, { input: { id } });
   return bufferDelivery(data.post);
 }
 

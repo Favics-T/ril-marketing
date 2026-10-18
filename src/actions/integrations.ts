@@ -8,14 +8,13 @@ import { connectBufferApiKey, disconnectBuffer, getBufferChannels, publishToBuff
 import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 import { claimPublication, noteUncertainDelivery, saveDelivery, syncPublication, recoverPublicationReceipt } from "@/lib/content/publishing";
 import { futureSchedule } from "@/lib/content/scheduling";
-import { isSocialAsset } from "@/lib/content/manual-posting";
-import { checkChannelLimits } from "@/lib/content/channels";
+import { bufferPostProblem } from "@/lib/content/social-publishing";
 
 export type { BufferChannel };
 export interface IntegrationResult { ok: boolean; error?: string; message?: string; channels?: BufferChannel[]; publicationId?: string }
 
 function refreshAsset(id: string) {
-  for (const path of ["/library", `/library/${id}`, "/calendar", "/dashboard", "/approvals"]) revalidatePath(path);
+  for (const path of ["/library", `/library/${id}`, "/publishing", "/calendar", "/dashboard", "/approvals"]) revalidatePath(path);
 }
 
 async function requireIntegrationManager(org: string) {
@@ -55,7 +54,7 @@ export async function saveBufferApiKey(formData: FormData): Promise<IntegrationR
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not connect Buffer." }; }
 }
 
-export async function publishAssetViaBuffer(assetId: string, channelId: string, scheduledFor?: string): Promise<IntegrationResult> {
+export async function publishAssetViaBuffer(assetId: string, channelId: string, scheduledFor?: string, expectedUpdatedAt?: string): Promise<IntegrationResult> {
   let org = "", requestId = "";
   try {
     org = await requireOrganizationId();
@@ -67,19 +66,13 @@ export async function publishAssetViaBuffer(assetId: string, channelId: string, 
     const { data: asset, error } = await client.from("content_assets").select("id,title,body,status,channel,platform,format,metadata,updated_at").eq("organization_id", org).eq("id", assetId).maybeSingle();
     if (error || !asset) return { ok: false, error: "Content not found in this workspace." };
     if (asset.status !== "approved") return { ok: false, error: "Approve this content before sending it to Buffer." };
-    if (!isSocialAsset(asset.channel, asset.platform) || asset.format === "short-form video") return { ok: false, error: "Buffer text publishing is for social copy. Upload and publish video files directly in your social tool." };
-    if (!asset.body?.trim()) return { ok: false, error: "Add and approve the post copy first." };
+    if (expectedUpdatedAt && asset.updated_at !== expectedUpdatedAt) return { ok: false, error: "This post changed since you opened it. Refresh and review the current copy before sending." };
     const channels = await getBufferChannels(org);
     const channel = channels.find(c => c.id === channelId);
     if (!channel || channel.isDisconnected || channel.isLocked || channel.isQueuePaused) return { ok: false, error: "Choose an available channel from this workspace's Buffer connection." };
-    const service = channel.service.toLowerCase().replace("twitter", "x");
-    const platform = (asset.platform || asset.channel || "").toLowerCase().replace("twitter", "x");
-    if (!["linkedin", "x", "facebook", "threads", "bluesky", "mastodon"].includes(service)) return { ok: false, error: "This channel requires media. Use the manual posting workflow instead." };
-    if (platform !== "social" && platform !== service) return { ok: false, error: "Choose a Buffer channel matching this asset's platform." };
-    if (service === "x" && asset.body.includes("— Optional thread (post each separately) —")) return { ok: false, error: "This draft includes a separate X thread. Post each part manually, or edit it to a single post and approve it again before using Buffer." };
-    const lengthCheck = checkChannelLimits(service, asset.body, asset.format);
-    if (lengthCheck.problems.length) return { ok: false, error: `Shorten the copy before publishing. ${lengthCheck.problems.join(" ")}` };
-    requestId = await claimPublication(org, asset, "buffer", user.id, date);
+    const problem = bufferPostProblem(asset, channel);
+    if (problem) return { ok: false, error: problem };
+    requestId = await claimPublication(org, asset, "buffer", user.id, date, channel.id);
     const post = await publishToBuffer(org, channel.id, asset.body.trim(), date);
     await saveDelivery(org, requestId, assetId, post);
     refreshAsset(assetId);

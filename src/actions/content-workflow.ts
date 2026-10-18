@@ -14,7 +14,7 @@ import { syncPublication } from "@/lib/content/publishing";
 
 export type WorkflowResult = { ok: boolean; error?: string; message?: string; status?: string; pending?: boolean };
 
-function refresh(id: string) { for (const path of ["/calendar", "/library", `/library/${id}`, "/dashboard", "/approvals"]) revalidatePath(path); }
+function refresh(id: string) { for (const path of ["/calendar", "/library", `/library/${id}`, "/publishing", "/dashboard", "/approvals"]) revalidatePath(path); }
 
 export async function changeContentStatus(assetId: string, formData: FormData): Promise<WorkflowResult> {
   try {

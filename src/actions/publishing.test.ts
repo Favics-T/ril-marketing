@@ -95,8 +95,27 @@ describe("approved publishing workflows", () => {
     const fd = new FormData(); fd.set("external_id", "recovered-post");
     mocks.status.mockResolvedValueOnce({ id: "recovered-post", status: "published", sourceText: "Different post copy" });
     expect((await recoverPublishingRequest("asset", fd)).ok).toBe(false); expect(state.asset().status).toBe("scheduled");
-    mocks.status.mockResolvedValueOnce({ id: "recovered-post", status: "published", sourceText: "Approved source copy", publishedAt: "2026-10-15T10:00:00Z" });
+    mocks.status.mockResolvedValueOnce({ id: "recovered-post", status: "published", sourceText: "Approved source copy", sourceChannelId: "channel", publishedAt: "2026-10-15T10:00:00Z" });
     expect((await recoverPublishingRequest("asset", fd)).ok).toBe(true); expect(state.asset().status).toBe("published"); expect(mocks.buffer).toHaveBeenCalledTimes(1);
   });
   it("keeps failures reviewable when the provider rejects a post and the database also fails", async () => { setup({}, q => q.table === "publications" && q.operation === "update"); mocks.buffer.mockRejectedValueOnce(new DeliveryRejected("Post rejected")); expect((await publishAssetViaBuffer("asset", "channel")).ok).toBe(false); });
+  it("rejects a stale preview before reserving or contacting Buffer", async () => {
+    const state = setup();
+    expect(await publishAssetViaBuffer("asset", "channel", undefined, "outdated-version")).toMatchObject({ ok: false, error: expect.stringContaining("changed since") });
+    expect(mocks.channels).not.toHaveBeenCalled();
+    expect(mocks.buffer).not.toHaveBeenCalled();
+    expect(state.database.queries.some(query => query.operation === "update")).toBe(false);
+  });
+  it("never links matching text from the wrong Buffer channel after a timeout", async () => {
+    const state = setup();
+    mocks.buffer.mockRejectedValueOnce(new Error("Timeout"));
+    await publishAssetViaBuffer("asset", "channel");
+    expect(state.asset().metadata).toMatchObject({ publishing: { buffer_channel_id: "channel" } });
+    mocks.status.mockResolvedValueOnce({ id: "unrelated-post", status: "published", sourceText: "Approved source copy", sourceChannelId: "different-channel" });
+    const fd = new FormData(); fd.set("external_id", "unrelated-post");
+    expect(await recoverPublishingRequest("asset", fd)).toMatchObject({ ok: false, error: expect.stringContaining("different channel") });
+    expect(state.asset().status).toBe("scheduled");
+    expect(state.publication()?.external_id).toBeUndefined();
+    expect(mocks.buffer).toHaveBeenCalledTimes(1);
+  });
 });
