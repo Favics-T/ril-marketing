@@ -8,7 +8,7 @@ import { formatDay } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Approval inbox" };
 const categories = ["all","content","insights","email","pages"] as const;
-type Item = { id:string; title:string; status:string; created_at:string; category:string; href:string };
+type Item = { id:string; title:string; status:string; created_at:string; category:string; href:string; second_reviewer_id?:string | null };
 
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ type?:string }> }) {
   const {type} = await searchParams;
@@ -17,7 +17,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const client = await createClient();
   if (!org) return <div className="workspace-page"><h1>Approval inbox</h1><p>Create a workspace to start reviewing content.</p><Link href="/onboarding">Set up workspace</Link></div>;
   const results = await Promise.all([
-    client.from("content_assets").select("id,title,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
+    client.from("content_assets").select("id,title,status,created_at,second_reviewer_id",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
     client.from("audience_insights").select("id,summary,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","PENDING_REVIEW").order("created_at").limit(100),
     client.from("email_campaigns").select("id,name,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
     client.from("landing_pages").select("id,title,status,created_at",{count:"exact"}).eq("organization_id",org).eq("status","review").order("created_at").limit(100),
@@ -39,7 +39,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     {failures.length>0&&<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">Could not load {failures.join(", ")}. Refresh to retry; the counts below may be incomplete.</p>}
     <nav aria-label="Filter by approval type">{categories.map(category=><Link key={category} href={category==="all"?"/approvals":`/approvals?type=${category}`} aria-current={filter===category?"page":undefined}>{category==="pages"?"Landing pages":category} <span className="ml-1 tabular-nums text-muted-foreground">{category==="all"?total:counts[category]}</span></Link>)}</nav>
     <section className="workspace-panel overflow-hidden" aria-label="Items awaiting approval"><div className="workspace-panel-heading"><div><h2>{visible.length?"Awaiting a decision":"Review queue"}</h2><p>{visible.length} items shown · up to 100 per type</p></div></div>
-      <ul>{visible.map(item=><li key={`${item.category}-${item.id}`}><Link href={item.href} className="workspace-row"><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center gap-2"><StatusStamp status={item.status}/><span className="text-xs capitalize text-muted-foreground">{item.category==="pages"?"Landing page":item.category}</span></div><p className="workspace-row-title line-clamp-2">{item.title}</p><p className="workspace-row-meta">Waiting since {formatDay(item.created_at)}</p></div><ArrowRight className="size-4 shrink-0 text-muted-foreground"/></Link></li>)}</ul>
+      <ul>{visible.map(item=><li key={`${item.category}-${item.id}`}><Link href={item.href} className="workspace-row"><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center gap-2"><StatusStamp status={item.status}/>{item.second_reviewer_id ? <span className="text-xs font-semibold text-primary">Second approval needed</span> : null}<span className="text-xs capitalize text-muted-foreground">{item.category==="pages"?"Landing page":item.category}</span></div><p className="workspace-row-title line-clamp-2">{item.title}</p><p className="workspace-row-meta">Waiting since {formatDay(item.created_at)}</p></div><ArrowRight className="size-4 shrink-0 text-muted-foreground"/></Link></li>)}</ul>
       {!visible.length&&<div className="workspace-empty"><p className="font-semibold text-foreground">{failures.length?"Some queues are unavailable":"Nothing waiting in this queue"}</p><p className="mt-1">{failures.length?"Refresh before treating this inbox as clear.":"Submit a draft for review from its content, email, or landing-page workspace."}</p></div>}
     </section>
   </div>;

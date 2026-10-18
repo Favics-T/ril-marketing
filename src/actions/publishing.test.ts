@@ -19,6 +19,7 @@ function setup(overrides: Record<string, unknown> = {}, fail?: (query: Query) =>
   let publication: Record<string, unknown> | null = null;
   const database = databaseMock(query => {
     if (fail?.(query)) return { data: null, error: { message: "Database unavailable" } };
+    if (query.table === "content_schedule_changes") return {data: null};
     if (query.table === "content_assets" && query.operation === "select") return { data: asset };
     if (query.table === "content_assets" && query.operation === "update") { asset = { ...asset, ...query.payload }; return { data: { id: "asset" } }; }
     if (query.table === "publications" && query.operation === "insert") publication = query.payload as Record<string, unknown>;

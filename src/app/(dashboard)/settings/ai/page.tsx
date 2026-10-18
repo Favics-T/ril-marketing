@@ -17,6 +17,7 @@ import { ConnectorCard } from "@/components/settings/connector-card";
 import { WordPressSettingsForm } from "@/components/settings/wordpress-settings-form";
 import { StrapiSettingsForm } from "@/components/settings/strapi-settings-form";
 import { GoogleAnalyticsSettingsForm } from "@/components/settings/google-analytics-settings-form";
+import { ConnectionHealthPanel } from "@/components/settings/connection-health-panel";
 
 export const metadata: Metadata = { title: "AI & Integrations" };
 
@@ -206,6 +207,8 @@ export default async function AiSettingsPage({
         </p>
       </header>
 
+      <ConnectionHealthPanel canManage={canManageConnectors} />
+
       {search.connect_error ? (
         <p
           role="alert"
@@ -225,8 +228,7 @@ export default async function AiSettingsPage({
         </p>
       ) : null}
 
-      {/* ── AI provider ───────────────────────────────────────────────── */}
-      <nav aria-label="Integration sections" className="flex flex-wrap gap-2"><a href="#ai-provider" className="inline-flex min-h-11 items-center rounded-md border bg-card px-4 text-sm font-medium hover:bg-muted">AI writing</a><a href="#connectors" className="inline-flex min-h-11 items-center rounded-md border bg-card px-4 text-sm font-medium hover:bg-muted">Connected apps · {connectedCount}</a></nav>
+      <nav aria-label="Integration sections" className="flex flex-wrap gap-2"><a href="#ai-provider" className="inline-flex min-h-11 items-center rounded-md border bg-card px-4 text-sm font-medium hover:bg-muted">AI writing</a><a href="#connectors" className="inline-flex min-h-11 items-center rounded-md border bg-card px-4 text-sm font-medium hover:bg-muted">Saved apps · {connectedCount}</a></nav>
       <section
         id="ai-provider"
         aria-labelledby="ai-provider-heading"
@@ -256,14 +258,14 @@ export default async function AiSettingsPage({
             </div>
           </div>
           <StatusStamp variant={aiConnected ? "approved" : "cold"}>
-            {aiConnected ? "Connected" : "Not connected"}
+            {aiConnected ? "Key saved" : "Not connected"}
           </StatusStamp>
         </div>
 
         <div className="mt-4">
           {serverKey ? (
             <p className="max-w-[62ch] text-sm leading-6 text-muted-foreground">
-              AI is ready to use. Your workspace administrator manages this connection.
+              Your workspace administrator manages the saved AI key. Use Check connections to verify access.
             </p>
           ) : (
             <>
@@ -300,7 +302,7 @@ export default async function AiSettingsPage({
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             <p className="dateline tabular-nums">
-              {connectedCount} of 5 connected
+              {connectedCount} of 5 connections saved
             </p>
           </div>
         </div>

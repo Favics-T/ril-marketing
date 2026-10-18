@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getAsset, listAssetApprovals, listAssetPublications } from "@/lib/content/assets";
+import { needsSecondApproval, type ContentSignoff, type ContentReviewer } from "@/lib/content/workflow";
 import { AssetTransition } from "@/components/content/asset-transition";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { formatDay, formatDayTime } from "@/lib/format";
@@ -41,12 +42,19 @@ export default async function AssetDetailPage({
 	const manualPost = asset.metadata?.manual_post as { url?: string; recorded_at?: string } | undefined;
 	const liveUrl = typeof manualPost?.url === "string" ? parseLivePostUrl(manualPost.url) : null;
 	const [approvals, publications] = await Promise.all([listAssetApprovals(orgId, id), listAssetPublications(orgId, id)]);
+	const workflowClient = await createClient();
+ const [signoffs, reviewers] = await Promise.all([
+   workflowClient.from("content_signoffs").select("*").eq("organization_id", orgId).eq("content_asset_id", id).eq("approval_revision", asset.approval_revision ?? 1).order("tier"),
+   workflowClient.rpc("content_reviewers", {p_org: orgId}),
+ ]);
+ if (signoffs.error || reviewers.error) throw new Error("Could not load recorded approvals. Refresh before taking action.");
+ const releaseReady = (signoffs.data?.length ?? 0) >= (needsSecondApproval(asset.approval_category ?? "standard", asset.sensitivity) ? 2 : 1);
 	const reminder = reminderState(asset);
 	const isCalendarProposal = asset.metadata?.calendar_generator === true;
 	const recommendationReason = typeof asset.metadata?.recommendation_reason === "string" ? asset.metadata.recommendation_reason : null;
 	const suggestedAt = typeof asset.metadata?.suggested_publish_at === "string" ? asset.metadata.suggested_publish_at : null;
 	const seo = asset.metadata?.seo && typeof asset.metadata.seo === "object" ? asset.metadata.seo as { title?: string; description?: string; keywords?: string[]; internalLinks?: string[] } : null;
-	const cmsEligible = asset.status === "approved" && (asset.format === "blog" || asset.channel === "website");
+	const cmsEligible = releaseReady && asset.status === "approved" && (asset.format === "blog" || asset.channel === "website");
 	const [wpResult, strapiResult] = cmsEligible
 		? await createClient().then((client) =>
 				Promise.all([
@@ -57,10 +65,10 @@ export default async function AssetDetailPage({
 		: [{ data: null }, { data: null }];
 	const wordpress = wpResult.data?.status === "connected" && await getWordPressConfig(orgId) ? wpResult.data : null;
 	const strapi = strapiResult.data;
-	const buffer = socialAsset && asset.status === "approved" ? await getBufferStatus(orgId) : null;
+	const buffer = releaseReady && socialAsset && asset.status === "approved" ? await getBufferStatus(orgId) : null;
 	const publishingRecord = asset.metadata?.publishing as { provider?: string; state?: string } | undefined;
 	const publishing = publishingRecord?.state === "failed" ? undefined : publishingRecord;
-	const delivery = publishing && asset.status === "scheduled" ? await createClient().then(client => client.from("publications").select("error,external_id").eq("organization_id", orgId).eq("content_asset_id", id).eq("status", "queued").order("created_at", { ascending: false }).limit(1).maybeSingle()) : null;
+	const delivery = publishing && asset.status === "scheduled" ? await createClient().then(client => client.from("publications").select("error,external_id").eq("organization_id", orgId).eq("content_asset_id", id).in("status", ["queued", "scheduled", "missed"]).order("created_at", { ascending: false }).limit(1).maybeSingle()) : null;
 	const providerUrl = typeof asset.metadata?.published_url === "string" ? parseLivePostUrl(asset.metadata.published_url) : null;
 
 	const meta: Array<{ label: string; value: string | null }> = [
@@ -120,7 +128,7 @@ export default async function AssetDetailPage({
 						</div>
 					) : null}
 					{seo && (seo.title || seo.description || seo.keywords?.length || seo.internalLinks?.length) ? <section className="border-t border-border/80 px-5 py-4 sm:px-6"><p className="dateline">SEO preparation</p>{seo.title ? <p className="mt-2 text-[13px] font-bold tracking-[-0.01em]">{seo.title}</p> : null}{seo.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{seo.description}</p> : null}{seo.keywords?.length ? <p className="mt-2 text-[13px] leading-5 text-muted-foreground">Target terms · {seo.keywords.join(", ")}</p> : null}{seo.internalLinks?.length ? <ul className="mt-2 flex flex-col gap-1 text-xs text-primary">{seo.internalLinks.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{url}</a></li>)}</ul> : null}<p className="mt-2 text-[13px] leading-5 text-muted-foreground">Editorial search metadata only. Search performance is not verified until analytics data is connected.</p></section> : null}
-					{["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor asset={asset} /> : null}
+					{["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor key={asset.updated_at} asset={asset} /> : null}
 					</section>
 
 				<div className="flex flex-col gap-4 lg:gap-6">
@@ -139,11 +147,11 @@ export default async function AssetDetailPage({
 								<ReminderFlag state={reminder} />
 							</div>
 							<p className="text-sm leading-6 text-muted-foreground">
-								{reminder === "overdue"
+								{!releaseReady ? "Check delivery first, then remove this reservation and request recorded approval before publishing again." : reminder === "overdue"
 									? `It was due ${formatReminderTime(asset.scheduled_for)}. Post it now, or move it back to Approved to pick a new time.`
 									: `Due ${formatReminderTime(asset.scheduled_for)}. Once it's live on ${asset.platform || asset.channel || "the channel"}, mark it as posted.`}
 							</p>
-							<a href="#manual-post-heading" className="text-sm font-semibold text-primary underline underline-offset-4">Record the live post link</a>
+							{releaseReady ? <a href="#manual-post-heading" className="text-sm font-semibold text-primary underline underline-offset-4">Record the live post link</a> : null}
 						</section>
 					) : null}
 					{isCalendarProposal ? (
@@ -160,15 +168,16 @@ export default async function AssetDetailPage({
 							<p className="dateline">Approval pipeline</p>
 							<h2 className="mt-1 text-base font-bold">Move this asset</h2>
 						</div>
-						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below.</p> : <AssetTransition assetId={asset.id} status={asset.status} manualSocialPosting={socialAsset} scheduledFor={asset.scheduled_for} />}
+						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below, or change the schedule in the calendar.</p> : <AssetTransition key={asset.updated_at} assetId={asset.id} status={asset.status} manualSocialPosting={socialAsset} scheduledFor={asset.scheduled_for} expectedUpdatedAt={asset.updated_at} category={asset.approval_category} sensitivity={asset.sensitivity} signoffs={(signoffs.data ?? []) as ContentSignoff[]} reviewers={(reviewers.data ?? []) as ContentReviewer[]} authorId={asset.created_by} secondReviewerId={asset.second_reviewer_id} />}
 					</section>
-					{socialAsset && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
+					{socialAsset && (releaseReady || ["published", "analysing"].includes(asset.status)) && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
 					{buffer ? <SocialPublishAction assetId={asset.id} connected={buffer.connected} channels={buffer.channels} /> : null}
 					{publishing && asset.status === "scheduled" ? <PublicationStatus assetId={asset.id} provider={publishing.provider || "provider"} error={delivery?.data?.error} url={providerUrl} missingReceipt={!delivery?.data?.external_id} /> : null}
 					{providerUrl && asset.status === "published" ? <section className="slip p-5 sm:p-6"><p className="dateline">Published article</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live article</a></section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 
+					<Link href="/calendar" className="text-sm font-semibold text-primary underline underline-offset-4">Open calendar to change or recover a schedule</Link>
 					<PublishHistory publications={publications} assetStatus={asset.status} />
 
 					<section className="slip flex h-fit flex-col p-5 sm:p-6">
@@ -180,7 +189,7 @@ export default async function AssetDetailPage({
 										<span className="text-sm font-semibold tracking-[-0.01em] text-foreground">
 											{statusLabel(a.from_status)} → {statusLabel(a.to_status)}
 										</span>
-										<span className="dateline">{formatDay(a.created_at)}</span>
+										<span className="dateline">{formatDayTime(a.created_at)}{a.actor_name ? ` · ${a.actor_name}` : ""}{a.actor_role ? ` · ${a.actor_role.replaceAll("_", " ")}` : ""}</span>{a.previous_scheduled_for !== a.scheduled_for && (a.previous_scheduled_for || a.scheduled_for) ? <span className="text-xs text-muted-foreground">{a.previous_scheduled_for ? formatReminderTime(a.previous_scheduled_for) : "Unscheduled"} → {a.scheduled_for ? formatReminderTime(a.scheduled_for) : "Unscheduled"}</span> : null}
 										{a.note ? (
 											<span className="mt-0.5 text-sm text-muted-foreground">
 												{a.note}

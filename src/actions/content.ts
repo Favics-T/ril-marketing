@@ -1,28 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isSocialAsset } from "@/lib/content/manual-posting";
-import { futureSchedule } from "@/lib/content/scheduling";
+import { isHighSensitivityApprover } from "@/lib/content/transitions";
+import { changeContentStatus } from "@/actions/content-workflow";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrganizationId } from "@/lib/supabase/organization";
-import { getUserRole, isReviewerRole, requireReviewer } from "@/lib/audience/access";
+import { getUserRole, requireReviewer } from "@/lib/audience/access";
 import { getCalendarSignals } from "@/lib/audience/recommendations";
 import { getBrandGuidance } from "@/lib/brand/knowledge";
 import { generateRepurposing, completeWithConfiguredProvider, prepareSourceMaterial } from "@/lib/ai/provider";
-import {
-  canTransitionAsset,
-  isHighSensitivityApprover,
-  isValidAssetStatus,
-} from "@/lib/content/transitions";
 import { NEWSLETTER_STYLES, REPURPOSE_KINDS, type GenerationOptions, type RepurposeKind } from "@/lib/ai/types";
 import { loadActivitySourceMaterial } from "@/lib/content/source-material";
-import { CHANNELS, checkChannelLimits, normalizeChannel } from "@/lib/content/channels";
+import { APPROVAL_CATEGORIES } from "@/lib/content/workflow";
+import { CHANNELS, normalizeChannel } from "@/lib/content/channels";
 import { testAiConnection } from "@/lib/ai/provider";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secret-box";
 import { syncIndustryTrends } from "@/jobs/trend-monitoring";
-import { zonedWallTimeToDate } from "@/lib/time";
 import {
   defaultModel,
   getModel,
@@ -657,7 +652,7 @@ export async function updateContentDraft(
       return { ok: false, error: "Internal link suggestions must be local paths beginning with a single slash." };
     }
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+
     const { data: asset } = await supabase
       .from("content_assets")
       .select("status,metadata,updated_at")
@@ -668,7 +663,6 @@ export async function updateContentDraft(
     if (!["idea", "ai_generated", "editing"].includes(asset.status)) {
       return { ok: false, error: "Move this asset back to Editing before changing its copy." };
     }
-    const nextStatus = asset.status === "ai_generated" || asset.status === "idea" ? "editing" : asset.status;
     const previousMetadata = asset.metadata ?? {};
     const metadata = {
       ...previousMetadata,
@@ -681,32 +675,12 @@ export async function updateContentDraft(
         appliedAt: null,
       },
     };
-    const { data: saved, error } = await supabase
-      .from("content_assets")
-      .update({
-        title: parsed.data.title,
-        body: parsed.data.body || null,
-        channel: parsed.data.channel || null,
-        topic: parsed.data.topic || null,
-        hook: parsed.data.hook || null,
-        cta: parsed.data.cta || null,
-        metadata,
-        status: nextStatus,
-      })
-      .eq("organization_id", organizationId)
-      .eq("id", assetId).eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
+    const { error } = await supabase.rpc("save_content_draft", {
+      p_asset: assetId,
+      p_expected: formData.get("expected_updated_at") || asset.updated_at,
+      p_fields: { ...parsed.data, metadata, approval_category: formData.get("approval_category") || "standard" },
+    });
     if (error) return { ok: false, error: error.message };
-    if (!saved) return { ok: false, error: "This draft changed. Refresh before saving." };
-    if (nextStatus !== asset.status) {
-      await supabase.from("asset_approvals").insert({
-        organization_id: organizationId,
-        content_asset_id: assetId,
-        actor_id: user?.id ?? null,
-        from_status: asset.status,
-        to_status: nextStatus,
-        note: "Draft edited by a human.",
-      });
-    }
     revalidatePath(`/library/${assetId}`);
     revalidatePath("/library");
     return { ok: true, id: assetId };
@@ -715,122 +689,14 @@ export async function updateContentDraft(
   }
 }
 
-const transitionSchema = z.object({
-  to: z.string(),
-  note: z.string().trim().max(2000).optional().default(""),
-  scheduled_for: z.string().trim().optional().default(""),
-});
-
-/**
- * Approval-pipeline transitions (PRD §11). Order enforced, audit-trailed,
- * tier-gated for high-sensitivity assets. Publishing only acts on Approved.
- */
-export async function transitionAsset(
-  assetId: string,
-  formData: FormData
-): Promise<ActionResult> {
-  try {
-    const organizationId = await requireOrganizationId();
-    const role = await getUserRole(organizationId);
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const parsed = transitionSchema.safeParse({
-      to: formData.get("to"),
-      note: formData.get("note") ?? "",
-      scheduled_for: formData.get("scheduled_for") ?? "",
-    });
-    if (!parsed.success || !isValidAssetStatus(parsed.data.to)) {
-      return { ok: false, error: "Invalid target status." };
-    }
-    const to = parsed.data.to;
-
-    const { data: asset, error: assetError } = await supabase
-      .from("content_assets")
-      .select("id, status, sensitivity, channel, platform, metadata, updated_at, body, format")
-      .eq("id", assetId)
-      .eq("organization_id", organizationId)
-      .maybeSingle<{ id: string; status: string; sensitivity: string; channel: string | null; platform: string | null; metadata: Record<string, unknown> | null; updated_at: string; body: string | null; format: string | null }>();
-    if (assetError || !asset) return { ok: false, error: "Asset not found." };
-    if (!user) return { ok: false, error: "Sign in before changing content status." };
-    if (asset.metadata?.publishing && (asset.metadata.publishing as { state?: string }).state !== "failed" && asset.status === "scheduled") return { ok: false, error: "The provider is handling delivery. Check its publishing status before changing this asset." };
-    if (!canTransitionAsset(asset.status, to)) {
-      return { ok: false, error: `Cannot move from ${asset.status} to ${to}.` };
-    }
-    // Copy over a platform's hard limit can't be reviewed or approved (PRD §13).
-    if (to === "review" || to === "approved") {
-      const { problems } = checkChannelLimits(asset.channel, asset.body, asset.format);
-      if (problems.length) return { ok: false, error: `Shorten the copy first. ${problems.join(" ")}` };
-    }
-    if (to === "approved" && !isReviewerRole(role)) {
-      return { ok: false, error: "Approval requires an owner, admin, marketing manager or leadership role." };
-    }
-    if (to === "approved" && asset.sensitivity === "high" && !isHighSensitivityApprover(role)) {
-      return { ok: false, error: "High-sensitivity assets need owner, admin or leadership approval." };
-    }
-    if (to === "approved" && asset.sensitivity === "high") {
-      const { data: reviewSteps } = await supabase
-        .from("asset_approvals")
-        .select("actor_id")
-        .eq("organization_id", organizationId)
-        .eq("content_asset_id", assetId)
-        .eq("to_status", "review")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (!reviewSteps?.[0]?.actor_id || reviewSteps[0].actor_id === user?.id) {
-        return { ok: false, error: "High-sensitivity approval requires a named reviewer and a different owner, admin or leader." };
-      }
-    }
-
-    const patch: Record<string, unknown> = { status: to };
-    if (["scheduled", "published"].includes(to) && !isReviewerRole(role)) return { ok: false, error: "Scheduling and publishing require a reviewer role." };
-    if (to === "published" && isSocialAsset(asset.channel, asset.platform)) {
-      return { ok: false, error: "Use Post manually and save the live post link to mark social content as posted." };
-    }
-    if (to === "scheduled") {
-      if (!parsed.data.scheduled_for) {
-        return { ok: false, error: "Scheduling needs a date and time." };
-      }
-      // The form sends an exact instant. A bare wall-clock time means WAT, never the server's UTC.
-      const raw = parsed.data.scheduled_for;
-      const at = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw) ? new Date(raw) : zonedWallTimeToDate(raw);
-      if (!at || Number.isNaN(at.getTime())) return { ok: false, error: "Enter a valid date and time." };
-      patch.scheduled_for = futureSchedule(at.toISOString());
-    }
-    if (asset.status === "scheduled" && to === "approved") patch.scheduled_for = null;
-    if (to === "published") patch.published_at = new Date().toISOString();
-
-    const { data: saved, error } = await supabase
-      .from("content_assets")
-      .update(patch)
-      .eq("id", assetId)
-      .eq("organization_id", organizationId)
-      .eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
-    if (error) return { ok: false, error: error.message };
-    if (!saved) return { ok: false, error: "This content changed. Refresh before updating its status." };
-
-    await supabase.from("asset_approvals").insert({
-      organization_id: organizationId,
-      content_asset_id: assetId,
-      actor_id: user?.id ?? null,
-      from_status: asset.status,
-      to_status: to,
-      note: parsed.data.note || null,
-    });
-
-    revalidatePath("/library");
-    revalidatePath(`/library/${assetId}`);
-    revalidatePath("/calendar");
-    revalidatePath("/dashboard");
-    return { ok: true, id: assetId };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
-  }
+export async function transitionAsset(assetId: string, formData: FormData): Promise<ActionResult> {
+  return changeContentStatus(assetId, formData);
 }
 
 const assetSchema = z.object({
+  initial_status: z.enum(["idea", "editing"]).default("editing"),
+  approval_category: z.enum(APPROVAL_CATEGORIES.map(([key]) => key)).default("standard"),
+  format: z.string().trim().max(100).default("social post"),
   title: z.string().trim().min(2).max(200),
   body: z.string().trim().max(20000).optional().default(""),
   channel: z.string().trim().max(60).optional().default(""),
@@ -840,6 +706,9 @@ export async function createManualAsset(formData: FormData): Promise<ActionResul
   try {
     const organizationId = await requireOrganizationId();
     const parsed = assetSchema.safeParse({
+      initial_status: formData.get("initial_status") ?? "editing",
+      approval_category: formData.get("approval_category") ?? "standard",
+      format: formData.get("format") ?? "social post",
       title: formData.get("title"),
       body: formData.get("body") ?? "",
       channel: formData.get("channel") ?? "",
@@ -855,7 +724,11 @@ export async function createManualAsset(formData: FormData): Promise<ActionResul
         title: parsed.data.title,
         body: parsed.data.body || null,
         channel: normalizeChannel(parsed.data.channel),
-        status: "editing",
+        status: parsed.data.initial_status,
+        platform: normalizeChannel(parsed.data.channel),
+        format: parsed.data.format,
+        approval_category: parsed.data.approval_category,
+        sensitivity: parsed.data.approval_category === "standard" ? "standard" : "high",
       })
       .select("id")
       .single<{ id: string }>();

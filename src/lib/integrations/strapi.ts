@@ -2,6 +2,7 @@ import "server-only";
 import { lookup } from "node:dns/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret } from "@/lib/crypto/secret-box";
+import type { DeliveryPost } from "@/lib/content/publishing";
 
 type IntegrationRow = { status: string; config: Record<string, string> };
 export type StrapiConfig = {
@@ -111,6 +112,17 @@ export async function getStrapiConfig(organizationId: string): Promise<StrapiCon
 /** REST path that finds an entry by its slug — the idempotency probe before creating. */
 export function slugFilterPath(config: StrapiConfig, slug: string) {
   return `/${config.collection}?filters[${encodeURIComponent(config.slugField)}][$eq]=${encodeURIComponent(slug)}&pagination[pageSize]=1`;
+}
+
+export async function getStrapiDelivery(config: StrapiConfig, assetId: string): Promise<DeliveryPost> {
+  const slug = `ril-${assetId}`;
+  type Entry = { id?: number | string; documentId?: string; publishedAt?: string | null; attributes?: Record<string, unknown> };
+  const result = await requestStrapi<{ data?: Entry[] }>(config, slugFilterPath(config, slug));
+  const entry = result.data?.[0];
+  if (!entry) throw new Error("Strapi has no matching entry yet. Check the request in Strapi before sending again.");
+  const fields = entry.attributes ?? entry;
+  const publishedAt = typeof fields.publishedAt === "string" ? fields.publishedAt : null;
+  return { ...entryRef(config, entry), sourceSlug: slug, status: publishedAt ? "published" : "failed", publishedAt, ...(!publishedAt ? {error: "The matching Strapi entry is a draft. It was not marked as published."} : {}) };
 }
 
 type StrapiArticle = { title: string; body: string; excerpt: string; slug: string; seo: { title: string; description: string } };

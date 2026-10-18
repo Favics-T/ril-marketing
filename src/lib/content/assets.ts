@@ -23,6 +23,11 @@ export interface ContentAssetRow {
   source_activity_id: string | null;
   generation_id: string | null;
   metadata: Record<string, unknown>;
+  updated_at: string;
+  created_by?: string | null;
+  approval_category?: string;
+  approval_revision?: number;
+  second_reviewer_id?: string | null;
   created_at: string;
 }
 
@@ -87,6 +92,10 @@ export async function getAsset(
 export interface AssetApprovalRow {
   id: string;
   actor_id: string | null;
+  actor_name?: string;
+  actor_role?: string;
+  previous_scheduled_for?: string | null;
+  scheduled_for?: string | null;
   from_status: string;
   to_status: string;
   note: string | null;

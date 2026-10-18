@@ -50,6 +50,7 @@ export function GoogleAnalyticsSettingsForm({
 
   return (
     <ConnectorCard
+      id="connection-google_analytics"
       icon={<TrendingUpIcon />}
       title="Google Analytics & Search Console"
       blurb="Add website traffic and search performance to your reports."

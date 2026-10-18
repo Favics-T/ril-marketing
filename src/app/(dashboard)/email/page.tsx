@@ -1,3 +1,4 @@
+import { publicAppOrigin } from "@/lib/integrations/public-app-origin";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
@@ -45,7 +46,8 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
   const campaignNames = new Map(campaignRollups.map((campaign) => [campaign.id, campaign.name]));
   const segmentNames = new Map(segments.map((segment) => [segment.id, segment.name]));
   const [resend, role] = organizationId ? await Promise.all([getResendConfig(organizationId), getUserRole(organizationId)]) : [null, null];
-  const webhookUrl = process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/api/webhooks/resend` : "";
+  const appOrigin = publicAppOrigin(process.env.NEXT_PUBLIC_SITE_URL);
+  const webhookUrl = appOrigin ? `${appOrigin}/api/webhooks/resend` : "";
   const canManageProvider = Boolean(role && ["owner", "admin", "marketing_manager"].includes(role));
   const deliveryResult = organizationId && emails.length ? await supabase.from("email_campaign_deliveries").select("campaign_id,status,opened_count,clicked_count").eq("organization_id", organizationId).in("campaign_id", emails.map((email) => email.id)).limit(20000) : { data: [] };
   const deliveryStats = new Map<string, { queued:number; sent:number; delivered:number; opened:number; clicked:number; bounced:number; complained:number; failed:number }>();

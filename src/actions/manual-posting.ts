@@ -25,19 +25,12 @@ export async function recordManualPost(assetId: string, formData: FormData): Pro
     if (!isSocialAsset(asset.channel, asset.platform)) return { ok: false, error: "Manual social posting is available for social-channel assets." };
     if (!["approved", "scheduled"].includes(asset.status)) return { ok: false, error: "Only approved or scheduled content can be marked as posted." };
     if (!asset.body?.trim()) return { ok: false, error: "Add and approve the post copy first." };
-    const recordedAt = new Date().toISOString();
-    // The live link, actor and status are committed together; the version guard prevents stale form submissions.
-    const { data: saved, error: saveError } = await client.from("content_assets").update({
-      status: "published", published_at: recordedAt,
-      metadata: { ...asset.metadata, manual_post: { url: liveUrl, recorded_at: recordedAt, recorded_by: user.id, from_status: asset.status } },
-    }).eq("organization_id", organizationId).eq("id", assetId).eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
-    if (saveError) return { ok: false, error: "Could not save the post record. Your asset has not been marked as posted." };
-    if (!saved) return { ok: false, error: "This asset changed while you were posting. Refresh before trying again." };
-    const { error: historyError } = await client.from("asset_approvals").insert({
-      organization_id: organizationId, content_asset_id: assetId, actor_id: user.id,
-      from_status: asset.status, to_status: "published", note: `Manually posted: ${liveUrl}`,
+    const { error: saveError } = await client.rpc("workflow_transition_asset", {
+      p_asset: assetId, p_to: "published", p_expected: asset.updated_at,
+      p_live_url: liveUrl, p_note: "Manually posted: " + liveUrl,
     });
+    if (saveError) return { ok: false, error: saveError.message };
     for (const path of ["/library", `/library/${assetId}`, "/calendar", "/dashboard", "/analytics", "/approvals"]) revalidatePath(path);
-    return { ok: true, ...(historyError ? { warning: "Post saved with its link and recorder. The separate transition history could not be updated." } : {}) };
+    return { ok: true };
   } catch { return { ok: false, error: "Could not record the post. Check your connection and try again." }; }
 }

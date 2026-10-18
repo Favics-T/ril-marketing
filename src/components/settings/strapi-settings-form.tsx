@@ -48,6 +48,7 @@ export function StrapiSettingsForm({ initial }: { initial: StrapiInitial }) {
 
   return (
     <ConnectorCard
+      id="connection-cms_strapi"
       icon={<LayersIcon />}
       title="Strapi"
       blurb="Send approved blog articles to your own Strapi collection."

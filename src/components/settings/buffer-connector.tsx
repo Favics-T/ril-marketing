@@ -48,6 +48,7 @@ export function BufferConnector({
 
   return (
     <ConnectorCard
+      id="connection-buffer"
       icon={<MegaphoneIcon />}
       title="Buffer"
       blurb="Schedule approved posts to the social accounts you link in Buffer."
@@ -139,7 +140,7 @@ export function BufferConnector({
         </div>
       ) : open ? (
         <div className="flex flex-col gap-3">
-          <p className="max-w-[60ch] text-[13px] leading-5 text-muted-foreground">Create a Buffer API key with publishing access, then paste it below. If someone manages Buffer for your team, ask them for this key.</p>
+          <p className="max-w-[60ch] text-[13px] leading-5 text-muted-foreground"><a href="https://publish.buffer.com/settings/api" target="_blank" rel="noreferrer noopener" className="font-semibold text-primary underline underline-offset-4">Get a Buffer API key</a> with publishing access, then paste it below. If someone manages Buffer for your team, ask them for this key.</p>
           <form action={connectAction} className="flex max-w-lg flex-col gap-2">
             <label className="flex flex-col gap-1.5 text-sm">Your Buffer connection key<Input name="api_key" type="password" autoComplete="off" required minLength={8} maxLength={2000} disabled={connecting} placeholder="Paste your key here" /></label>
             <div className="flex gap-2"><Button type="submit" size="sm" className="w-fit" disabled={connecting}>{connecting ? "Checking connection…" : "Connect Buffer"}</Button><Button type="button" variant="ghost" size="sm" disabled={connecting} onClick={() => setOpen(false)}>Cancel</Button></div>

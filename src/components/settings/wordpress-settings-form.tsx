@@ -93,6 +93,7 @@ export function WordPressSettingsForm({
 
   return (
     <ConnectorCard
+      id="connection-cms_wordpress"
       icon={<FileTextIcon />}
       title="WordPress"
       blurb="Send approved blog articles to your own WordPress site."

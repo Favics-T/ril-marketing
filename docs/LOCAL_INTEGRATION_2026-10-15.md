@@ -41,6 +41,8 @@ The dependency manifest and lockfile contain both sets of additions. GitHub's re
 
 ## Remaining handoff work
 
+Update: the subsequent [content calendar and approval implementation](CONTENT_CALENDAR_WORKFLOW_2026-10-15.md) completes the calendar views, filters, scheduling controls, named approvals, database enforcement, and their rollout. The numbered list below records the state at integration time; consult the newer note for current coverage and provider limitations.
+
 This is a completed code integration, not a claim that the whole content/calendar epic is finished. The colleague's older gap audit and scheduling plan are preserved as historical documents; use this note alongside them.
 
 1. **REN-420 was not pushed.** Its calendar week-view implementation was absent from all available remote branches. The user chose to continue with available GitHub code. Day/week/month-grid views, additional filters, and calendar drag/rescheduling remain follow-up work.
