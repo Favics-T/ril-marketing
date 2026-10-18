@@ -27,6 +27,10 @@ export default async function NewActivityPage() {
 					Describe it once. Drafts, calendar entries, and sign-up tracking all
 					build on this record.
 				</p>
+				<p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
+					Once it&apos;s saved, you can attach photos, videos and documents on the
+					activity&apos;s page.
+				</p>
 			</header>
 			<EditorLayout guidance={["Record what actually happened, including dates, partners and outcomes.", "Link the audience and campaign so future drafts have the right context.", "Save the activity, then add source files and prepare content for review."]}><ActivityForm segments={segments.map((s) => ({ id: s.id, name: s.name }))} campaigns={campaigns ?? []} /></EditorLayout>
 		</div>

@@ -223,6 +223,8 @@ export interface Activity {
   outcomes: string | null;
   registration_url: string | null;
   created_at: string;
+  /** Missing until 20261017000000_activities_updated_at.sql is applied. */
+  updated_at?: string;
 }
 
 /** Content Repurposing brief (PRD §6.3): approved intelligence for one activity. */

@@ -5,6 +5,7 @@ import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getActivity } from "@/lib/content/activities";
 import { GenerateFromActivity } from "@/components/content/generate-from-activity";
 import { formatDay } from "@/lib/format";
+import { campaignFact, lastUpdatedLabel } from "@/lib/content/activity-display";
 import { listActivityAttachments } from "@/lib/content/attachments";
 import { ActivityAttachments } from "@/components/content/activity-attachments";
 import { ArrowLeft } from "lucide-react";
@@ -25,8 +26,10 @@ export default async function ActivityDetailPage({
 	if (!activity) notFound();
 	const attachments = await listActivityAttachments(orgId, id);
 
-	const facts: Array<{ label: string; value: string }> = [
+	const campaign = campaignFact(activity.campaign);
+	const facts: Array<{ label: string; value: string; href?: string | null }> = [
 		{ label: "Event date", value: formatDay(activity.event_date) },
+		{ label: "Campaign", value: campaign.value, href: campaign.href },
 		{ label: "Segment", value: activity.segment?.name ?? "Untagged" },
 		{
 			label: "Speakers",
@@ -36,6 +39,7 @@ export default async function ActivityDetailPage({
 			label: "Partners",
 			value: activity.partners.length ? activity.partners.join(", ") : "None listed",
 		},
+		{ label: "Last updated", value: lastUpdatedLabel(activity) },
 	];
 
 	return (
@@ -72,9 +76,18 @@ export default async function ActivityDetailPage({
 								className="flex items-baseline justify-between gap-4 px-5 py-3.5 sm:px-6"
 							>
 								<span className="dateline">{f.label}</span>
-								<span className="text-sm font-medium text-foreground">
-									{f.value}
-								</span>
+								{f.href ? (
+									<Link
+										href={f.href}
+										className="-my-1.5 inline-block py-1.5 text-sm font-medium text-primary hover:underline"
+									>
+										{f.value}
+									</Link>
+								) : (
+									<span className="text-sm font-medium text-foreground">
+										{f.value}
+									</span>
+								)}
 							</div>
 						))}
 						{activity.registration_url ? (

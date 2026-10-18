@@ -4,6 +4,7 @@ import type { Activity } from "@/types/audience";
 
 export type ActivityWithSegment = Activity & {
   segment: { id: string; name: string } | null;
+  campaign: { id: string; name: string } | null;
 };
 
 export interface ActivityInput {
@@ -38,7 +39,7 @@ export async function getActivity(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("activities")
-    .select("*, segment:audience_segments(id, name)")
+    .select("*, segment:audience_segments(id, name), campaign:campaigns(id, name)")
     .eq("organization_id", organizationId)
     .eq("id", activityId)
     .maybeSingle();
