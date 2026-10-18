@@ -41,6 +41,7 @@ export async function listActivityAttachments(
   if (signedError) throw new Error(`Failed to sign activity files: ${signedError.message}`);
   // This lets existing environments keep rendering attachments while the new
   // analysis migration is waiting to be applied.
-  const analyses = new Map((analysesResult.error ? [] : analysesResult.data ?? []).map((analysis) => [analysis.attachment_id, analysis]));
+  // Only completed analyses reach the browser; failed ones may hold a raw model response.
+  const analyses = new Map((analysesResult.error ? [] : analysesResult.data ?? []).map((analysis) => [analysis.attachment_id, analysis.status === "completed" ? analysis : { ...analysis, analysis: {} }]));
   return rows.map((row, index) => ({ ...row, signed_url: signed?.[index]?.signedUrl ?? null, image_analysis: analyses.get(row.id) ?? null }));
 }
