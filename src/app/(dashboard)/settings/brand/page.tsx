@@ -40,9 +40,9 @@ export default async function BrandKnowledgePage() {
           action={{ label: "Add an entry", href: "/settings/brand/new" }}
         />
       ) : (
-        <ul className="slip divide-y divide-border/80 overflow-hidden">
+        <section className="slip overflow-hidden" aria-label="Brand guidance entries"><div className="workspace-list-heading"><span>Guidance and source</span><span>Manage entry</span></div><ul className="divide-y divide-border/80">
           {entries.map((entry) => (
-            <li key={entry.id} className="flex items-start justify-between gap-4 px-5 py-4 sm:px-6">
+            <li key={entry.id} className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6">
               <Link href={`/settings/brand/${entry.id}`} className="group min-w-0 flex-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                 <p className="dateline">{entry.category.replaceAll("_", " ")}{entry.is_active ? " · ACTIVE" : " · PAUSED"}</p>
                 <h2 className="mt-1 truncate text-sm font-semibold tracking-[-0.01em] group-hover:text-primary">{entry.title}</h2>
@@ -57,7 +57,7 @@ export default async function BrandKnowledgePage() {
               </div>
             </li>
           ))}
-        </ul>
+        </ul></section>
       )}
     </div>
   );

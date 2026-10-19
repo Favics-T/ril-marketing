@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SiteHeader } from "@/components/landing/site-header";
-import { Hero } from "@/components/landing/hero";
-import { Tagline } from "@/components/landing/tagline";
-import { FlowStrip, Modules, Approval, Learning } from "@/components/landing/sections";
-import { Faq, CloseCta, SiteFooter } from "@/components/landing/finale";
+import { ProductHome } from "@/components/landing/product-home";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.renaissancelabs.org"),
@@ -38,22 +33,5 @@ export default async function Home() {
   } catch {
     user = null;
   }
-  if (user) redirect("/dashboard");
-
-  return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
-      <SiteHeader />
-      <main id="main">
-        <Hero />
-        <Tagline />
-        <FlowStrip />
-        <Modules />
-        <Approval />
-        <Learning />
-        <Faq />
-        <CloseCta />
-      </main>
-      <SiteFooter />
-    </div>
-  );
+  return <ProductHome signedIn={Boolean(user)} />;
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { finishBufferHandshake } from "@/lib/integrations/buffer";
+import { getUserRole } from "@/lib/audience/access";
 
 /**
  * GET /api/integrations/[key]/callback?code=…&state=… — finish OAuth.
@@ -26,6 +27,8 @@ export async function GET(
 
     const organizationId = await getCallerOrganizationId();
     if (!organizationId) throw new Error("Session expired. Sign in and try again.");
+    const role = await getUserRole(organizationId);
+    if (!role || !["owner", "admin", "marketing_manager"].includes(role)) throw new Error("Connection settings require an owner, admin or marketing manager.");
     const redirectUri = new URL(`/api/integrations/${key}/callback`, request.url).toString();
     await finishBufferHandshake(organizationId, state, code, redirectUri);
     settings.searchParams.set("connected", key);

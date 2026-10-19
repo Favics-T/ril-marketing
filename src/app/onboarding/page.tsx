@@ -18,10 +18,10 @@ export default async function OnboardingPage() {
 
   return (
     <main id="main" className="onboarding-page flex min-h-dvh items-center justify-center bg-muted/40 p-6 sm:p-8">
-      <h1 className="sr-only text-balance">Set up your team</h1>
-      <div className="w-full max-w-lg rounded-xl border bg-card p-6 shadow-sm sm:p-8">
+      <div className="w-full max-w-lg rounded-2xl border bg-card p-7 sm:p-10">
         <BrandLockup />
-        <p className="mb-5 mt-5 text-sm leading-6 text-muted-foreground">Set up the team that will capture activities, review content, and manage leads together.</p>
+        <p className="dateline mt-8">A place for your team</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Set up your workspace.</h1>
+        <p className="mb-7 mt-3 text-sm leading-6 text-muted-foreground">Name the team that will capture activities, review content and manage leads together.</p>
         <OnboardingForm email={user.email} />
       </div>
     </main>

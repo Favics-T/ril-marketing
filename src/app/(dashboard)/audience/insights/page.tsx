@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listInsights } from "@/lib/audience/insights";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -45,7 +46,7 @@ export default async function InsightsPage({
   };
 
   return (
-    <div className="workspace-page flex flex-col gap-4 md:gap-6">
+    <div className="workspace-page insight-directory">
       <div>
         <p className="dateline">
           {todayDateline()} · {result.total} findings
@@ -83,7 +84,7 @@ export default async function InsightsPage({
       ) : (
         <ul className="ledger slip overflow-hidden">
           {result.insights.map((ins) => (
-            <li key={ins.id} className="flex flex-col gap-3 px-5 py-5 sm:px-6">
+            <li key={ins.id} className="flex flex-col gap-4 px-5 py-6 sm:px-6">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusStamp status={ins.status} />
                 <span className="dateline">
@@ -126,7 +127,7 @@ export default async function InsightsPage({
         <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
           {result.page > 1 ? (
             <Link href={pageHref(result.page - 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              ← Previous
+              <ArrowLeft className="mr-2 size-4" aria-hidden="true" /> Previous
             </Link>
           ) : (
             <span />
@@ -136,7 +137,7 @@ export default async function InsightsPage({
           </span>
           {result.page < result.totalPages ? (
             <Link href={pageHref(result.page + 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              Next →
+              Next <ArrowRight className="ml-2 size-4" aria-hidden="true" />
             </Link>
           ) : (
             <span />

@@ -36,6 +36,13 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 describe("email delivery authorization at send time", () => {
+  it("does not claim queued email when unsubscribe and webhook URLs would point at localhost", async () => {
+    const db = setup({});
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost:3001");
+    await expect(processEmailDeliveryBatch()).rejects.toThrow("public HTTPS");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(db.queries.some(q => q.operation === "update" && q.payload && !Array.isArray(q.payload) && q.payload.status === "sending")).toBe(false);
+  });
   it.each(["paused", "draft"])("holds retries when the nurture sequence is %s", async (sequence) => {
     const db = setup({ sequence });
     expect((await processEmailDeliveryBatch()).pending).toBe(1);

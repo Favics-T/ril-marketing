@@ -6,6 +6,7 @@ import { disconnectStrapi, saveStrapiConnection } from "@/actions/strapi";
 import { ConnectorCard } from "@/components/settings/connector-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 
 type State = { ok: boolean; message?: string; error?: string };
 
@@ -37,7 +38,7 @@ export function StrapiSettingsForm({ initial }: { initial: StrapiInitial }) {
   );
 
   const connected = disconnect?.ok ? false : save?.ok ? true : initial.connected;
-  const [open, setOpen] = useState(!initial.connected);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     if (save?.ok) setOpen(false);
   }, [save?.ok]);
@@ -47,6 +48,7 @@ export function StrapiSettingsForm({ initial }: { initial: StrapiInitial }) {
 
   return (
     <ConnectorCard
+      id="connection-cms_strapi"
       icon={<LayersIcon />}
       title="Strapi"
       blurb="Send approved blog articles to your own Strapi collection."
@@ -75,6 +77,9 @@ export function StrapiSettingsForm({ initial }: { initial: StrapiInitial }) {
               </span>
             </label>
           </div>
+          <details className="border-t pt-2">
+          <DisclosureSummary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">Advanced: match your website fields</DisclosureSummary>
+          <p className="mb-3 text-[13px] text-muted-foreground">The standard names are filled in. Change these only if your Strapi site uses different field names.</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">Title field<Input name="titleField" required defaultValue={initial.titleField || "title"} placeholder="title" className="h-10 rounded-lg font-normal" /></label>
             <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">Body field<Input name="bodyField" required defaultValue={initial.bodyField || "content"} placeholder="content" className="h-10 rounded-lg font-normal" /></label>
@@ -86,9 +91,10 @@ export function StrapiSettingsForm({ initial }: { initial: StrapiInitial }) {
             <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">SEO description field<Input name="seoDescriptionField" defaultValue={initial.seoDescriptionField} placeholder="optional, e.g. seo.metaDescription" className="h-10 rounded-lg font-normal" /></label>
             <span className="text-[13px] leading-5 text-muted-foreground sm:col-span-2">Where the article&apos;s SEO title and meta description go. Use <code>component.field</code> when they live in a component such as Strapi&apos;s SEO component.</span>
           </div>
+          </details>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="sm" disabled={saving || disconnecting}>{saving ? "Checking your collection…" : connected ? "Save changes" : "Connect Strapi"}</Button>
-            {connected ? (<Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>) : null}
+            <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
           </div>
         </form>
       ) : (

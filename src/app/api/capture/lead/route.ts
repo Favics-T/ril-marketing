@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isRegistrationToken } from "@/lib/audience/guards";
 import { scoreLead } from "@/lib/leads/scoring";
 import { getPublishedLandingPage } from "@/lib/landing-pages";
+import { CAPTURE_FILLABLE_COLUMNS, fillEmptyLeadFields, type CapturedLead } from "@/lib/leads/capture";
 
 const captureSchema = z.object({
   token: z.string().trim().max(64).optional().default(""),
@@ -31,7 +32,7 @@ function throttled(ip: string): boolean {
 }
 
 /**
- * POST /api/capture/lead — public lead capture (§6.14, §6.16).
+ * POST /api/capture/lead â€” public lead capture (Â§6.14, Â§6.16).
  * Optional registration token attributes the lead to the exact asset,
  * channel, campaign and segment that produced it. No session required.
  */
@@ -65,14 +66,28 @@ export async function POST(request: Request) {
     let platform: string | null = null;
     let campaignId: string | null = null;
     let landingPageId: string | null = null;
+    let registrationToken: string | null = null;
 
-    if (d.token && isRegistrationToken(d.token)) {
-      const { data: link } = await admin
+    // A landing page decides the workspace. A tracked-link token only adds
+    // attribution, and only when it belongs to that same workspace (REN-417).
+    const page = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(d.page) ? await getPublishedLandingPage(d.page) : null;
+    if (page) {
+      organizationId = page.organization_id;
+      landingPageId = page.id;
+      campaignId = page.campaign_id;
+      segmentId = page.audience_segment_id;
+      platform = "landing_page";
+    }
+
+    if (isRegistrationToken(d.token)) {
+      let linkQuery = admin
         .from("registration_links")
         .select(
           "organization_id, channel, content_assets(id, campaign_id, audience_segment_id, platform)"
         )
-        .eq("token", d.token)
+        .eq("token", d.token);
+      if (organizationId) linkQuery = linkQuery.eq("organization_id", organizationId);
+      const { data: link } = await linkQuery
         .maybeSingle<{
           organization_id: string;
           channel: string;
@@ -83,23 +98,13 @@ export async function POST(request: Request) {
             platform: string | null;
           } | null;
         }>();
-      if (link?.content_assets) {
+      if (link?.content_assets && (!organizationId || link.organization_id === organizationId)) {
         organizationId = link.organization_id;
         assetId = link.content_assets.id;
-        campaignId = link.content_assets.campaign_id;
-        segmentId = link.content_assets.audience_segment_id;
+        campaignId = campaignId ?? link.content_assets.campaign_id;
+        segmentId = segmentId ?? link.content_assets.audience_segment_id;
         platform = link.content_assets.platform ?? link.channel;
-      }
-    }
-
-    if (!organizationId && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(d.page)) {
-      const page = await getPublishedLandingPage(d.page);
-      if (page) {
-        organizationId = page.organization_id;
-        landingPageId = page.id;
-        campaignId = page.campaign_id;
-        segmentId = page.audience_segment_id;
-        platform = "landing_page";
+        registrationToken = d.token;
       }
     }
 
@@ -110,24 +115,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Merge duplicates on email — never delete (§13).
+    // Merge duplicates on email â€” never delete (Â§13). The response is the same
+    // for new and existing leads, so it never reveals whether an email is on file.
     const { data: existing, error: lookupError } = await admin
       .from("leads")
-      .select("id")
+      .select(CAPTURE_FILLABLE_COLUMNS)
       .eq("organization_id", organizationId)
       .ilike("email", d.email.replace(/[\\%_]/g, "\\$&"))
       .limit(1)
-      .maybeSingle<{ id: string }>();
-    if (lookupError) return NextResponse.json({ error: "Could not check existing lead." }, { status: 500 });
+      .maybeSingle<CapturedLead & { id: string }>();
+    if (lookupError) return NextResponse.json({ error: "Could not submit your details." }, { status: 500 });
     if (existing) {
-      if (d.marketingConsent) {
-        const { error: consentError } = await admin.from("leads")
-          .update({ marketing_consent: true, marketing_consent_at: new Date().toISOString() })
+      const patch: Record<string, unknown> = fillEmptyLeadFields(existing, {
+        name: d.name, phone: d.phone, organisation: d.organisation, interest: d.interest,
+        segmentId, platform, assetId, campaignId, landingPageId, registrationToken,
+      });
+      if (d.marketingConsent) Object.assign(patch, { marketing_consent: true, marketing_consent_at: new Date().toISOString() });
+      if (Object.keys(patch).length) {
+        const { error: updateError } = await admin.from("leads")
+          .update(patch)
           .eq("organization_id", organizationId)
           .eq("id", existing.id);
-        if (consentError) return NextResponse.json({ error: "Could not record consent." }, { status: 500 });
+        if (updateError) return NextResponse.json({ error: "Could not submit your details." }, { status: 500 });
       }
-      return NextResponse.json({ ok: true, leadId: existing.id, duplicate: true });
+      return NextResponse.json({ ok: true });
     }
 
     const { score, reason } = scoreLead({
@@ -152,7 +163,7 @@ export async function POST(request: Request) {
         source_content_asset_id: assetId,
         campaign_id: campaignId,
         landing_page_id: landingPageId,
-        registration_token: d.token || null,
+        registration_token: registrationToken,
         marketing_consent: d.marketingConsent,
         marketing_consent_at: d.marketingConsent ? new Date().toISOString() : null,
         score,
@@ -161,9 +172,9 @@ export async function POST(request: Request) {
       .select("id")
       .single<{ id: string }>();
     if (error || !lead) {
-      return NextResponse.json({ error: "Could not save lead." }, { status: 500 });
+      return NextResponse.json({ error: "Could not submit your details." }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, leadId: lead.id });
+    return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Unexpected error." }, { status: 500 });
   }

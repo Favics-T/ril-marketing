@@ -1,6 +1,8 @@
+import { ChannelMark } from "@/components/settings/channel-icons";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 import { Reveal } from "./reveal";
 import { BrandShapes } from "./brand-shapes";
 
@@ -52,15 +54,9 @@ export function Faq() {
             {faqs.map((item, i) => (
               <Reveal key={item.q} delay={i * 40}>
                 <details className="group border-b border-border py-5">
-                  <summary className="flex cursor-pointer list-none items-start justify-between gap-6 text-base font-bold leading-snug text-foreground [&::-webkit-details-marker]:hidden">
+                  <DisclosureSummary className="cursor-pointer text-base font-bold leading-snug text-foreground">
                     {item.q}
-                    <span
-                      aria-hidden
-                      className="mt-0.5 shrink-0 text-2xl font-medium leading-none text-primary transition-transform duration-200 group-open:rotate-45"
-                    >
-                      +
-                    </span>
-                  </summary>
+                  </DisclosureSummary>
                   <p className="mt-3 max-w-[64ch] text-sm leading-7 text-muted-foreground">
                     {item.a}
                   </p>
@@ -210,17 +206,21 @@ export function SiteFooter() {
                 href="https://www.twitter.com/RxlabsHQ"
                 target="_blank"
                 rel="noreferrer"
-                className="text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                aria-label="Renaissance on X (opens in a new tab)"
+                title="X"
+                className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                X (Twitter)
+                <ChannelMark service="x" className="size-5" />
               </Link>
               <Link
                 href="https://www.instagram.com/RxlabsHQ"
                 target="_blank"
                 rel="noreferrer"
-                className="text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                aria-label="Renaissance on Instagram (opens in a new tab)"
+                title="Instagram"
+                className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                Instagram
+                <ChannelMark service="instagram" className="size-5" />
               </Link>
             </div>
           </nav>

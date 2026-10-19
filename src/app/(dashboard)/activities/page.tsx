@@ -4,14 +4,21 @@ import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listActivities } from "@/lib/content/activities";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
+import { ActivitySearch } from "@/components/content/activity-search";
 import { formatDay, todayDateline } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Activities" };
 
-export default async function ActivitiesPage() {
+export default async function ActivitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const search = typeof q === "string" ? q.trim() : "";
   const orgId = await getCallerOrganizationId();
   const activities = orgId
-    ? await listActivities(orgId)
+    ? await listActivities(orgId, search)
     : [];
 
   return (
@@ -19,7 +26,7 @@ export default async function ActivitiesPage() {
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div>
           <p className="dateline">
-            {todayDateline()} · {activities.length} logged
+            {todayDateline()} · {activities.length} {search ? "found" : "logged"}
           </p>
           <h1>
             Activities
@@ -34,14 +41,22 @@ export default async function ActivitiesPage() {
         </Button>
       </div>
 
-      {activities.length === 0 ? (
+      <ActivitySearch initialQuery={search} />
+
+      {activities.length === 0 && search ? (
+        <EmptyState
+          title="No matching activities"
+          description={`Nothing matches “${search}”. Try a different word, or clear the search.`}
+          action={{ label: "Clear search", href: "/activities" }}
+        />
+      ) : activities.length === 0 ? (
         <EmptyState
           title="No activities yet"
           description="Log your first program, event, workshop, or partnership so AI can start turning it into marketing content."
           action={{ label: "Log an activity", href: "/activities/new" }}
         />
       ) : (
-        <ul className="ledger slip divide-y divide-border/80 overflow-hidden">
+        <section className="slip overflow-hidden" aria-label="Logged activities"><div className="workspace-list-heading"><span>Activity and audience</span><span>Activity date</span></div><ul className="ledger divide-y divide-border/80">
           {activities.map((a) => (
             <li key={a.id}>
               <Link
@@ -56,9 +71,9 @@ export default async function ActivitiesPage() {
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1.5 truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
+                <h2 className="mt-1.5 text-sm font-semibold tracking-[-0.02em] text-foreground">
                   {a.title}
-                </p>
+                </h2>
                 <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
                   {a.description || "No description yet."}
                 </p>
@@ -83,7 +98,7 @@ export default async function ActivitiesPage() {
               </Link>
             </li>
           ))}
-        </ul>
+        </ul></section>
       )}
     </div>
   );

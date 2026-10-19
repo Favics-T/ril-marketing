@@ -1,4 +1,5 @@
 import "server-only";
+import { publicAppOrigin } from "@/lib/integrations/public-app-origin";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendConfig } from "@/lib/integrations/resend";
@@ -11,11 +12,9 @@ type Lead = { id:string; organization_id:string; email:string|null; name:string|
 
 function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[char] ?? char); }
 function publicOrigin() {
-  const value = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!value) throw new Error("Set NEXT_PUBLIC_SITE_URL before sending email.");
-  const url = new URL(value);
-  if (url.protocol !== "https:" && url.hostname !== "localhost") throw new Error("NEXT_PUBLIC_SITE_URL must use HTTPS.");
-  return url.origin;
+  const origin = publicAppOrigin(process.env.NEXT_PUBLIC_SITE_URL);
+  if (!origin) throw new Error("Set NEXT_PUBLIC_SITE_URL to the public HTTPS application address before sending email.");
+  return origin;
 }
 
 async function sendOne(delivery: Delivery, campaign: Campaign, lead: Lead, unsubscribeTokens: Map<string,string>) {
@@ -136,6 +135,7 @@ export async function processEmailDeliveryBatch(options: { limit?: number; organ
   if (error) throw new Error(`Could not read queued email deliveries: ${error.message}`);
   const rows = (raw ?? []) as Delivery[];
   if (!rows.length) return { processed: 0, sent: 0, failed: 0, pending: 0 };
+  publicOrigin();
   const [campaignResult, leadResult] = await Promise.all([
     admin.from("email_campaigns").select("id,organization_id,status,delivery_authorized_at,subject,preview_text,body,name").in("id", [...new Set(rows.map((row) => row.campaign_id))]),
     admin.from("leads").select("id,organization_id,email,name,marketing_consent,email_unsubscribed_at,email_suppressed_at").in("id", [...new Set(rows.map((row) => row.lead_id))]),

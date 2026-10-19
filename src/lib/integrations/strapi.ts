@@ -2,6 +2,8 @@ import "server-only";
 import { lookup } from "node:dns/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret } from "@/lib/crypto/secret-box";
+import type { DeliveryPost } from "@/lib/content/publishing";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 
 type IntegrationRow = { status: string; config: Record<string, string> };
 export type StrapiConfig = {
@@ -62,9 +64,10 @@ async function requestStrapi<T>(config: StrapiConfig, path: string, init: Reques
   });
   const payload = await response.json().catch(() => ({})) as { error?: { message?: string; status?: number } } & T;
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new Error("Strapi rejected the API token, or it lacks find/create permission for this collection.");
-    if (response.status === 404) throw new Error("Strapi could not find that collection. Check the collection API ID.");
+    if (response.status === 401 || response.status === 403) throw new DeliveryRejected("Strapi rejected the API token, or it lacks find/create permission for this collection.");
+    if (response.status === 404) throw new DeliveryRejected("Strapi could not find that collection. Check the collection API ID.");
     const detail = typeof payload.error?.message === "string" ? payload.error.message.slice(0, 180) : `HTTP ${response.status}`;
+    if ([400, 422].includes(response.status)) throw new DeliveryRejected(`Strapi rejected the article: ${detail}`);
     throw new Error(`Strapi request failed: ${detail}`);
   }
   return payload;
@@ -111,6 +114,17 @@ export async function getStrapiConfig(organizationId: string): Promise<StrapiCon
 /** REST path that finds an entry by its slug — the idempotency probe before creating. */
 export function slugFilterPath(config: StrapiConfig, slug: string) {
   return `/${config.collection}?filters[${encodeURIComponent(config.slugField)}][$eq]=${encodeURIComponent(slug)}&pagination[pageSize]=1`;
+}
+
+export async function getStrapiDelivery(config: StrapiConfig, assetId: string): Promise<DeliveryPost> {
+  const slug = `ril-${assetId}`;
+  type Entry = { id?: number | string; documentId?: string; publishedAt?: string | null; attributes?: Record<string, unknown> };
+  const result = await requestStrapi<{ data?: Entry[] }>(config, slugFilterPath(config, slug));
+  const entry = result.data?.[0];
+  if (!entry) throw new Error("Strapi has no matching entry yet. Check the request in Strapi before sending again.");
+  const fields = entry.attributes ?? entry;
+  const publishedAt = typeof fields.publishedAt === "string" ? fields.publishedAt : null;
+  return { ...entryRef(config, entry), sourceSlug: slug, status: publishedAt ? "published" : "failed", publishedAt, ...(!publishedAt ? {error: "The matching Strapi entry is a draft. It was not marked as published."} : {}) };
 }
 
 type StrapiArticle = { title: string; body: string; excerpt: string; slug: string; seo: { title: string; description: string } };

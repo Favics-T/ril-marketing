@@ -82,7 +82,7 @@ export function WordPressSettingsForm({
     : save?.ok
       ? true
       : initial.connected;
-  const [open, setOpen] = useState(!initial.connected);
+  const [open, setOpen] = useState(false);
   const [seoPlugin, setSeoPlugin] = useState(initial.seoPlugin || "none");
   useEffect(() => {
     if (save?.ok) setOpen(false);
@@ -93,6 +93,7 @@ export function WordPressSettingsForm({
 
   return (
     <ConnectorCard
+      id="connection-cms_wordpress"
       icon={<FileTextIcon />}
       title="WordPress"
       blurb="Send approved blog articles to your own WordPress site."
@@ -202,7 +203,7 @@ export function WordPressSettingsForm({
             >
               {testing ? "Testing…" : "Test connection"}
             </Button>
-            {connected ? (
+
               <Button
                 type="button"
                 variant="ghost"
@@ -213,7 +214,6 @@ export function WordPressSettingsForm({
               >
                 Cancel
               </Button>
-            ) : null}
           </div>
         </form>
       ) : (

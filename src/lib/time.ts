@@ -131,12 +131,38 @@ export function zonedMonthRange(key: string, timeZone: string = WORKSPACE_TIME_Z
   return { from: start.toISOString(), to: new Date(next.getTime() - 1).toISOString() };
 }
 
+const DAY_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Day key moved by `delta` days: shiftDayKey("2026-12-31", 1) is "2027-01-01". */
+export function shiftDayKey(key: string, delta: number): string {
+  const [year, month, day] = key.split("-").map(Number);
+  // Midday UTC, so the arithmetic never meets a midnight or a zone.
+  const date = new Date(Date.UTC(year, month - 1, day + delta, 12));
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+/**
+ * The Monday-to-Sunday week holding a day ("2026-10-14") in the given zone:
+ * `start` is the Monday's day key, `from` the first moment of that Monday and
+ * `to` the last millisecond of the Sunday, as ISO instants for gte/lte queries.
+ */
+export function zonedWeekRange(key: string, timeZone: string = WORKSPACE_TIME_ZONE): { start: string; from: string; to: string } {
+  const match = DAY_KEY_RE.exec(key);
+  const day = match ? new Date(Date.UTC(+match[1], +match[2] - 1, +match[3], 12)) : null;
+  if (!day || shiftDayKey(key, 0) !== key) throw new Error(`Invalid day key: ${key}`);
+  const start = shiftDayKey(key, -((day.getUTCDay() + 6) % 7));
+  const first = zonedWallTimeToDate(`${start}T00:00`, timeZone);
+  const next = zonedWallTimeToDate(`${shiftDayKey(start, 7)}T00:00`, timeZone);
+  if (!first || !next) throw new Error(`Invalid day key: ${key}`);
+  return { start, from: first.toISOString(), to: new Date(next.getTime() - 1).toISOString() };
+}
+
 /**
  * Format a calendar day or month key ("2026-10-12" or "2026-10") that is
  * already in the workspace zone. Formats midday UTC of that day, which falls on
  * the same date in every zone within ±12h.
  */
-export function formatZonedKey(key: string, style: "dayHeading" | "month", timeZone: string = WORKSPACE_TIME_ZONE): string {
+export function formatZonedKey(key: string, style: "date" | "dayHeading" | "month", timeZone: string = WORKSPACE_TIME_ZONE): string {
   const [year, month, day = 1] = key.split("-").map(Number);
   return formatInZone(new Date(Date.UTC(year, month - 1, day, 12)), style, timeZone);
 }

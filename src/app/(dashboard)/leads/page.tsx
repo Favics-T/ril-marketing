@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listLeads } from "@/lib/leads/leads";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -86,7 +87,7 @@ export default async function LeadsPage({
           }
         />
       ) : (
-        <ul className="ledger slip overflow-hidden">
+        <section className="slip overflow-hidden" aria-label="Lead records"><div className="workspace-list-heading"><span>Contact and funnel stage</span><span>Captured / score</span></div><ul className="ledger">
           {result.leads.map((l) => (
             <li key={l.id}>
               <Link
@@ -99,9 +100,9 @@ export default async function LeadsPage({
                   {l.is_qualified ? <StatusStamp status="qualified" /> : null}
                   {l.is_converted ? <StatusStamp status="converted" /> : null}
                 </div>
-                <p className="mt-1.5 truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
+                <h2 className="mt-2 text-sm font-semibold tracking-[-0.02em] text-foreground">
                   {l.name || l.email || "Unnamed lead"}
-                </p>
+                </h2>
                 <p className="mt-0.5 truncate text-[13px] leading-5 text-muted-foreground">
                   {[l.organisation, l.email, l.interest].filter(Boolean).join(" · ") ||
                     "No details recorded"}
@@ -125,14 +126,14 @@ export default async function LeadsPage({
               </Link>
             </li>
           ))}
-        </ul>
+        </ul></section>
       )}
 
       {totalPages > 1 ? (
         <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
           {page > 1 ? (
             <Link href={pageHref(page - 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              ← Previous
+              <ArrowLeft className="mr-2 size-4" aria-hidden="true" /> Previous
             </Link>
           ) : (
             <span />
@@ -142,7 +143,7 @@ export default async function LeadsPage({
           </span>
           {page < totalPages ? (
             <Link href={pageHref(page + 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              Next →
+              Next <ArrowRight className="ml-2 size-4" aria-hidden="true" />
             </Link>
           ) : (
             <span />

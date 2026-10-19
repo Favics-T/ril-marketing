@@ -1,5 +1,7 @@
+import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getLead } from "@/lib/leads/leads";
@@ -57,7 +59,7 @@ export default async function LeadDetailPage({
 					href="/leads"
 					className="group inline-flex min-h-9 items-center gap-1.5 rounded-md text-[13px] font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				>
-					<span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> All leads
+                    <ArrowLeft aria-hidden="true" className="size-4" /> All leads
 				</Link>
 				<div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
 					<h1>
@@ -71,7 +73,7 @@ export default async function LeadDetailPage({
 				</div>
 			</header>
 
-			<div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<section className="slip flex flex-col lg:col-span-2">
 					<div className="ledger flex flex-col">
 						{facts.map((f) => (
@@ -81,7 +83,7 @@ export default async function LeadDetailPage({
 							>
 								<span className="dateline">{f.label}</span>
 								<span className="max-w-[60%] truncate text-sm font-medium text-foreground">
-									{f.value}
+									{f.label === "Source" ? <ChannelIdentity channel={f.value} /> : f.value}
 								</span>
 							</div>
 						))}

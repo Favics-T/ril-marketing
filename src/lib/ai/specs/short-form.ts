@@ -8,7 +8,13 @@ import {
   type QualityFlag,
 } from "@/lib/ai/specs/shared";
 
-const CLIP_PLATFORMS = ["instagram", "tiktok", "youtube", "linkedin", "x"] as const;
+const CLIP_PLATFORMS = [
+  "instagram",
+  "tiktok",
+  "youtube",
+  "linkedin",
+  "x",
+] as const;
 const TIME = /^(\d{1,2}:)?\d{1,2}:\d{2}$/;
 
 const clipSchema = z.object({
@@ -19,6 +25,15 @@ const clipSchema = z.object({
   caption: z.string().trim().min(10).max(2200),
   cta: z.string().trim().min(2).max(300),
   platform: z.enum(CLIP_PLATFORMS),
+  platformVersions: z
+    .array(
+      z.object({
+        platform: z.enum(CLIP_PLATFORMS),
+        caption: z.string().trim().min(10).max(2200),
+      }),
+    )
+    .max(5)
+    .optional(),
   objective: z.string().trim().min(3).max(300),
   reason: z.string().trim().min(10).max(600),
 });
@@ -34,21 +49,53 @@ export type ShortFormDraft = z.infer<typeof shortFormSchema>;
 type Clip = z.infer<typeof clipSchema>;
 
 export function toSeconds(time: string): number {
-  return time.split(":").map(Number).reduce((total, part) => total * 60 + part, 0);
+  return time
+    .split(":")
+    .map(Number)
+    .reduce((total, part) => total * 60 + part, 0);
 }
 
 /** Validate clip ranges; never keep a guessed range when there are no timestamps. */
-export function clipQuality(clip: Clip, hasTimestamps: boolean): { clip: Clip; flags: QualityFlag[] } {
+export function clipQuality(
+  clip: Clip,
+  hasTimestamps: boolean,
+): { clip: Clip; flags: QualityFlag[] } {
   if (!hasTimestamps) {
     return clip.start || clip.end
-      ? { clip: { ...clip, start: null, end: null }, flags: [{ code: "timestamps_unavailable", message: "Removed clip times: the source has no timestamps. Set start and end after reviewing the footage." }] }
+      ? {
+          clip: { ...clip, start: null, end: null },
+          flags: [
+            {
+              code: "timestamps_unavailable",
+              message:
+                "Removed clip times: the source has no timestamps. Set start and end after reviewing the footage.",
+            },
+          ],
+        }
       : { clip, flags: [] };
   }
   if (!clip.start || !clip.end) {
-    return { clip, flags: [{ code: "off_spec", message: "Clip is missing a start or end time." }] };
+    return {
+      clip,
+      flags: [
+        { code: "off_spec", message: "Clip is missing a start or end time." },
+      ],
+    };
   }
-  if (!TIME.test(clip.start) || !TIME.test(clip.end) || toSeconds(clip.start) >= toSeconds(clip.end)) {
-    return { clip, flags: [{ code: "off_spec", message: `Clip range ${clip.start}–${clip.end} is not a valid start/end pair.` }] };
+  if (
+    !TIME.test(clip.start) ||
+    !TIME.test(clip.end) ||
+    toSeconds(clip.start) >= toSeconds(clip.end)
+  ) {
+    return {
+      clip,
+      flags: [
+        {
+          code: "off_spec",
+          message: `Clip range ${clip.start}–${clip.end} is not a valid start/end pair.`,
+        },
+      ],
+    };
   }
   return { clip, flags: [] };
 }
@@ -65,12 +112,13 @@ For each clip:
 - "hook": the opening line or moment that stops the scroll.
 - "caption": a ready-to-post caption for the suggested platform, ending with a CTA built around "${opts.cta}".
 - "platform": the best fit of instagram, tiktok, youtube, linkedin or x.
+- "platformVersions": distinct caption versions for the applicable platforms (instagram, tiktok, youtube, linkedin, x). Keep the same source moment; adapt the wording and length to each platform. Include the chosen platform.
 - "objective": what the clip is for (e.g. awareness, registrations, credibility).
 - "reason": why this moment works as a clip, citing what in the source makes it strong.
 Quality over quantity: only recommend moments with a genuine hook, a strong statement or a useful insight in the source. If fewer than 3 qualify, return fewer. If none qualify, return "clips": [] and explain in "noStrongClipReason". Never force a weak clip.`;
   },
   shape: `{
-  "clips": [{ "title": "string", "start": "MM:SS or null", "end": "MM:SS or null", "hook": "string", "caption": "string", "cta": "string", "platform": "instagram|tiktok|youtube|linkedin|x", "objective": "string", "reason": "string" }],
+  "clips": [{ "title": "string", "start": "MM:SS or null", "end": "MM:SS or null", "hook": "string", "caption": "string", "cta": "string", "platform": "instagram|tiktok|youtube|linkedin|x", "platformVersions": [{"platform":"instagram|tiktok|youtube|linkedin|x","caption":"platform-specific caption"}], "objective": "string", "reason": "string" }],
   "noStrongClipReason": "string or null",
   "topic": "string",
   ${NOTES_SHAPE}
@@ -85,12 +133,17 @@ reason: "A counter-intuitive one-line insight from the winning pitch — self-co
     if (value.clips.length === 0) {
       return {
         drafts: [],
-        warnings: [`No strong short-form clip found${value.noStrongClipReason ? `: ${value.noStrongClipReason}` : "."} Select moments manually.`],
+        warnings: [
+          `No strong short-form clip found${value.noStrongClipReason ? `: ${value.noStrongClipReason}` : "."} Select moments manually.`,
+        ],
       };
     }
     const drafts: DraftSpec[] = value.clips.map((raw) => {
       const { clip, flags } = clipQuality(raw, opts.hasTimestamps);
-      const range = clip.start && clip.end ? `${clip.start}–${clip.end}` : "Not set — no timestamps in the source. Set after reviewing the footage.";
+      const range =
+        clip.start && clip.end
+          ? `${clip.start}–${clip.end}`
+          : "Not set — no timestamps in the source. Set after reviewing the footage.";
       return {
         kind: "short_clip",
         channel: clip.platform,
@@ -107,7 +160,10 @@ reason: "A counter-intuitive one-line insight from the winning pitch — self-co
           `Objective: ${clip.objective}`,
           `Why this clip: ${clip.reason}`,
         ].join("\n\n"),
-        metadata: { ...draftMetadata(shortFormSpec, opts, ctx, clip, value, flags), clip },
+        metadata: {
+          ...draftMetadata(shortFormSpec, opts, ctx, clip, value, flags),
+          clip,
+        },
       };
     });
     return { drafts, warnings: [] };

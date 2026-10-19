@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getSegment, listPrograms } from "@/lib/audience/segments";
@@ -35,7 +36,7 @@ export default async function SegmentDetailPage({
 						href="/audience/segments"
 						className="group inline-flex min-h-9 items-center gap-1.5 rounded-md py-2 text-[13px] font-semibold text-primary outline-none transition-colors hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring"
 					>
-						<span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> Segments
+                        <ArrowLeft aria-hidden="true" className="size-4" /> Segments
 					</Link>
 					<h1>
 						{segment.name}
@@ -44,7 +45,7 @@ export default async function SegmentDetailPage({
 				<SegmentDelete segmentId={segment.id} />
 			</header>
 
-			<div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<div className="lg:col-span-2">
 					<SegmentForm
 						programs={programs.map((p) => ({ id: p.id, name: p.name }))}

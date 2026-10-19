@@ -1,10 +1,12 @@
 "use client";
 
+import { ChannelSelect } from "@/components/channel-select";
 import { useActionState, useMemo, useState } from "react";
 import { updateContentDraft, type ActionResult } from "@/actions/content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { APPROVAL_CATEGORIES } from "@/lib/content/workflow";
 import { CHANNELS, checkChannelLimits, normalizeChannel } from "@/lib/content/channels";
 
 const field = "flex flex-col gap-1.5";
@@ -38,7 +40,7 @@ function LimitMeter({ channel, body, format }: { channel: string; body: string; 
 export function DraftEditor({
   asset,
 }: {
-  asset: { id: string; title: string; body: string | null; channel: string | null; format?: string | null; topic: string | null; hook: string | null; cta: string | null; metadata?: Record<string, unknown> | null };
+  asset: { approval_category?: string; updated_at?: string; id: string; title: string; body: string | null; channel: string | null; format?: string | null; topic: string | null; hook: string | null; cta: string | null; metadata?: Record<string, unknown> | null };
 }) {
   const [channel, setChannel] = useState<string>(normalizeChannel(asset.channel) ?? "");
   const remappedFrom = asset.channel && normalizeChannel(asset.channel) === "other" && asset.channel.trim().toLowerCase() !== "other" ? asset.channel : null;
@@ -65,20 +67,19 @@ export function DraftEditor({
 
   return (
     <form action={action} className="flex flex-col gap-3 border-t border-border px-5 py-5 sm:px-6">
+      <input type="hidden" name="expected_updated_at" value={asset.updated_at ?? ""} />
       <div>
         <p className="dateline">Human review</p>
         <h2 className="mt-1 text-base font-bold">Edit draft</h2>
       </div>
+      <label className={field}><span className={label}>Approval category</span><select name="approval_category" defaultValue={asset.approval_category ?? "standard"} className="h-10 rounded-md border border-input bg-background px-3 text-sm">{APPROVAL_CATEGORIES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select><span className="text-xs text-muted-foreground">Sensitive content needs two independent reviewers, including a named owner, admin or leader.</span></label>
       <label className={field}><span className={label}>Title</span><Input name="title" required maxLength={200} defaultValue={asset.title} /></label>
       <label className={field}><span className={label}>Copy</span><Textarea name="body" rows={10} maxLength={20000} value={bodyText} onChange={(event) => setBodyText(event.target.value)} /></label>
       <LimitMeter channel={channel} body={bodyText} format={asset.format ?? null} />
       <div className="grid gap-3 sm:grid-cols-2">
         <label className={field}>
           <span className={label}>Channel</span>
-          <select name="channel" value={channel} onChange={(event) => setChannel(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-            <option value="">Not set</option>
-            {CHANNELS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
+          <ChannelSelect name="channel" value={channel} onValueChange={setChannel} placeholder="Not set" className="h-10" options={[["", "Not set"], ...CHANNELS.map(c => [c.value, c.label] as const)]} />
           {remappedFrom ? <span className="text-xs text-muted-foreground">Previously typed as &ldquo;{remappedFrom}&rdquo;. Pick the matching channel.</span> : null}
         </label>
         <label className={field}><span className={label}>Topic</span><Input name="topic" maxLength={200} defaultValue={asset.topic ?? ""} /></label>

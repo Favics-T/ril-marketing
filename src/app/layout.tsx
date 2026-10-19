@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./product.css";
+import "./motion.css";
 import { Open_Sans } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { AnalyticsBeacon } from "@/components/analytics-beacon";
 
-// RIL brand kit: Open Sans throughout — headlines, body, everything.
 const rilSans = Open_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · RIL Audience Intelligence",
   },
   description:
-    "Audience Intelligence & Learning Layer for the RIL AI-Powered Digital Marketing & Growth Platform.",
+    "RIL's workspace for activities, audience learning, content, human approvals and campaign follow-up.",
 };
 
 export default function RootLayout({
@@ -28,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={`${rilSans.variable} min-h-screen bg-background font-sans text-foreground antialiased`}>
         <a
           href="#main"

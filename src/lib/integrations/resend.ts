@@ -22,8 +22,9 @@ export async function getResendConfig(organizationId: string): Promise<ResendCon
 }
 
 export async function verifyResendSender(apiKey: string, fromEmail: string): Promise<{ ok: boolean; error?: string }> {
-  const response = await fetch("https://api.resend.com/domains", { headers: { Authorization: `Bearer ${apiKey}` }, cache: "no-store", signal: AbortSignal.timeout(15000) });
-  if (response.status === 401 || response.status === 403) return { ok: false, error: "Resend rejected the API key or it lacks domain access." };
+  const response = await fetch("https://api.resend.com/domains", { headers: { Authorization: `Bearer ${apiKey}` }, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) });
+  if (response.status === 400 || response.status === 401) return { ok: false, error: "Resend rejected this key. Paste a current API key from your Resend account." };
+  if (response.status === 403) return { ok: false, error: "This Resend key cannot read sender domains. Use a key with domain access so the sender can be verified." };
   if (!response.ok) return { ok: false, error: `Could not verify the Resend account (HTTP ${response.status}).` };
   const payload = await response.json() as { data?: Array<{ name?: string; status?: string; capabilities?: { sending?: string } }> };
   const domain = fromEmail.split("@")[1]?.toLowerCase();

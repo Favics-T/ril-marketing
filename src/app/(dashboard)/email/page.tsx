@@ -1,3 +1,4 @@
+import { publicAppOrigin } from "@/lib/integrations/public-app-origin";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
@@ -6,6 +7,7 @@ import { listSegments } from "@/lib/audience/segments";
 import { listCampaignRollups } from "@/lib/audience/campaigns";
 import { createEmailCampaign, transitionEmailCampaign } from "@/actions/email";
 import { Button } from "@/components/ui/button";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 import { Input } from "@/components/ui/input";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -44,7 +46,8 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
   const campaignNames = new Map(campaignRollups.map((campaign) => [campaign.id, campaign.name]));
   const segmentNames = new Map(segments.map((segment) => [segment.id, segment.name]));
   const [resend, role] = organizationId ? await Promise.all([getResendConfig(organizationId), getUserRole(organizationId)]) : [null, null];
-  const webhookUrl = process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/api/webhooks/resend` : "";
+  const appOrigin = publicAppOrigin(process.env.NEXT_PUBLIC_SITE_URL);
+  const webhookUrl = appOrigin ? `${appOrigin}/api/webhooks/resend` : "";
   const canManageProvider = Boolean(role && ["owner", "admin", "marketing_manager"].includes(role));
   const deliveryResult = organizationId && emails.length ? await supabase.from("email_campaign_deliveries").select("campaign_id,status,opened_count,clicked_count").eq("organization_id", organizationId).in("campaign_id", emails.map((email) => email.id)).limit(20000) : { data: [] };
   const deliveryStats = new Map<string, { queued:number; sent:number; delivered:number; opened:number; clicked:number; bounced:number; complained:number; failed:number }>();
@@ -61,10 +64,10 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
     deliveryStats.set(delivery.campaign_id, stats);
   }
 
-  return <div className="workspace-page flex flex-col gap-5 md:gap-7">
+  return <div className="workspace-page workflow-page">
     <header><p className="dateline">{todayDateline()} · audience-led delivery</p><h1>Email Marketing</h1><p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">Write campaign emails for a defined audience. Only opted-in, unsuppressed contacts are eligible; each send checks consent again before delivery.{campaignFilter ? " Showing this campaign’s email drafts." : ""}</p></header>
-<details className="slip p-5" open={!resend || !resend.webhookSecret}><summary>Sender settings · {resend && resend.webhookSecret ? "connected" : "setup required"}</summary><ResendSettings connected={Boolean(resend)} fromEmail={resend?.fromEmail ?? ""} fromName={resend?.fromName ?? "Renaissance Innovation Labs"} replyTo={resend?.replyTo ?? ""} hasWebhook={Boolean(resend?.webhookSecret)} webhookUrl={webhookUrl} canManage={canManageProvider} /></details>
-    <details className="slip p-5 sm:p-6" open={emails.length === 0}><summary>Create an email draft</summary><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create an email draft</h2><p className="mt-1 text-sm text-muted-foreground">Drafts need a second reviewer before they can be marked approved.</p></div>
+<details className="slip p-5" open={!resend || !resend.webhookSecret}><DisclosureSummary>Sender settings · {resend && resend.webhookSecret ? "connected" : "setup required"}</DisclosureSummary><ResendSettings connected={Boolean(resend)} fromEmail={resend?.fromEmail ?? ""} fromName={resend?.fromName ?? "Renaissance Innovation Labs"} replyTo={resend?.replyTo ?? ""} hasWebhook={Boolean(resend?.webhookSecret)} webhookUrl={webhookUrl} canManage={canManageProvider} /></details>
+    <details className="slip p-5 sm:p-6" open={emails.length === 0}><DisclosureSummary>Create an email draft</DisclosureSummary><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create an email draft</h2><p className="mt-1 text-sm text-muted-foreground">Drafts need a second reviewer before they can be marked approved.</p></div>
       <form action={createEmailCampaign} className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5"><span className="dateline">Internal name</span><Input name="name" required minLength={3} maxLength={160} placeholder="Founder programme invitation" /></label>
         <label className="flex flex-col gap-1.5"><span className="dateline">Subject line</span><Input name="subject" required maxLength={200} placeholder="Join the next founder cohort" /></label>

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -7,6 +8,8 @@ import { registerActivityAttachment, deleteActivityAttachment } from "@/actions/
 import { analyzeActivityAudioVideo, analyzeActivityImage, repurposeActivityDocument, type ImageAnalysisResult } from "@/actions/media";
 import type { ActivityAttachment } from "@/lib/content/attachments";
 import { Button } from "@/components/ui/button";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
+import { isPreviewableImage } from "@/lib/content/activity-display";
 
 const accept = [
   "image/jpeg", "image/png", "image/webp", "image/avif", "image/heic",
@@ -19,6 +22,27 @@ const accept = [
 const formatSize = (bytes: number) => bytes < 1024 * 1024
   ? `${Math.max(1, Math.round(bytes / 1024))} KB`
   : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+/**
+ * The file's name, linking to its signed URL. Images also get a small preview
+ * from that same short-lived signed URL; the bucket stays private. A plain
+ * <img> keeps the URL out of Next's image optimiser and its cache. If the
+ * preview can't load (an expired URL, an unsupported format), only the link shows.
+ */
+function AttachmentLink({ file }: { file: ActivityAttachment }) {
+  const [previewFailed, setPreviewFailed] = useState(false);
+  if (!file.signed_url) return <p className="truncate text-sm font-medium">{file.file_name}</p>;
+  const preview = isPreviewableImage(file.mime_type) && !previewFailed;
+  return (
+    <a href={file.signed_url} target="_blank" rel="noreferrer" className="group flex min-w-0 items-center gap-3 text-sm font-medium hover:text-primary">
+      {preview ? (
+        // eslint-disable-next-line @next/next/no-img-element -- private signed URL; must not go through the image optimiser
+        <img src={file.signed_url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setPreviewFailed(true)} className="size-16 shrink-0 rounded-md border border-border bg-muted object-cover" />
+      ) : null}
+      <span className="truncate group-hover:underline">{file.file_name}</span>
+    </a>
+  );
+}
 
 function ImageAnalysisControl({ file, activityId }: { file: ActivityAttachment; activityId: string }) {
   const router = useRouter();
@@ -107,17 +131,17 @@ function AudioVideoAnalysisControl({ file, activityId }: { file: ActivityAttachm
   return (
     <div className="mt-2 space-y-2">
       <Button type="button" variant="outline" size="sm" disabled={busy || analysis?.status === "processing"} onClick={analyze}>
-        {busy || analysis?.status === "processing" ? "Analysing…" : analysis?.status === "completed" ? "Analyse again" : analysis?.status === "failed" ? "Retry analysis" : "Transcribe & find clip moments"}
+        {busy || analysis?.status === "processing" ? "Analysing…" : analysis?.status === "completed" ? "Check repurposing drafts" : analysis?.status === "failed" ? "Retry analysis" : "Transcribe & create drafts"}
       </Button>
       {message ? <p role={error ? "alert" : "status"} className={error ? "max-w-[48ch] text-xs text-destructive" : "max-w-[48ch] text-xs text-muted-foreground"}>{message}</p> : null}
       {analysis?.status === "completed" && details ? (
         <div className="max-w-[60ch] space-y-1 border-l-2 border-border pl-3 text-xs text-muted-foreground">
           {details.summary ? <p><span className="font-medium text-foreground">Summary:</span> {details.summary}</p> : null}
           {details.language ? <p><span className="font-medium text-foreground">Language:</span> {details.language}</p> : null}
-          {details.transcript ? <details><summary className="cursor-pointer font-medium text-foreground">Transcript</summary><p className="mt-1 whitespace-pre-wrap">{details.transcript}</p></details> : <p>No speech transcript was returned.</p>}
+          {details.transcript ? <details><DisclosureSummary className="cursor-pointer font-medium text-foreground">Transcript</DisclosureSummary><p className="mt-1 whitespace-pre-wrap">{details.transcript}</p></details> : <p>No speech transcript was returned.</p>}
           {details.keyMoments?.length ? <p><span className="font-medium text-foreground">Highlights:</span> {details.keyMoments.map((moment) => `${moment.time} ${moment.note}`).join(" · ")}</p> : null}
           {details.suggestedClips?.length ? <div><p className="font-medium text-foreground">Suggested clips</p><ul className="list-inside list-disc">{details.suggestedClips.map((clip, index) => <li key={`${clip.start}-${index}`}>{clip.start}–{clip.end}: {clip.title} — {clip.reason}</li>)}</ul></div> : null}
-          <p>Clip ranges are editorial suggestions; no media has been edited. Three source-linked drafts are in the Content Library · {analysis.model}</p>
+          <p>Clip ranges are editorial suggestions; no media has been edited. Blog, newsletter, social copy and short-form scripts are saved as drafts for review in the Content Library · {analysis.model}</p>
         </div>
       ) : null}
       {analysis?.status === "failed" && !message && analysis.error ? <p role="alert" className="max-w-[48ch] text-xs text-destructive">{analysis.error}</p> : null}
@@ -206,7 +230,8 @@ export function ActivityAttachments({
           {attachments.map((file) => (
             <li key={file.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
               <div className="min-w-0 flex-1">
-                {file.signed_url ? <a href={file.signed_url} target="_blank" rel="noreferrer" className="truncate text-sm font-medium hover:text-primary hover:underline">{file.file_name}</a> : <p className="truncate text-sm font-medium">{file.file_name}</p>}
+                <AttachmentLink file={file} />
+                <Link href={`/repurpose?activity=${activityId}&attachment=${file.id}`} className="mt-2 inline-block text-xs font-semibold text-primary underline underline-offset-4">Repurpose into all formats</Link>
                 <p className="dateline mt-0.5">{file.mime_type} · {formatSize(file.byte_size)}</p>
                 <ImageAnalysisControl file={file} activityId={activityId} />
                 <AudioVideoAnalysisControl file={file} activityId={activityId} />

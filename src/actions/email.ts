@@ -1,5 +1,6 @@
 "use server";
 
+import { publicAppOrigin } from "@/lib/integrations/public-app-origin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -76,12 +77,7 @@ export async function transitionEmailCampaign(formData: FormData): Promise<void>
 export interface EmailDeliveryActionResult { ok: boolean; error?: string; message?: string; }
 
 function configuredSiteOrigin(): string | null {
-  try {
-    const value = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!value) return null;
-    const url = new URL(value);
-    return url.protocol === "https:" || url.hostname === "localhost" ? url.origin : null;
-  } catch { return null; }
+  return publicAppOrigin(process.env.NEXT_PUBLIC_SITE_URL);
 }
 
 export async function queueEmailCampaign(campaignId: string): Promise<EmailDeliveryActionResult> {

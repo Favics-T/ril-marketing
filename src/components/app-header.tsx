@@ -26,7 +26,7 @@ export function AppHeader({ userEmail }: { userEmail?: string }) {
 	return (
 		<header
 			className={cn(
-				"workspace-topbar sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4 md:px-8"
+				"workspace-topbar sticky top-0 z-30 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b px-5 md:px-9 xl:px-12"
 			)}
 		>
 			<div className="flex items-center gap-3">
@@ -36,7 +36,7 @@ export function AppHeader({ userEmail }: { userEmail?: string }) {
 					orientation="vertical"
 				/>
 				<div className="flex flex-col justify-center gap-0.5">
-					<span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:block">{activeSection}</span>
+					<span className="hidden text-[11px] font-medium text-muted-foreground sm:block">{activeSection}</span>
 					<AppBreadcrumbs page={activeItem} />
 				</div>
 			</div>

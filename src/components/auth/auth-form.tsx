@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, FlaskConical, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, FlaskConical } from "lucide-react";
 import { authSchema, type AuthInput } from "@/lib/validation/audience";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -62,8 +62,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   if (checkEmail) {
     return (
       <div>
-        <BrandMark />
-        <h2 className="mt-8 text-xl font-semibold tracking-tight">Check your inbox</h2>
+        <h1 className="text-3xl font-semibold tracking-tight">Check your inbox</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           We sent a confirmation link. Click it, then sign in to set up your
           organization.
@@ -77,14 +76,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
 
   return (
     <div>
-      <BrandMark />
-      <h2 className="mt-8 text-xl font-semibold tracking-tight">
+      <Link href="/" aria-label="Renaissance Innovation Labs home" className="mb-9 flex size-10 items-center justify-center rounded-full border border-border"><FlaskConical className="size-5" aria-hidden="true" /></Link>
+      <h1 className="text-2xl font-semibold leading-tight tracking-tight">
         {mode === "sign-in" ? "Sign in" : "Create account"}
-      </h2>
-      <p className="mt-1.5 text-sm text-muted-foreground">
+      </h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
         {mode === "sign-in"
           ? "Access your RIL audience workspace."
-          : "Start your RIL audience workspace."}
+          : "Create your account, then set up the workspace for your team."}
       </p>
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4" noValidate>
           <div className="space-y-2">
@@ -98,12 +97,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
                 autoFocus
                 placeholder="you@company.com"
                 aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? "email-error" : undefined}
+                disabled={pending}
                 className="h-11 pl-9"
                 {...register("email")}
               />
             </div>
             {errors.email ? (
-              <p role="alert" className="text-sm text-destructive">
+              <p id="email-error" role="alert" className="text-sm text-destructive">
                 {errors.email.message}
               </p>
             ) : null}
@@ -117,7 +118,9 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
                 type={showPassword ? "text" : "password"}
                 autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
                 aria-invalid={Boolean(errors.password)}
-                className="h-11 pl-9 pr-10"
+                aria-describedby={errors.password ? "password-error" : mode === "sign-up" ? "password-hint" : undefined}
+                disabled={pending}
+                className="h-12 pl-9 pr-12"
                 {...register("password")}
               />
               <Button
@@ -127,32 +130,26 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 aria-pressed={showPassword}
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="absolute right-1 top-1/2 h-11 w-11 -translate-y-1/2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:scale-100"
               >
                 <span className="relative block h-4 w-4" aria-hidden>
-                  <Eye
-                    aria-hidden
-                    className={`absolute inset-0 h-4 w-4 transition-[opacity,scale,filter] duration-150 ease-snappy ${showPassword ? "scale-[0.25] opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0"}`}
-                  />
-                  <EyeOff
-                    aria-hidden
-                    className={`absolute inset-0 h-4 w-4 transition-[opacity,scale,filter] duration-150 ease-snappy ${showPassword ? "scale-100 opacity-100 blur-0" : "scale-[0.25] opacity-0 blur-[4px]"}`}
-                  />
+                  {showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
                 </span>
               </Button>
             </div>
             {errors.password ? (
-              <p role="alert" className="text-sm text-destructive">
+              <p id="password-error" role="alert" className="text-sm text-destructive">
                 {errors.password.message}
               </p>
             ) : null}
           </div>
+          {mode === "sign-up" && !errors.password ? <p id="password-hint" className="text-xs text-muted-foreground">Use at least 8 characters for your password.</p> : null}
           {formError ? (
             <p role="alert" className="text-sm text-destructive">
               {formError}
             </p>
           ) : null}
-          <Button type="submit" className="h-11 w-full" disabled={pending}>
+          <Button type="submit" className="h-12 w-full" disabled={pending}>
             {pending
               ? "Please wait…"
               : mode === "sign-in"
@@ -174,17 +171,5 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           </p>
         </form>
     </div>
-  );
-}
-
-/** Minimal Renaissance mark — a ringed monogram, echoing the reference logo. */
-function BrandMark() {
-  return (
-    <span
-      aria-hidden
-      className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground"
-    >
-      <FlaskConical className="h-5 w-5" strokeWidth={1.5} aria-hidden />
-    </span>
   );
 }

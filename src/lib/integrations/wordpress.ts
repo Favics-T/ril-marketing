@@ -3,10 +3,12 @@ import { lookup } from "node:dns/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret } from "@/lib/crypto/secret-box";
 import { markdownToWordPressHtml } from "@/lib/integrations/wordpress-html";
+import type { DeliveryPost } from "@/lib/content/publishing";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 
 type IntegrationRow = { status: string; config: Record<string, string> };
 export type WordPressSeoPlugin = "none" | "yoast" | "rankmath";
-export type WordPressConfig = { siteUrl: string; username: string; applicationPassword: string; seoPlugin: WordPressSeoPlugin };
+export type WordPressConfig = { siteUrl: string; username: string; applicationPassword: string; seoPlugin?: WordPressSeoPlugin };
 export type ArticleSeo = { title: string; description: string };
 
 export const WORDPRESS_SEO_PLUGINS: readonly WordPressSeoPlugin[] = ["none", "yoast", "rankmath"];
@@ -31,7 +33,7 @@ function normalizeSiteUrl(value: string) {
   let url: URL;
   try { url = new URL(value); } catch { throw new Error("Enter the full URL of your WordPress site."); }
   const host = url.hostname.toLowerCase();
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || host === "localhost" || !host.includes(".") || host.endsWith(".local") || host.endsWith(".internal") || /^\d+(\.\d+){3}$/.test(host) || host.includes(":")) {
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || host === "localhost" || !host.includes(".") || /\.(?:local|internal|example|test|localhost|invalid)$/.test(host) || /^\d+(\.\d+){3}$/.test(host) || host.includes(":")) {
     throw new Error("Use your public WordPress site URL over HTTPS, without query parameters or credentials.");
   }
   return `${url.origin}${url.pathname.replace(/\/$/, "")}`;
@@ -125,7 +127,7 @@ export async function verifyWordPressSeoPlugin(config: WordPressConfig) {
 
 /** Write the SEO title and description to the post's SEO plugin. Returns null when no plugin is configured or there is nothing to send. */
 async function writeSeoMeta(config: WordPressConfig, postId: number, seo: ArticleSeo): Promise<boolean | null> {
-  const meta = seoMetaFields(config.seoPlugin, seo);
+  const meta = seoMetaFields(config.seoPlugin ?? "none", seo);
   if (!Object.keys(meta).length) return null;
   try {
     if (config.seoPlugin === "rankmath") {
@@ -163,41 +165,59 @@ export function postBySlugPath(slug: string) {
   return `/posts?slug=${encodeURIComponent(slug)}&status=${SLUG_LOOKUP_STATUSES.join(",")}&context=edit`;
 }
 
-type WordPressPost = { id: number; link: string; status: string };
+type WordPressPost = { id: number; link: string; status: string; slug?: string; date_gmt?: string };
+
+export function wordPressDelivery(post: WordPressPost): DeliveryPost {
+  if (!post.id || !post.link) throw new Error("WordPress returned no post receipt. Check WordPress before retrying.");
+  const date = post.date_gmt ? `${post.date_gmt.replace(/Z$/, "")}Z` : null;
+  return { id: String(post.id), url: post.link, sourceSlug: post.slug, status: post.status === "publish" ? "published" : post.status === "future" ? "queued" : "failed", scheduledFor: post.status === "future" ? date : null, publishedAt: post.status === "publish" ? date : null, ...(post.status !== "publish" && post.status !== "future" ? { error: `WordPress post is ${post.status}. Review it before publishing.` } : {}) };
+}
+
+export async function getWordPressPost(config: WordPressConfig, id: number) {
+  if (!Number.isSafeInteger(id) || id < 1) throw new Error("Invalid WordPress post receipt.");
+  return wordPressDelivery(await requestWordPress<WordPressPost>(config, `/posts/${id}?context=edit`));
+}
 
 /**
  * Publish a post, idempotent by slug. The SEO fields are written after the post
  * exists (also for a linked one), and a failure there never undoes the publish:
  * `seoSaved` reports it instead, null meaning no SEO plugin was involved.
  */
-export async function publishWordPressPost(config: WordPressConfig, input: { title: string; body: string; excerpt: string; slug: string; seo: ArticleSeo }) {
+export async function publishWordPressPost(config: WordPressConfig, input: { title: string; body: string; excerpt: string; slug: string; seo?: ArticleSeo; scheduledFor?: string }) {
+  const seo = input.seo ?? { title: "", description: "" };
+  if (input.scheduledFor) assertSchedulable(new Date(input.scheduledFor));
   const content = markdownToWordPressHtml(input.body);
-  const [existing] = await requestWordPress<WordPressPost[]>(config, postBySlugPath(input.slug));
+  let existing: WordPressPost | undefined;
+  try { [existing] = await requestWordPress<WordPressPost[]>(config, postBySlugPath(input.slug)); }
+  catch { throw new DeliveryRejected("WordPress could not check for an existing article. No new post was requested. Verify the connection before retrying."); }
   if (existing?.id) {
     if (existing.status === "private") throw new Error("A private WordPress post already uses this article's slug. Make it public or delete it in WordPress, then publish again.");
     let live = existing;
+    if (input.scheduledFor && ["publish", "future"].includes(existing.status)) {
+      return { ...wordPressDelivery(existing), id: existing.id, alreadyCreated: true, seoSaved: await writeSeoMeta(config, existing.id, seo) };
+    }
     if (existing.status !== "publish") {
       // An earlier draft or scheduled copy: bring it live now with the current text.
       // date_gmt is set a minute back so a WordPress clock running behind ours can't
       // turn "publish" back into "future".
-      const dateGmt = toDateGmt(new Date(Date.now() - 60000));
+      const dateGmt = input.scheduledFor ? input.scheduledFor.replace(/Z$/, "") : toDateGmt(new Date(Date.now() - 60000));
       live = await requestWordPress<WordPressPost>(config, `/posts/${existing.id}`, {
         method: "POST",
-        body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, status: "publish", date_gmt: dateGmt }),
+        body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, status: input.scheduledFor ? "future" : "publish", date_gmt: dateGmt }),
       });
-      if (live.status !== "publish") throw new Error(`WordPress kept the existing post as "${live.status}" instead of publishing it.`);
+      if (live.status !== (input.scheduledFor ? "future" : "publish")) throw new Error(`WordPress kept the existing post as "${live.status}" instead of the requested status.`);
     }
-    const seoSaved = await writeSeoMeta(config, live.id, input.seo);
-    return { id: live.id, url: live.link, alreadyCreated: true, seoSaved };
+    const seoSaved = await writeSeoMeta(config, live.id, seo);
+    return { ...wordPressDelivery(live), id: live.id, alreadyCreated: true, seoSaved };
   }
 
-  const post = await requestWordPress<{ id: number; link: string }>(config, "/posts", {
+  const post = await requestWordPress<WordPressPost>(config, "/posts", {
     method: "POST",
-    body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, slug: input.slug, status: "publish" }),
+    body: JSON.stringify({ title: input.title, content, excerpt: input.excerpt, slug: input.slug, status: input.scheduledFor ? "future" : "publish", ...(input.scheduledFor ? { date_gmt: input.scheduledFor.replace(/Z$/, "") } : {}) }),
   });
   if (!post.id || !post.link) throw new Error("WordPress did not return the published post URL.");
-  const seoSaved = await writeSeoMeta(config, post.id, input.seo);
-  return { id: post.id, url: post.link, alreadyCreated: false, seoSaved };
+  const seoSaved = await writeSeoMeta(config, post.id, seo);
+  return { ...wordPressDelivery(post), id: post.id, alreadyCreated: false, seoSaved };
 }
 
 export function validateWordPressSiteUrl(value: string) { return normalizeSiteUrl(value); }

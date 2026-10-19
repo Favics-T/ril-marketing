@@ -1,4 +1,6 @@
 import { StatusStamp } from "@/components/ui/status-stamp";
+import { ChannelIdentity } from "@/components/channel-identity";
+import { socialChannelKey } from "@/components/settings/channel-icons";
 import { formatDayTime } from "@/lib/format";
 import {
 	publicationDestination,
@@ -29,7 +31,7 @@ export function PublishHistory({
 							<li key={p.id} className="flex flex-col gap-1 py-2.5">
 								<div className="flex items-center justify-between gap-3">
 									<span className="text-sm font-semibold tracking-[-0.01em] text-foreground">
-										{publicationDestination(p.channel)}
+										{socialChannelKey(p.channel) ? <ChannelIdentity channel={p.channel} /> : publicationDestination(p.channel)}
 									</span>
 									<StatusStamp status={p.status} />
 								</div>
@@ -41,7 +43,7 @@ export function PublishHistory({
 										rel="noreferrer"
 										className="w-fit text-sm font-medium text-primary underline underline-offset-2"
 									>
-										View live post
+										{p.status === "published" ? "View live post" : "View provider post"}
 									</a>
 								) : null}
 								{p.status === "failed" && p.error ? (
