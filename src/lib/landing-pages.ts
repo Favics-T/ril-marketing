@@ -39,20 +39,27 @@ export async function getLandingPage(organizationId: string, id: string): Promis
   return (data ?? null) as LandingPage | null;
 }
 
-export async function getPublishedLandingPage(slug: string): Promise<LandingPage | null> {
+/**
+ * A published page as the public site loads it. "title" is the internal page
+ * name for the dashboard, so it is never loaded here and can't leak into the
+ * public page, its metadata or link previews (REN-417).
+ */
+export type PublicLandingPage = Omit<LandingPage, "title">;
+
+export async function getPublishedLandingPage(slug: string): Promise<PublicLandingPage | null> {
   const admin = createAdminClient();
   const pageKey = parsePublicLandingPageKey(slug);
-  const fields = "id, organization_id, campaign_id, activity_id, audience_segment_id, slug, title, headline, body, cta_label, registration_url, meta_description, status, created_at, updated_at";
+  const fields = "id, organization_id, campaign_id, activity_id, audience_segment_id, slug, headline, body, cta_label, registration_url, meta_description, status, created_at, updated_at";
   if (pageKey) {
     const { data, error } = await admin.from("landing_pages").select(fields)
       .eq("status", "published").eq("id", pageKey.id).eq("slug", pageKey.slug).maybeSingle();
     if (error) throw new Error(`Failed to load public page: ${error.message}`);
-    return (data ?? null) as LandingPage | null;
+    return (data ?? null) as PublicLandingPage | null;
   }
   const { data, error } = await admin.from("landing_pages").select(fields)
     .eq("status", "published").eq("slug", slug).limit(2);
   if (error) throw new Error(`Failed to load public page: ${error.message}`);
-  return data?.length === 1 ? data[0] as LandingPage : null;
+  return data?.length === 1 ? data[0] as PublicLandingPage : null;
 }
 
 export async function getLandingPageOptions(organizationId: string): Promise<{
