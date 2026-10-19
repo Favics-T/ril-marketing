@@ -4,8 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getBufferPost } from "@/lib/integrations/buffer";
 import { getWordPressConfig, getWordPressPost } from "@/lib/integrations/wordpress";
 import { getStrapiConfig, getStrapiDelivery } from "@/lib/integrations/strapi";
+import { socialPost } from "@/lib/content/social-media";
 
-export type DeliveryPost = { id: string; status: "queued" | "published" | "failed"; scheduledFor?: string | null; publishedAt?: string | null; url?: string; error?: string; sourceText?: string; sourceChannelId?: string; sourceSlug?: string; seoSaved?: boolean | null };
+export type DeliveryPost = { id: string; status: "queued" | "published" | "failed"; scheduledFor?: string | null; publishedAt?: string | null; url?: string; error?: string; sourceText?: string; sourceChannelId?: string; sourceMediaUrls?: string[]; sourceSlug?: string; seoSaved?: boolean | null };
 export type PublishingAsset = { id: string; status: string; updated_at: string; metadata: Record<string, unknown> | null };
 
 // Claim the asset version before any provider call; a second click cannot submit the same approved copy.
@@ -98,6 +99,8 @@ export async function recoverPublicationReceipt(org: string, assetId: string, ex
     if (!asset.body?.trim() || post.sourceText?.trim() !== asset.body.trim()) throw new Error("That Buffer post does not match this asset's approved text.");
     if (!publishing.buffer_channel_id) throw new Error("This older request has no recorded Buffer channel. Verify it directly in Buffer before changing its delivery record.");
     if (post.sourceChannelId !== publishing.buffer_channel_id) throw new Error("That Buffer post belongs to a different channel. Use the post ID from the channel selected for this request.");
+    const approvedMedia = socialPost(asset.metadata).media.map(file=>file.url);
+    if ((approvedMedia.length || post.sourceMediaUrls?.length) && (approvedMedia.length !== post.sourceMediaUrls?.length || approvedMedia.some((url,index)=>url!==post.sourceMediaUrls?.[index]))) throw new Error("That Buffer receipt does not match this asset’s approved media. Verify the post in Buffer before changing its delivery record.");
   } else if (publishing.provider === "wordpress") {
     const config = await getWordPressConfig(org);
     if (!config) throw new Error("Reconnect WordPress to recover delivery.");

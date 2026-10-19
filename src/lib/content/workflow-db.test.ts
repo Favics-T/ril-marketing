@@ -36,7 +36,9 @@ beforeAll(async()=>{
   `);
   await db.exec(await readFile(migration,"utf8"));
   await db.exec(await readFile(new URL("../../../supabase/migrations/20261015133925_harden_content_copy_limits.sql",import.meta.url),"utf8"));
-},30000);
+  await db.exec("ALTER TABLE content_assets ADD COLUMN source_activity_id uuid; ALTER TABLE ai_generations ALTER COLUMN id SET DEFAULT gen_random_uuid(); ALTER TABLE ai_generations ADD COLUMN activity_id uuid, ADD COLUMN kind text, ADD COLUMN model text;");
+  await db.exec(await readFile(new URL("../../../supabase/migrations/20261019090000_social_and_repurposing_workflows.sql",import.meta.url),"utf8"));
+},90000);
 beforeEach(async()=>{
   await db.exec(`BEGIN; RESET ROLE; SELECT set_config('request.jwt.claim.sub','',true),set_config('request.jwt.claim.role','service_role',true); INSERT INTO content_assets(id,organization_id,title,body,channel,platform,created_by) VALUES('${asset}','${org}','Test content','Approved facts','linkedin','linkedin','${author}');`);
 });
@@ -68,6 +70,68 @@ async function review(sensitive=false) {
   if(sensitive) await db.exec(`UPDATE content_assets SET approval_category='crisis',sensitivity='high' WHERE id='${asset}';`);
   await as(author); await move("review"); await as(reviewer);
 }
+
+describe("social and source workflow safeguards",()=>{
+  it("alerts Marketing once per failed publication and isolates the alert by workspace",async()=>{
+    const pub=(await db.query<{id:string}>("insert into publications(organization_id,content_asset_id,status,error) values($1,$2,'failed','Account disconnected') returning id",[org,asset])).rows[0].id;
+    await db.query("update publications set error='Still disconnected' where id=$1",[pub]);
+    await as(reviewer);
+    expect((await db.query("select message from publishing_alerts")).rows).toEqual([{message:"Account disconnected"}]);
+    await rejected(()=>db.exec("update publishing_alerts set acknowledged_at=now()"),/permission denied/);
+    await as(outsider);expect((await db.query("select * from publishing_alerts")).rows).toHaveLength(0);
+  });
+  it("prepares each recurrence once as Editing with no reused signoffs or publishing receipt",async()=>{
+    await db.query("update content_assets set metadata=$2 where id=$1",[asset,{social_post:{media:[]},publishing:{state:"failed"},manual_post:{url:"https://x.com/test"}}]);
+    await review();await move("approved");await as("","service_role");
+    const due=new Date(Date.now()+86400000).toISOString();
+    const rule=(await db.query<{id:string}>("insert into recurring_content(organization_id,content_asset_id,created_by,cadence,next_due,remaining) values($1,$2,$3,'weekly',$4,2) returning id",[org,asset,reviewer,due])).rows[0].id;
+    const made=(await db.query<{id:string}>("select prepare_recurring_content($1,$2) id",[rule,due])).rows[0].id;
+    expect(made).toBeTruthy();
+    expect((await db.query("select prepare_recurring_content($1,$2) id",[rule,due])).rows[0]).toEqual({id:null});
+    const draft=(await db.query<{status:string;metadata:Record<string,unknown>}>("select status,metadata from content_assets where id=$1",[made])).rows[0];
+    expect(draft.status).toBe("editing");expect(draft.metadata).toMatchObject({repeated_from:asset,recurrence_requires_review:true});expect(draft.metadata.publishing).toBeUndefined();expect(draft.metadata.manual_post).toBeUndefined();
+    expect((await db.query("select * from content_signoffs where content_asset_id=$1",[made])).rows).toHaveLength(0);
+    expect((await db.query("select remaining from recurring_content where id=$1",[rule])).rows).toEqual([{remaining:1}]);
+  });
+  it("pauses a recurring plan when its owner no longer has publishing authority",async()=>{
+    const due=new Date().toISOString();const rule=(await db.query<{id:string}>("insert into recurring_content(organization_id,content_asset_id,created_by,cadence,next_due,remaining) values($1,$2,$3,'daily',$4,1) returning id",[org,asset,reviewer,due])).rows[0].id;
+    await db.query("delete from organization_members where user_id=$1",[reviewer]);
+    await as("","service_role");expect((await db.query("select prepare_recurring_content($1,$2) id",[rule,due])).rows).toEqual([{id:null}]);
+    expect((await db.query("select enabled from recurring_content where id=$1",[rule])).rows).toEqual([{enabled:false}]);
+  });
+  it("binds media and clip edits to the approval revision and freezes them after approval",async()=>{
+    await as(author);const before=(await row()).approval_revision;
+    await db.query("update content_assets set metadata=$2 where id=$1",[asset,{social_post:{media:[{url:"https://media.ril.org/a.jpg",type:"image"}]},clip_edit:{start:"00:01",end:"00:20"}}]);
+    expect((await row()).approval_revision).toBe(before+1);
+    await move("review");await as(reviewer);await move("approved");
+    await rejected(()=>db.query("update content_assets set metadata=$2 where id=$1",[asset,{social_post:{media:[]}}]),/Editing|editing/);
+  });
+  it("saves source-linked AI drafts atomically and retries without duplicating earlier outputs",async()=>{
+    const token="40000000-0000-0000-0000-000000000001";
+    const id=(await db.query<{id:string}>("insert into repurposing_sources(organization_id,created_by,title,source_kind,requested_kinds,status,run_token) values($1,$2,'Source recording','transcript',ARRAY['blog','newsletter'],'processing',$3) returning id",[org,author,token])).rows[0].id;
+    const drafts=[{kind:"blog",title:"Grounded blog",body:"Source-based draft",channel:"website",format:"blog",metadata:{source_revision:999}}];
+    await as(reviewer);
+    await rejected(()=>db.query("select finish_repurposing($1,$2,$3,$4,'mock',ARRAY['blog'],null)",[id,org,token,drafts]),/permission denied/);
+    await as("","service_role");
+    await rejected(()=>db.query("select finish_repurposing($1,$2,$3,$4,'mock',ARRAY['blog'],null)",[id,other,token,drafts]),/source run changed/);
+    await db.query("select finish_repurposing($1,$2,$3,$4,'mock',ARRAY['blog'],'Newsletter failed')",[id,org,token,drafts]);
+    expect((await db.query("select status,error from repurposing_sources where id=$1",[id])).rows).toEqual([{status:"idea",error:"Newsletter failed"}]);
+    await db.query("update repurposing_sources set status='processing',run_token=$2 where id=$1",[id,token]);
+    await db.query("select finish_repurposing($1,$2,$3,$4,'mock',ARRAY['newsletter'],null)",[id,org,token,[...drafts,{kind:"newsletter",title:"Newsletter",body:"A distinct draft",channel:"email"}]]);
+    const outputs=(await db.query<{status:string;metadata:{source_revision:number}}>("select status,metadata from content_assets where metadata->>'repurposing_source_id'=$1",[id])).rows;
+    expect(outputs).toHaveLength(2);expect(outputs.every(d=>d.status==="ai_generated"&&d.metadata.source_revision===1)).toBe(true);
+    await rejected(()=>db.query("select finish_repurposing($1,$2,$3,$4,'mock',ARRAY['newsletter'],null)",[id,org,token,drafts]),/source run changed/);
+    await as(outsider);expect((await db.query("select * from repurposing_sources")).rows).toHaveLength(0);expect((await db.query("select * from repurposing_outputs")).rows).toHaveLength(0);
+  });
+  it("rolls back every generated asset when any output is invalid",async()=>{
+    const token="40000000-0000-0000-0000-000000000001";
+    const id=(await db.query<{id:string}>("insert into repurposing_sources(organization_id,created_by,title,source_kind,requested_kinds,status,run_token) values($1,$2,'Source recording','transcript',ARRAY['blog'],'processing',$3) returning id",[org,author,token])).rows[0].id;
+    await as("","service_role");
+    await rejected(()=>db.query("select finish_repurposing($1,$2,$3,$4,'mock',ARRAY['blog'],null)",[id,org,token,[{kind:"blog",title:"Valid",body:"Copy"},{kind:"unknown",title:"Bad",body:"Copy"}]]),/Incomplete generated draft/);
+    expect((await db.query("select * from repurposing_outputs where source_id=$1",[id])).rows).toHaveLength(0);
+    expect((await db.query("select * from ai_generations")).rows).toHaveLength(0);
+  });
+});
 describe("database-enforced content workflow",()=>{
   it("blocks direct status and audit-history writes through the authenticated database role",async()=>{
     await as();

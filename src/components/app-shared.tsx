@@ -22,6 +22,7 @@ import {
 	ClipboardCheckIcon,
 	ChartNoAxesCombinedIcon,
 	SendIcon,
+	CopyIcon,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -58,6 +59,7 @@ export const navGroups: SidebarNavGroup[] = [
 		items: [
 			{ title: "Activities", path: "/activities", icon: <NotebookPenIcon /> },
 			{ title: "Content Library", path: "/library", icon: <LibraryIcon /> },
+			{ title: "Repurpose content", path: "/repurpose", icon: <CopyIcon /> },
 			{ title: "SEO Workspace", path: "/seo", icon: <FileSearchIcon /> },
 			{ title: "Calendar", path: "/calendar", icon: <CalendarIcon /> },
 			{ title: "Social publishing", path: "/publishing", icon: <SendIcon /> },

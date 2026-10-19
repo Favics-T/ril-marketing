@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SOCIAL_PLATFORMS } from "@/lib/content/manual-posting";
 import type { ContentAssetRow } from "@/lib/content/assets";
 
-export const SOCIAL_QUEUE_STAGES = ["all", "review", "approved", "scheduled", "published"] as const;
+export const SOCIAL_QUEUE_STAGES = ["all", "drafts", "review", "approved", "scheduled", "published"] as const;
 export type SocialQueueStage = typeof SOCIAL_QUEUE_STAGES[number];
 
 export async function listSocialQueue(organizationId: string, filters: { stage?: string; platform?: string; page?: string } = {}) {
@@ -16,9 +16,10 @@ export async function listSocialQueue(organizationId: string, filters: { stage?:
   let query = client.from("content_assets").select("*", { count: "exact" })
     .eq("organization_id", organizationId)
     .or(`channel.in.(${social}),platform.in.(${social})`)
-    .in("status", ["review", "approved", "scheduled", "published", "analysing"])
+    .in("status", ["idea","ai_generated","editing","review", "approved", "scheduled", "published", "analysing"])
     .order("updated_at", { ascending: false }).range((page - 1) * 20, page * 20 - 1);
   if (stage === "published") query = query.in("status", ["published", "analysing"]);
+  else if (stage === "drafts") query = query.in("status", ["idea","ai_generated","editing"]);
   else if (stage !== "all") query = query.eq("status", stage);
   if (platform !== "all") {
     const values = platform === "x" || platform === "twitter" ? "x,twitter" : platform;

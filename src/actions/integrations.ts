@@ -9,6 +9,8 @@ import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 import { claimPublication, noteUncertainDelivery, saveDelivery, syncPublication, recoverPublicationReceipt } from "@/lib/content/publishing";
 import { futureSchedule } from "@/lib/content/scheduling";
 import { bufferPostProblem } from "@/lib/content/social-publishing";
+import { socialPost } from "@/lib/content/social-media";
+import { readPublicResource } from "@/lib/integrations/public-resource";
 
 export type { BufferChannel };
 export interface IntegrationResult { ok: boolean; error?: string; message?: string; channels?: BufferChannel[]; publicationId?: string }
@@ -54,7 +56,7 @@ export async function saveBufferApiKey(formData: FormData): Promise<IntegrationR
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not connect Buffer." }; }
 }
 
-export async function publishAssetViaBuffer(assetId: string, channelId: string, scheduledFor?: string, expectedUpdatedAt?: string): Promise<IntegrationResult> {
+export async function publishAssetViaBuffer(assetId: string, channelId: string, scheduledFor?: string, expectedUpdatedAt?: string, queue = false): Promise<IntegrationResult> {
   let org = "", requestId = "";
   try {
     org = await requireOrganizationId();
@@ -72,8 +74,14 @@ export async function publishAssetViaBuffer(assetId: string, channelId: string, 
     if (!channel || channel.isDisconnected || channel.isLocked || channel.isQueuePaused) return { ok: false, error: "Choose an available channel from this workspace's Buffer connection." };
     const problem = bufferPostProblem(asset, channel);
     if (problem) return { ok: false, error: problem };
+    if (queue && date) return { ok: false, error: "Choose a queue slot or an exact time, not both." };
+    const media = socialPost(asset.metadata);
+    for (const file of media.media) {
+      const resource = await readPublicResource(file.url, { head: true });
+      if (file.type === "image" ? !["image/jpeg","image/png","image/webp"].includes(resource.mimeType) : !["video/mp4","video/quicktime","video/webm"].includes(resource.mimeType)) return { ok: false, error: "A media URL does not open a supported direct image or video file. Correct it in Editing and request approval again." };
+    }
     requestId = await claimPublication(org, asset, "buffer", user.id, date, channel.id);
-    const post = await publishToBuffer(org, channel.id, asset.body.trim(), date);
+    const post = media.media.length || queue ? await publishToBuffer(org, channel.id, asset.body.trim(), date, { queue, media, service: channel.service.toLowerCase() }) : await publishToBuffer(org, channel.id, asset.body.trim(), date);
     await saveDelivery(org, requestId, assetId, post);
     refreshAsset(assetId);
     return { ok: post.status !== "failed", publicationId: requestId, error: post.error, message: post.status === "published" ? "Buffer confirmed publication." : "Accepted by Buffer. This asset stays scheduled until delivery is confirmed." };

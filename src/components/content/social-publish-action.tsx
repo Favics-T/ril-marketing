@@ -7,6 +7,7 @@ import { publishAssetViaBuffer, refreshBufferChannels, type BufferChannel, type 
 import { localSchedule } from "@/lib/content/scheduling";
 import { bufferPostProblem, socialService, type SocialCopy } from "@/lib/content/social-publishing";
 import { checkChannelLimits } from "@/lib/content/channels";
+import { socialPost } from "@/lib/content/social-media";
 import { formatDayTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,7 @@ export function SocialPublishAction({ assetId, connected, channels: initialChann
     return result;
   }, null);
   const [state, action, pending] = useActionState<IntegrationResult | null, FormData>(async () => {
-    try { return await publishAssetViaBuffer(assetId, channelId, scheduledIso, updatedAt); }
+    try { return await publishAssetViaBuffer(assetId, channelId, scheduledIso, updatedAt, mode === "queue"); }
     catch { return { ok: false, error: "Could not submit this post. Check delivery before retrying." }; }
   }, null);
   const platform = socialService(copy.platform || copy.channel);
@@ -36,6 +37,7 @@ export function SocialPublishAction({ assetId, connected, channels: initialChann
   const selected = matching.find(channel => channel.id === channelId);
   const problem = selected ? bufferPostProblem(copy, selected) : null;
   const length = checkChannelLimits(selected?.service || platform, copy.body, copy.format);
+  const media = socialPost(copy.metadata);
   function review() {
     setTimeError("");
     try {
@@ -54,9 +56,9 @@ export function SocialPublishAction({ assetId, connected, channels: initialChann
           return <SelectItem key={channel.id} value={channel.id} disabled={Boolean(issue)}>{channel.displayName || channel.name} · {channel.descriptor}{issue ? ` · ${issue}` : ""}</SelectItem>;
         })}</SelectContent></Select></div>
         {!matching.some(channel => !bufferPostProblem(copy, channel)) ? <p className="text-sm leading-6 text-muted-foreground">No saved account can publish this copy. Refresh channels, resolve any restrictions in Buffer, or use manual posting.</p> : null}
-        <div className="flex flex-col gap-2"><Label htmlFor="buffer-delivery">Delivery</Label><Select value={mode} disabled={pending} onValueChange={setMode}><SelectTrigger id="buffer-delivery"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="now">Publish now</SelectItem><SelectItem value="schedule">Schedule a post</SelectItem></SelectContent></Select></div>
+        <div className="flex flex-col gap-2"><Label htmlFor="buffer-delivery">Delivery</Label><Select value={mode} disabled={pending} onValueChange={setMode}><SelectTrigger id="buffer-delivery"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="now">Publish now</SelectItem><SelectItem value="schedule">Schedule a post</SelectItem><SelectItem value="queue">Next Buffer queue slot</SelectItem></SelectContent></Select></div>
         {mode === "schedule" ? <div className="flex flex-col gap-2"><Label htmlFor="buffer-time">Publishing time (WAT)</Label><Input id="buffer-time" type="datetime-local" value={time} onChange={event => setTime(event.target.value)} required disabled={pending} /></div> : null}
-        <p className="text-xs leading-5 text-muted-foreground">{length.length}{length.limit ? ` / ${length.limit}` : ""} characters. Sends text only; photos, videos and separate thread parts use manual posting.</p>
+        <p className="text-xs leading-5 text-muted-foreground">{length.length}{length.limit ? ` / ${length.limit}` : ""} characters. Approved media is included. Separate X thread parts still need their own approved posts.</p>
         {problem || timeError ? <p role="alert" className="text-sm text-destructive">{problem || timeError}</p> : null}
         <Button type="button" onClick={review} disabled={pending || refreshing || !selected || Boolean(problem)}>Review {mode === "schedule" ? "scheduled post" : "post"}</Button>
       </> : <p className="text-sm leading-6 text-muted-foreground">No saved Buffer accounts match this post’s platform. Connect the matching account in Buffer, then refresh channels here.</p>}
@@ -66,10 +68,11 @@ export function SocialPublishAction({ assetId, connected, channels: initialChann
     {state?.message ? <p role="status" className="text-sm">{state.message}</p> : null}
     <Dialog open={reviewOpen} onOpenChange={open => { if (!pending) setReviewOpen(open); }}><DialogContent onEscapeKeyDown={event => { if (pending) event.preventDefault(); }} onPointerDownOutside={event => { if (pending) event.preventDefault(); }}>
       <DialogTitle>{mode === "schedule" ? "Confirm scheduled post" : "Confirm publication"}</DialogTitle>
-      <DialogDescription>{selected?.displayName || selected?.name} · {scheduledIso ? formatDayTime(scheduledIso) : "Publishes as soon as Buffer processes it."} Approval and account availability are checked again when you confirm.</DialogDescription>
+      <DialogDescription>{selected?.displayName || selected?.name} · {scheduledIso ? formatDayTime(scheduledIso) : mode === "queue" ? "Uses the next available slot in this account’s Buffer queue." : "Publishes as soon as Buffer processes it."} Approval, media and account availability are checked again when you confirm.</DialogDescription>
       <div className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/30 p-4 text-sm leading-6" aria-label="Approved post preview">{copy.body}</div>
+      {media.media.length ? <div className="max-h-40 overflow-y-auto text-sm"><p className="font-semibold">Approved media ({media.media.length}){media.videoTitle ? ` · ${media.videoTitle}` : ""}</p><ul className="mt-2 space-y-2">{media.media.map((file,index)=><li key={`${file.url}-${index}`} className="break-all"><a href={file.url} target="_blank" rel="noreferrer" className="text-primary underline">{file.type} {index+1}: {file.alt || file.url}</a></li>)}</ul></div> : null}
       {state?.error ? <p role="alert" className="text-sm text-destructive">{state.error}</p> : null}
-      <form action={action}><DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={() => setReviewOpen(false)}>Back</Button><Button type="submit" disabled={pending || Boolean(state?.publicationId)}><Send data-icon="inline-start" aria-hidden="true" />{pending ? "Submitting…" : scheduledIso ? "Confirm schedule" : "Publish now"}</Button></DialogFooter></form>
+      <form action={action}><DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={() => setReviewOpen(false)}>Back</Button><Button type="submit" disabled={pending || Boolean(state?.publicationId)}><Send data-icon="inline-start" aria-hidden="true" />{pending ? "Submitting…" : scheduledIso ? "Confirm schedule" : mode === "queue" ? "Add to Buffer queue" : "Publish now"}</Button></DialogFooter></form>
     </DialogContent></Dialog>
   </section>;
 }

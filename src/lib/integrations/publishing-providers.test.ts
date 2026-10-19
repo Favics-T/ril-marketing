@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({ admin: vi.fn(), lookup: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
 vi.mock("node:dns/promises", () => ({ lookup: mocks.lookup }));
 import { publishToBuffer, getBufferPost, bufferDelivery, connectBufferApiKey } from "./buffer";
+import { socialPostSchema } from "@/lib/content/social-media";
 import { publishWordPressPost, getWordPressPost, wordPressDelivery, validateWordPressSiteUrl } from "./wordpress";
 
 const config = { siteUrl: "https://site.example", username: "editor", applicationPassword: "test-password" };
@@ -18,6 +19,16 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("provider delivery contracts", () => {
+  it("sends the approved Instagram media and alt text to the next Buffer queue slot",async()=>{
+    fetchMock.mockResolvedValueOnce(Response.json({data:{createPost:{post:{id:"image-post",status:"buffer",assets:[{source:"https://media.ril.org/photo.jpg"}]}}}}));
+    const media=socialPostSchema.parse({media:[{type:"image",url:"https://media.ril.org/photo.jpg",alt:"Founders presenting prototypes"}]});
+    expect(await publishToBuffer("org","channel","Approved image caption",undefined,{queue:true,media,service:"instagram"})).toMatchObject({status:"queued",sourceMediaUrls:["https://media.ril.org/photo.jpg"]});
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).variables.input).toMatchObject({mode:"addToQueue",needsApproval:false,assets:[{image:{url:"https://media.ril.org/photo.jpg",metadata:{altText:"Founders presenting prototypes"}}}],metadata:{instagram:{type:"post",shouldShareToFeed:true}}});
+  });
+  it("provides the required empty asset list on a text-only post",async()=>{
+    fetchMock.mockResolvedValueOnce(Response.json({data:{createPost:{post:{id:"text-post",status:"buffer"}}}}));await publishToBuffer("org","channel","Copy");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).variables.input.assets).toEqual([]);
+  });
   it("passes Buffer a custom UTC dueAt without claiming a scheduled post is published", async () => {
     fetchMock.mockResolvedValueOnce(Response.json({ data: { createPost: { post: { id: "post", status: "scheduled", dueAt: "2026-10-15T10:00:00Z" } } } }));
     expect(await publishToBuffer("org", "channel", "Approved copy", "2026-10-15T10:00:00Z")).toMatchObject({ status: "queued", id: "post" });

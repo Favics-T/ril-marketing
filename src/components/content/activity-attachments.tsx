@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -230,6 +231,7 @@ export function ActivityAttachments({
             <li key={file.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
               <div className="min-w-0 flex-1">
                 <AttachmentLink file={file} />
+                <Link href={`/repurpose?activity=${activityId}&attachment=${file.id}`} className="mt-2 inline-block text-xs font-semibold text-primary underline underline-offset-4">Repurpose into all formats</Link>
                 <p className="dateline mt-0.5">{file.mime_type} · {formatSize(file.byte_size)}</p>
                 <ImageAnalysisControl file={file} activityId={activityId} />
                 <AudioVideoAnalysisControl file={file} activityId={activityId} />

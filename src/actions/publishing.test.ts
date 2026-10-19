@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { databaseMock, type Query } from "@/test/database-mock";
 import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 
-const mocks = vi.hoisted(() => ({ client: vi.fn(), admin: vi.fn(), org: vi.fn(), reviewer: vi.fn(), role: vi.fn(), connect: vi.fn(), channels: vi.fn(), buffer: vi.fn(), wordpress: vi.fn(), wpConfig: vi.fn(), revalidate: vi.fn(), status: vi.fn(), wpScheduleCheck: vi.fn() }));
+const mocks = vi.hoisted(() => ({ client: vi.fn(), admin: vi.fn(), org: vi.fn(), reviewer: vi.fn(), role: vi.fn(), connect: vi.fn(), channels: vi.fn(), buffer: vi.fn(), wordpress: vi.fn(), wpConfig: vi.fn(), revalidate: vi.fn(), status: vi.fn(), wpScheduleCheck: vi.fn(), resource:vi.fn() }));
+vi.mock("@/lib/integrations/public-resource",()=>({readPublicResource:mocks.resource}));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.client }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
 vi.mock("@/lib/supabase/organization", () => ({ requireOrganizationId: mocks.org }));
@@ -39,6 +40,18 @@ beforeEach(() => {
 });
 
 describe("approved publishing workflows", () => {
+  it("checks public media before claiming the asset and sending to Buffer",async()=>{
+    const state=setup({platform:"instagram",metadata:{social_post:{media:[{type:"image",url:"https://media.ril.org/photo.jpg"}]}}});mocks.channels.mockResolvedValue([{...channel,service:"instagram"}]);mocks.resource.mockRejectedValueOnce(new Error("Address resolves to a private network"));
+    expect(await publishAssetViaBuffer("asset","channel")).toMatchObject({ok:false,error:expect.stringContaining("private")});expect(mocks.buffer).not.toHaveBeenCalled();expect(state.asset().status).toBe("approved");
+    mocks.resource.mockResolvedValueOnce({mimeType:"image/jpeg"});
+    expect(await publishAssetViaBuffer("asset","channel",undefined,undefined,true)).toMatchObject({ok:true});
+    expect(mocks.buffer).toHaveBeenCalledWith("org","channel","Approved source copy",undefined,expect.objectContaining({queue:true,service:"instagram"}));
+  });
+  it("refuses to recover matching text and channel with the wrong media",async()=>{
+    const state=setup({metadata:{social_post:{media:[{type:"image",url:"https://media.ril.org/right.jpg"}]}}});mocks.resource.mockResolvedValue({mimeType:"image/jpeg"});mocks.buffer.mockRejectedValueOnce(new Error("Timeout"));await publishAssetViaBuffer("asset","channel");
+    mocks.status.mockResolvedValueOnce({id:"wrong-post",status:"published",sourceText:"Approved source copy",sourceChannelId:"channel",sourceMediaUrls:["https://media.ril.org/wrong.jpg"]});const fd=new FormData();fd.set("external_id","wrong-post");
+    expect(await recoverPublishingRequest("asset",fd)).toMatchObject({ok:false,error:expect.stringContaining("approved media")});expect(state.asset().status).toBe("scheduled");
+  });
   it("checks the WordPress scheduling margin before reserving the asset", async () => {
     const state = setup({ format: "blog", channel: "website" });
     mocks.wpScheduleCheck.mockImplementationOnce(() => { throw new Error("Choose a time at least 2 minutes from now."); });

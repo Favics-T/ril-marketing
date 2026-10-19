@@ -1,6 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { DeliveryPost } from "@/lib/content/publishing";
+import type { SocialPost } from "@/lib/content/social-media";
+import { bufferMediaInput } from "@/lib/content/social-media";
 import { decryptSecret, encryptSecret, isEncryptionEnabled } from "@/lib/crypto/secret-box";
 import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 import {
@@ -198,6 +200,7 @@ const CREATE_POST_MUTATION = `
           sentAt
           channelId
           externalLink
+          assets { source }
           error { message }
         }
       }
@@ -444,7 +447,8 @@ export async function publishToBuffer(
   organizationId: string,
   channelId: string,
   text: string,
-  scheduledFor?: string
+  scheduledFor?: string,
+  options?: { queue?: boolean; media?: SocialPost; service?: string }
 ): Promise<DeliveryPost> {
   const { rowId, config } = await readConfig(organizationId);
   if (!config.accessToken) throw new Error("Buffer is not connected.");
@@ -457,8 +461,11 @@ export async function publishToBuffer(
       text,
       channelId,
       schedulingType: "automatic",
-      mode: scheduledFor ? "customScheduled" : "shareNow",
+      assets: [],
+      needsApproval: false,
+      mode: scheduledFor ? "customScheduled" : options?.queue ? "addToQueue" : "shareNow",
       ...(scheduledFor ? { dueAt: scheduledFor } : {}),
+      ...(options?.media ? bufferMediaInput(options.media, options.service ?? "") : {}),
     },
   });
 
@@ -468,13 +475,13 @@ export async function publishToBuffer(
   return bufferDelivery(data.createPost?.post);
 }
 
-type BufferPost = { id: string; status: string; text?: string; dueAt?: string | null; sentAt?: string | null; channelId?: string; externalLink?: string | null; error?: { message?: string } | null };
+type BufferPost = { id: string; status: string; text?: string; dueAt?: string | null; sentAt?: string | null; channelId?: string; assets?: {source:string}[]; externalLink?: string | null; error?: { message?: string } | null };
 
 export function bufferDelivery(post?: BufferPost): DeliveryPost {
   if (!post?.id) throw new Error("Buffer returned no post receipt. Check Buffer before retrying.");
   let url: string | undefined;
   try { const parsed = new URL(post.externalLink ?? ""); if (parsed.protocol === "https:" && !parsed.username && !parsed.password) url = parsed.href; } catch { /* No public link is available yet. */ }
-  const receipt = { id: post.id, scheduledFor: post.dueAt, sourceText: post.text, sourceChannelId: post.channelId, url };
+  const receipt = { id: post.id, scheduledFor: post.dueAt, sourceText: post.text, sourceChannelId: post.channelId, sourceMediaUrls: post.assets?.map(asset=>asset.source), url };
   if (post.status === "sent") return { ...receipt, status: "published", publishedAt: post.sentAt };
   if (["error", "draft", "needs_approval"].includes(post.status)) return { ...receipt, status: "failed", error: post.error?.message || `Buffer post status: ${post.status}. Review it in Buffer.` };
   return { ...receipt, status: "queued" };
@@ -483,7 +490,7 @@ export function bufferDelivery(post?: BufferPost): DeliveryPost {
 export async function getBufferPost(organizationId: string, id: string): Promise<DeliveryPost> {
   const { rowId, config } = await readConfig(organizationId);
   const token = await refreshIfNeeded(organizationId, rowId, config);
-  const data = await bufferGraphQl<{ post: BufferPost }>(token, `query GetPost($input: PostInput!) { post(input: $input) { id text status dueAt sentAt channelId externalLink error { message } } }`, { input: { id } });
+  const data = await bufferGraphQl<{ post: BufferPost }>(token, `query GetPost($input: PostInput!) { post(input: $input) { id text status dueAt sentAt channelId externalLink assets { source } error { message } } }`, { input: { id } });
   return bufferDelivery(data.post);
 }
 

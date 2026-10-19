@@ -19,6 +19,11 @@ import { SocialPublishAction } from "@/components/content/social-publish-action"
 import { PublicationStatus } from "@/components/content/publication-status";
 import { getBufferStatus } from "@/lib/integrations/buffer";
 import { getWordPressConfig } from "@/lib/integrations/wordpress";
+import { ContentDetails } from "@/components/content/content-details";
+import { GeneratedDetails } from "@/components/content/generated-details";
+import { RecurringContent } from "@/components/content/recurring-content";
+import { RichText } from "@/components/ui/rich-text";
+import { getUserRole, isReviewerRole } from "@/lib/audience/access";
 import { formatReminderTime, reminderState } from "@/lib/content/reminders";
 import { ReminderFlag } from "@/components/content/reminder-flag";
 
@@ -43,6 +48,7 @@ export default async function AssetDetailPage({
 	const liveUrl = typeof manualPost?.url === "string" ? parseLivePostUrl(manualPost.url) : null;
 	const [approvals, publications] = await Promise.all([listAssetApprovals(orgId, id), listAssetPublications(orgId, id)]);
 	const workflowClient = await createClient();
+ const canPublish=isReviewerRole(await getUserRole(orgId));
  const [signoffs, reviewers] = await Promise.all([
    workflowClient.from("content_signoffs").select("*").eq("organization_id", orgId).eq("content_asset_id", id).eq("approval_revision", asset.approval_revision ?? 1).order("tier"),
    workflowClient.rpc("content_reviewers", {p_org: orgId}),
@@ -103,9 +109,7 @@ export default async function AssetDetailPage({
 				<section className="slip flex flex-col lg:col-span-2">
 					<div className="px-5 py-5 sm:px-6">
 						{asset.body ? (
-							<p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-								{asset.body}
-							</p>
+							<RichText>{asset.body}</RichText>
 						) : (
 							<p className="text-sm italic text-muted-foreground">
 								This asset is still a brief. Add body copy before review.
@@ -128,6 +132,7 @@ export default async function AssetDetailPage({
 						</div>
 					) : null}
 					{seo && (seo.title || seo.description || seo.keywords?.length || seo.internalLinks?.length) ? <section className="border-t border-border/80 px-5 py-4 sm:px-6"><p className="dateline">SEO preparation</p>{seo.title ? <p className="mt-2 text-[13px] font-bold tracking-[-0.01em]">{seo.title}</p> : null}{seo.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{seo.description}</p> : null}{seo.keywords?.length ? <p className="mt-2 text-[13px] leading-5 text-muted-foreground">Target terms · {seo.keywords.join(", ")}</p> : null}{seo.internalLinks?.length ? <ul className="mt-2 flex flex-col gap-1 text-xs text-primary">{seo.internalLinks.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{url}</a></li>)}</ul> : null}<p className="mt-2 text-[13px] leading-5 text-muted-foreground">Editorial search metadata only. Search performance is not verified until analytics data is connected.</p></section> : null}
+					<GeneratedDetails metadata={asset.metadata} />
 					{["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor key={asset.updated_at} asset={asset} /> : null}
 					</section>
 
@@ -172,6 +177,10 @@ export default async function AssetDetailPage({
 					</section>
 					{socialAsset && (releaseReady || ["published", "analysing"].includes(asset.status)) && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
 					{buffer ? <SocialPublishAction assetId={asset.id} connected={buffer.connected} channels={buffer.channels} copy={asset} updatedAt={asset.updated_at} /> : null}
+					{socialAsset && asset.format !== "short-form video" ? <ContentDetails key={`media-${asset.updated_at}`} assetId={asset.id} updatedAt={asset.updated_at} metadata={asset.metadata} editable={["idea","ai_generated","editing"].includes(asset.status)} platform={asset.platform || asset.channel} /> : null}
+					{asset.metadata?.clip || asset.format === "short-form video" ? <ContentDetails key={`clip-${asset.updated_at}`} assetId={asset.id} updatedAt={asset.updated_at} metadata={asset.metadata} editable={["idea","ai_generated","editing"].includes(asset.status)} platform={asset.platform || asset.channel} clip /> : null}
+					{canPublish && socialAsset && ["approved","published","analysing"].includes(asset.status) ? <RecurringContent assetId={asset.id} /> : null}
+					{typeof asset.metadata?.repurposing_source_id === "string" ? <section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Source and interpretation</h2><Link className="text-sm text-primary underline" href={`/repurpose/${asset.metadata.repurposing_source_id}`}>Open original source and extraction</Link>{["interpretation_notes","missing_information"].map(key => Array.isArray(asset.metadata[key]) && (asset.metadata[key] as unknown[]).length ? <div key={key}><h3 className="text-sm font-semibold">{key === "interpretation_notes" ? "AI interpretation" : "Missing information"}</h3><ul className="list-disc pl-5 text-sm text-muted-foreground">{(asset.metadata[key] as unknown[]).filter((text):text is string=>typeof text==="string").map((text,index)=><li key={index}>{text}</li>)}</ul></div> : null)}</section> : null}
 					{publishing && asset.status === "scheduled" ? <PublicationStatus assetId={asset.id} provider={publishing.provider || "provider"} error={delivery?.data?.error} url={providerUrl} missingReceipt={!delivery?.data?.external_id} /> : null}
 					{providerUrl && asset.status === "published" ? <section className="slip p-5 sm:p-6"><p className="dateline">{socialAsset ? "Published post" : "Published article"}</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live {socialAsset ? "post" : "article"}</a></section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
