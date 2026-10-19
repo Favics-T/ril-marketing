@@ -5,6 +5,7 @@ import { loadActivitySourceMaterial } from "@/lib/content/source-material";
 import type { GenerationContext } from "@/lib/ai/types";
 import { hasActiveConsent } from "@/lib/email/consent";
 import { firstStepPlan, type NurtureStepLite } from "@/lib/nurture/schedule";
+import { safeRegistrationUrl } from "@/lib/landing-page-url";
 
 type EventRow = { id:string; organization_id:string; event_type:string; record_id:string; status:string; attempts:number };
 type Activity = { id:string; title:string; description:string|null; outcomes:string|null; speakers:string[]|null; partners:string[]|null; event_date:string|null; audience_segment_id:string|null; campaign_id:string|null; registration_url:string|null };
@@ -109,11 +110,12 @@ async function runActivityCreated(admin: ReturnType<typeof createAdminClient>, e
   const slug = `activity-${activity.id.replaceAll("-", "").slice(0, 20)}`;
   const { data: landingRows } = await admin.from("landing_pages").select("id").eq("organization_id", event.organization_id).contains("metadata", { automation_event_id: event.id }).limit(1);
   if (!landingRows?.length) {
+    const registrationUrl = safeRegistrationUrl(activity.registration_url);
     const { error: landingError } = await admin.from("landing_pages").insert({
       organization_id: event.organization_id, campaign_id: campaignId, activity_id: activity.id,
       audience_segment_id: activity.audience_segment_id, slug, title: `${activity.title} · RIL`,
       headline: activity.title, body: [activity.description, activity.outcomes, "Draft generated from an activity record. Confirm details before publication."].filter(Boolean).join("\n\n").slice(0, 6000),
-      cta_label: activity.registration_url ? "Register" : "Learn more", registration_url: activity.registration_url,
+      cta_label: registrationUrl ? "Register" : "Learn more", registration_url: registrationUrl,
       meta_description: activity.description?.slice(0, 320) ?? "", status: "draft",
       metadata: { automation_event_id: event.id, automation_trigger: "activity_created" },
     });
