@@ -16,7 +16,7 @@ export type { BufferChannel };
 export interface IntegrationResult { ok: boolean; error?: string; message?: string; channels?: BufferChannel[]; publicationId?: string }
 
 function refreshAsset(id: string) {
-  for (const path of ["/library", `/library/${id}`, "/publishing", "/calendar", "/dashboard", "/approvals"]) revalidatePath(path);
+  for (const path of ["/library", `/library/${id}`, "/publishing", "/calendar", "/dashboard", "/approvals", "/audience/landing-pages"]) revalidatePath(path);
 }
 
 async function requireIntegrationManager(org: string) {

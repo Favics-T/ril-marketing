@@ -6,10 +6,13 @@ import { ContentCreateForm } from "@/components/content/content-create-form";
 
 export const metadata: Metadata = { title: "Add content" };
 
-export default function NewContentPage() {
+export default async function NewContentPage({ searchParams }: { searchParams: Promise<{ channel?: string; format?: string }> }) {
+  const params = await searchParams;
+  const blog = params.channel === "website" && params.format === "blog";
+  const backHref = blog ? "/audience/landing-pages?view=website" : "/library";
   return <div className="workspace-page mx-auto w-full max-w-6xl">
-    <header><Link href="/library" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary"><ArrowLeft className="size-4" aria-hidden="true" />Content Library</Link><h1 className="mt-2">Add content</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Write or paste your content. It starts as an editing draft and needs approval before posting.</p></header>
+    <header><Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary"><ArrowLeft className="size-4" aria-hidden="true" />{blog ? "Website publishing" : "Content Library"}</Link><h1 className="mt-2">{blog ? "Create blog draft" : "Add content"}</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Write or paste your content. It starts as an editing draft and needs approval before posting.</p></header>
     <p className="mt-4 text-sm text-muted-foreground">Starting from a recording, document or activity? <Link href="/repurpose" className="font-semibold text-primary underline">Repurpose a source into multiple drafts</Link>.</p>
-    <EditorLayout guidance={["Give the draft a title your team can find later.", "Choose the channel and write or paste the source copy.", "Saving creates an editing draft. Submit it for review before publishing."]}><ContentCreateForm/></EditorLayout>
+    <EditorLayout guidance={["Give the draft a title your team can find later.", "Choose the channel and write or paste the source copy.", "Saving creates an editing draft. Submit it for review before publishing."]}><ContentCreateForm key={blog ? "website-blog" : "content"} initialChannel={blog ? "website" : ""} initialFormat={blog ? "blog" : "social post"} cancelHref={backHref}/></EditorLayout>
   </div>;
 }

@@ -1,3 +1,4 @@
+import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -82,7 +83,7 @@ export default async function LeadDetailPage({
 							>
 								<span className="dateline">{f.label}</span>
 								<span className="max-w-[60%] truncate text-sm font-medium text-foreground">
-									{f.value}
+									{f.label === "Source" ? <ChannelIdentity channel={f.value} /> : f.value}
 								</span>
 							</div>
 						))}

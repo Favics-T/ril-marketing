@@ -1,5 +1,6 @@
 "use client";
 
+import { ChannelSelect } from "@/components/channel-select";
 import { useActionState, useMemo, useState } from "react";
 import { updateContentDraft, type ActionResult } from "@/actions/content";
 import { Button } from "@/components/ui/button";
@@ -78,10 +79,7 @@ export function DraftEditor({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className={field}>
           <span className={label}>Channel</span>
-          <select name="channel" value={channel} onChange={(event) => setChannel(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-            <option value="">Not set</option>
-            {CHANNELS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
+          <ChannelSelect name="channel" value={channel} onValueChange={setChannel} placeholder="Not set" className="h-10" options={[["", "Not set"], ...CHANNELS.map(c => [c.value, c.label] as const)]} />
           {remappedFrom ? <span className="text-xs text-muted-foreground">Previously typed as &ldquo;{remappedFrom}&rdquo;. Pick the matching channel.</span> : null}
         </label>
         <label className={field}><span className={label}>Topic</span><Input name="topic" maxLength={200} defaultValue={asset.topic ?? ""} /></label>

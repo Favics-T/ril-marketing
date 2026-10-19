@@ -1,3 +1,4 @@
+import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -76,7 +77,7 @@ export default async function SourcePage({
                       </Link>
                       <p className="text-xs text-muted-foreground">
                         Source revision {row.revision} · {asset.format} ·{" "}
-                        {asset.platform || "website / email"} ·{" "}
+                        {asset.platform ? <ChannelIdentity channel={asset.platform} /> : "website / email"} ·{" "}
                         {asset.status.replaceAll("_", " ")}
                       </p>
                     </li>

@@ -1,4 +1,7 @@
 "use client";
+import { ChannelIdentity } from "@/components/channel-identity";
+import { ChannelSelect } from "@/components/channel-select";
+import { channelLabel } from "@/lib/channels";
 import { useActionState, useState } from "react";
 import { saveContentDetails } from "@/actions/content-details";
 import { socialPost } from "@/lib/content/social-media";
@@ -61,7 +64,7 @@ export function ContentDetails({
           {clip ? (
             <p className="whitespace-pre-wrap text-sm">
               {selected.start || "Start not set"} –{" "}
-              {selected.end || "End not set"} · {selected.platform}
+              {selected.end || "End not set"} · <ChannelIdentity channel={selected.platform} />
               <br />
               {selected.caption}
             </p>
@@ -122,24 +125,11 @@ export function ContentDetails({
               </div>
               <label className="flex flex-col gap-1.5 text-sm">
                 Platform version
-                <select
-                  name="clip_platform"
-                  value={platform}
-                  onChange={(event) => {
-                    setPlatform(event.target.value);
-                    const version = versions.find(
-                      (item) => item.platform === event.target.value,
-                    );
-                    if (version) setCaption(version.caption);
-                  }}
-                  className="h-11 rounded-md border border-input bg-card px-3"
-                >
-                  {["youtube", "instagram", "tiktok", "linkedin", "x"].map(
-                    (p) => (
-                      <option key={p}>{p}</option>
-                    ),
-                  )}
-                </select>
+                <ChannelSelect name="clip_platform" value={platform} onValueChange={next => {
+                  setPlatform(next);
+                  const version = versions.find(item => item.platform === next);
+                  if (version) setCaption(version.caption);
+                }} options={["youtube", "instagram", "tiktok", "linkedin", "x"].map(value => [value, channelLabel(value)] as const)} />
               </label>
               <label className="flex flex-col gap-1.5 text-sm">
                 Caption

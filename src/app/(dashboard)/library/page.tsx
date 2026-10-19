@@ -1,3 +1,6 @@
+import { ContentChannels } from "@/components/channel-identity";
+import { ChannelSelect } from "@/components/channel-select";
+import { channelLabel } from "@/lib/channels";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, ArrowLeft, ArrowRight } from "lucide-react";
@@ -88,7 +91,7 @@ export default async function LibraryPage({
       <form method="get" action="/library" className="slip grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
         {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
         <label className="flex flex-col gap-1.5 lg:col-span-2"><span className="dateline">Search copy</span><input name="q" defaultValue={q} maxLength={200} placeholder="Title or draft text" className="h-10 rounded-lg border border-input bg-background px-3 text-sm" /></label>
-        <label className="flex flex-col gap-1.5"><span className="dateline">Channel</span><select name="channel" defaultValue={channel} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All channels</option>{channelOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <label className="flex flex-col gap-1.5"><span className="dateline">Channel</span><ChannelSelect key={channel} name="channel" defaultValue={channel} className="h-10" options={[["all", "All channels"], ...channelOptions.map(value => [value, channelLabel(value)] as const)]} /></label>
         <label className="flex flex-col gap-1.5"><span className="dateline">Source activity</span><select name="activity" defaultValue={activity} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All activities</option>{activityOptions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
         <label className="flex flex-col gap-1.5"><span className="dateline">Campaign</span><select name="campaign" defaultValue={campaign} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All campaigns</option>{campaignOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <div className="flex items-center justify-end gap-2 sm:col-span-2 lg:col-span-5"><Button variant="ghost" asChild><Link href="/library">Clear filters</Link></Button><Button type="submit" className="min-h-10 rounded-lg px-4 text-[13px] font-semibold">Apply filters</Button></div>
@@ -145,8 +148,7 @@ export default async function LibraryPage({
                   {a.title}
                 </h2>
                 <p className="mt-0.5 truncate text-[13px] leading-5 text-muted-foreground">
-                  {[a.channel, a.platform, a.format].filter(Boolean).join(" · ") ||
-                    "No channel set"}
+                  <ContentChannels channel={a.channel} platform={a.platform} format={a.format} />
                 </p>
               </div>
               <span className="dateline shrink-0 tabular-nums">

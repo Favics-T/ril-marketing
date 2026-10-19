@@ -290,7 +290,7 @@ export async function updateActivity(
     revalidatePath(`/activities/${activityId}`);
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
-    revalidatePath("/library");
+    revalidatePath("/library"); revalidatePath("/audience/landing-pages");
     return { ok: true, id: activityId };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not update activity." };
@@ -483,7 +483,7 @@ export async function generateFromActivity(
     const { error: assetError } = await admin.from("content_assets").insert(rows);
     if (assetError) return { ok: false, error: assetError.message };
 
-    revalidatePath("/library");
+    revalidatePath("/library"); revalidatePath("/audience/landing-pages");
     revalidatePath(`/activities/${activityId}`);
     const flagged = drafts.filter((d) => Array.isArray(d.metadata.quality_flags) && d.metadata.quality_flags.length).length;
     return {
@@ -602,7 +602,7 @@ export async function generateCalendarProposals(): Promise<ActionResult> {
     if (!proposals.length) return { ok: false, error: "Calendar proposals already exist for all upcoming activities. Review them in the Content Library." };
     const { error: insertError } = await admin.from("content_assets").insert(proposals);
     if (insertError) return { ok: false, error: "Could not save the calendar proposals." };
-    revalidatePath("/library");
+    revalidatePath("/library"); revalidatePath("/audience/landing-pages");
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
     return { ok: true, id: String(proposals.length) };
@@ -682,7 +682,7 @@ export async function updateContentDraft(
     });
     if (error) return { ok: false, error: error.message };
     revalidatePath(`/library/${assetId}`);
-    revalidatePath("/library");
+    revalidatePath("/library"); revalidatePath("/audience/landing-pages");
     return { ok: true, id: assetId };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not update draft." };
@@ -733,7 +733,7 @@ export async function createManualAsset(formData: FormData): Promise<ActionResul
       .select("id")
       .single<{ id: string }>();
     if (error || !data) return { ok: false, error: error?.message ?? "Could not create asset." };
-    revalidatePath("/library");
+    revalidatePath("/library"); revalidatePath("/audience/landing-pages");
     return { ok: true, id: data.id };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Unexpected error." };
@@ -890,7 +890,7 @@ export async function generateFromTrend(trendId: string, segmentId: string): Pro
     const rows = drafts.map((draft) => ({ organization_id: organizationId, title: draft.title, body: draft.body, channel: draft.platform, topic: draft.topic, format: draft.format, platform: draft.platform, hook: draft.hook, cta: draft.cta, status: "ai_generated", audience_segment_id: segment?.id ?? null, generation_id: generation.id, metadata: { trend_repurposing: true, source_trend_id: trend.id, source_url: trend.source_url, source_publisher: trend.source, verification_note: trend.risk, ai_generated: true } }));
     const { error } = await admin.from("content_assets").insert(rows);
     if (error) return { ok: false, error: error.message };
-    revalidatePath("/trends"); revalidatePath("/library");
+    revalidatePath("/trends"); revalidatePath("/library"); revalidatePath("/audience/landing-pages");
     return { ok: true, id: generation.id, message: `${rows.length} source-attributed drafts saved to the Content Library for review.` };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not create trend drafts." }; }
 }

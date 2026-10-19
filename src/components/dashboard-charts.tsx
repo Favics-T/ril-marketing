@@ -1,3 +1,4 @@
+import { ChannelIdentity } from "@/components/channel-identity";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { ContentMixMotion } from "@/components/content-mix-motion";
@@ -34,7 +35,7 @@ export function ContentMixChart({ channels, total }: { channels: { channel: stri
             return <g key={slice.channel} className="content-mix-slice" style={{"--slice-delay":`${i*60}ms`,"--slice-x":`${Math.cos(mid)*4}px`,"--slice-y":`${Math.sin(mid)*4}px`} as CSSProperties}><g className="content-mix-slice-body">{slices.length===1?<circle cx="120" cy="120" r="76" fill="none" stroke={TINTS[i]} strokeWidth="56"/>:<path d={path} fill={TINTS[i]}/>}<title>{`${channelLabel(slice.channel)}: ${slice.count} assets (${Number((fraction*100).toFixed(1))}%)`}</title>{fraction>.06&&<text x={120+76*Math.cos(mid)} y={120+76*Math.sin(mid)} dominantBaseline="middle" textAnchor="middle" fill={i<2?"#182332":"#0b1420"} fontSize="14" fontWeight="600" style={{fontVariantNumeric:"tabular-nums"}}>{Math.round(fraction*100)}%</text>}</g></g>;
           })}
         </svg></ContentMixMotion>
-        <ul className="mb-2 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-medium" aria-label="Channel legend">{slices.map((slice,i)=><li key={slice.channel} className="flex items-center gap-2"><span className="size-2.5 shrink-0 rounded-[2px]" style={{background:TINTS[i]}} aria-hidden="true"/><span className="capitalize text-[#e5e7eb]">{channelLabel(slice.channel)}</span><span className="tabular-nums text-[var(--surface-strong-muted)]">{slice.count}</span></li>)}</ul>
+        <ul className="mb-2 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-medium" aria-label="Channel legend">{slices.map((slice,i)=><li key={slice.channel} className="flex items-center gap-2"><span className="size-2.5 shrink-0 rounded-[2px]" style={{background:TINTS[i]}} aria-hidden="true"/><span className="capitalize text-[#e5e7eb]">{<ChannelIdentity channel={slice.channel} />}</span><span className="tabular-nums text-[var(--surface-strong-muted)]">{slice.count}</span></li>)}</ul>
         <figcaption className="sr-only">Share of content by channel. {slices.map(s=>`${channelLabel(s.channel)}: ${s.count} assets.`).join(" ")}</figcaption>
       </figure>}
     </section>

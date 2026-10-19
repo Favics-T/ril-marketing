@@ -8,6 +8,7 @@ import { requireOrganizationId } from "@/lib/supabase/organization";
 import { getUserRole, requireReviewer } from "@/lib/audience/access";
 import { decryptSecret, encryptSecret, isEncryptionEnabled } from "@/lib/crypto/secret-box";
 import { claimPublication, saveDelivery, noteUncertainDelivery } from "@/lib/content/publishing";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 import { getStrapiConfig, publishStrapiEntry, sanitizeCollection, validateStrapiUrl, verifyStrapiConnection, type StrapiConfig } from "@/lib/integrations/strapi";
 
 type ActionResult = { ok: boolean; message?: string; warning?: string; error?: string; url?: string };
@@ -73,6 +74,7 @@ export async function saveStrapiConnection(formData: FormData): Promise<ActionRe
     }, { onConflict: "organization_id,key" });
     if (error) return { ok: false, error: "Could not save the verified Strapi connection." };
     revalidatePath("/settings/ai");
+    revalidatePath("/audience/landing-pages");
     return { ok: true, message: `Connected to the “${collection}” collection.` };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not connect Strapi." };
@@ -87,6 +89,7 @@ export async function disconnectStrapi(): Promise<ActionResult> {
     const { error } = await admin.from("integrations").update({ status: "not_connected", config: {} }).eq("organization_id", organizationId).eq("key", "cms_strapi");
     if (error) return { ok: false, error: "Could not disconnect Strapi." };
     revalidatePath("/settings/ai");
+    revalidatePath("/audience/landing-pages");
     return { ok: true, message: "Strapi disconnected." };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not disconnect Strapi." }; }
 }
@@ -116,16 +119,25 @@ export async function publishApprovedToStrapi(assetId: string): Promise<ActionRe
     const publicationId = await claimPublication(organizationId, asset, "strapi", user.id);
     let published: Awaited<ReturnType<typeof publishStrapiEntry>>;
     try {
-      published = await publishStrapiEntry(config, { title: asset.title, body: asset.body, excerpt, slug, seo: { title: seo.title ?? "", description: seo.description ?? "" } });
+      published = await publishStrapiEntry(config, { title: asset.title, body: asset.body, excerpt, slug, seo: { title: seo.title?.trim() || asset.title, description: seo.description?.trim() || excerpt } });
     } catch (publishError) {
       const message = publishError instanceof Error ? publishError.message : "Could not publish to Strapi.";
+      if (publishError instanceof DeliveryRejected) {
+        await saveDelivery(organizationId, publicationId, assetId, { id: "", status: "failed", error: message });
+        revalidatePath("/audience/landing-pages");
+        revalidatePath("/library");
+        revalidatePath(`/library/${assetId}`);
+        return { ok: false, error: message + " Nothing was published. The article is Approved; fix the connection or content before retrying." };
+      }
       await noteUncertainDelivery(organizationId, publicationId, message);
       revalidatePath(`/library/${assetId}`);
+      revalidatePath("/audience/landing-pages");
       return { ok: false, error: message + " Check Strapi before trying again; the request is reserved to prevent duplicate publication." };
     }
     await saveDelivery(organizationId, publicationId, assetId, {id: String(published.id), status: "published", url: published.url, publishedAt: new Date().toISOString()});
     revalidatePath("/library");
     revalidatePath(`/library/${assetId}`);
+    revalidatePath("/audience/landing-pages");
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
     return { ok: true, message: published.alreadyCreated ? "Linked the existing Strapi entry." : "Published to Strapi.", url: published.url };

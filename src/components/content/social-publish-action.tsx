@@ -1,5 +1,6 @@
 "use client";
 
+import { ChannelMark } from "@/components/settings/channel-icons";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Send, RefreshCw } from "lucide-react";
@@ -53,7 +54,7 @@ export function SocialPublishAction({ assetId, connected, channels: initialChann
       {matching.length ? <>
         <div className="flex flex-col gap-2"><Label htmlFor="buffer-channel">Destination</Label><Select value={channelId} onValueChange={setChannelId} disabled={pending || refreshing}><SelectTrigger id="buffer-channel"><SelectValue placeholder="Choose an account" /></SelectTrigger><SelectContent>{matching.map(channel => {
           const issue = bufferPostProblem(copy, channel);
-          return <SelectItem key={channel.id} value={channel.id} disabled={Boolean(issue)}>{channel.displayName || channel.name} · {channel.descriptor}{issue ? ` · ${issue}` : ""}</SelectItem>;
+          return <SelectItem key={channel.id} value={channel.id} disabled={Boolean(issue)}><span className="inline-flex items-center gap-2"><ChannelMark service={channel.service} descriptor={channel.descriptor} className="size-4 shrink-0" /><span>{channel.displayName || channel.name || channel.descriptor}{issue ? ` · ${issue}` : ""}</span><span className="sr-only">{channel.descriptor}</span></span></SelectItem>;
         })}</SelectContent></Select></div>
         {!matching.some(channel => !bufferPostProblem(copy, channel)) ? <p className="text-sm leading-6 text-muted-foreground">No saved account can publish this copy. Refresh channels, resolve any restrictions in Buffer, or use manual posting.</p> : null}
         <div className="flex flex-col gap-2"><Label htmlFor="buffer-delivery">Delivery</Label><Select value={mode} disabled={pending} onValueChange={setMode}><SelectTrigger id="buffer-delivery"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="now">Publish now</SelectItem><SelectItem value="schedule">Schedule a post</SelectItem><SelectItem value="queue">Next Buffer queue slot</SelectItem></SelectContent></Select></div>

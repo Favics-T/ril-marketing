@@ -3,6 +3,7 @@ import { lookup } from "node:dns/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret } from "@/lib/crypto/secret-box";
 import type { DeliveryPost } from "@/lib/content/publishing";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
 
 type IntegrationRow = { status: string; config: Record<string, string> };
 export type StrapiConfig = {
@@ -63,9 +64,10 @@ async function requestStrapi<T>(config: StrapiConfig, path: string, init: Reques
   });
   const payload = await response.json().catch(() => ({})) as { error?: { message?: string; status?: number } } & T;
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new Error("Strapi rejected the API token, or it lacks find/create permission for this collection.");
-    if (response.status === 404) throw new Error("Strapi could not find that collection. Check the collection API ID.");
+    if (response.status === 401 || response.status === 403) throw new DeliveryRejected("Strapi rejected the API token, or it lacks find/create permission for this collection.");
+    if (response.status === 404) throw new DeliveryRejected("Strapi could not find that collection. Check the collection API ID.");
     const detail = typeof payload.error?.message === "string" ? payload.error.message.slice(0, 180) : `HTTP ${response.status}`;
+    if ([400, 422].includes(response.status)) throw new DeliveryRejected(`Strapi rejected the article: ${detail}`);
     throw new Error(`Strapi request failed: ${detail}`);
   }
   return payload;

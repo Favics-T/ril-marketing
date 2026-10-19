@@ -10,7 +10,7 @@ async function run(request: Request) {
   if (request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const result = await processContentPublishingBatch();
-    for (const path of ["/library", "/calendar", "/dashboard", "/publishing"]) revalidatePath(path);
+    for (const path of ["/library", "/calendar", "/dashboard", "/publishing", "/audience/landing-pages"]) revalidatePath(path);
     revalidatePath("/library/[id]", "page");
     return NextResponse.json({ ok: true, ...result });
   } catch { return NextResponse.json({ error: "Publishing status checks failed." }, { status: 500 }); }

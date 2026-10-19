@@ -1,3 +1,4 @@
+import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -125,7 +126,7 @@ export default async function AssetDetailPage({
 								>
 									<span className="dateline">{m.label}</span>
 									<span className="text-sm font-semibold tracking-[-0.01em] text-foreground">
-										{m.value}
+										{["Channel", "Platform"].includes(m.label) ? <ChannelIdentity channel={m.value} /> : m.value}
 									</span>
 								</div>
 							))}

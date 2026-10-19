@@ -1,3 +1,4 @@
+import { ChannelMark } from "@/components/settings/channel-icons";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
@@ -205,17 +206,21 @@ export function SiteFooter() {
                 href="https://www.twitter.com/RxlabsHQ"
                 target="_blank"
                 rel="noreferrer"
-                className="text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                aria-label="Renaissance on X (opens in a new tab)"
+                title="X"
+                className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                X (Twitter)
+                <ChannelMark service="x" className="size-5" />
               </Link>
               <Link
                 href="https://www.instagram.com/RxlabsHQ"
                 target="_blank"
                 rel="noreferrer"
-                className="text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                aria-label="Renaissance on Instagram (opens in a new tab)"
+                title="Instagram"
+                className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                Instagram
+                <ChannelMark service="instagram" className="size-5" />
               </Link>
             </div>
           </nav>

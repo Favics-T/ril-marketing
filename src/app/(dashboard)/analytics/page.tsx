@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getKpiProgress } from "@/lib/audience/kpis";
 import { KpiProgressChart } from "@/components/dashboard-charts";
-import { channelLabel } from "@/lib/channels";
+import { ChannelIdentity } from "@/components/channel-identity";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {title:"Marketing Analytics"};
@@ -44,7 +44,7 @@ export default async function AnalyticsPage() {
       {[0,.5,1].map(t=><g key={t}><line x1="24" x2="550" y1={165-t*140} y2={165-t*140} stroke="hsl(var(--border))"/><text x="18" y={169-t*140} textAnchor="end" fontSize="10" fill="hsl(var(--muted-foreground))">{Math.round(max*t)}</text></g>)}
       {weeks.map((w,i)=><g key={w.label}><rect x={40+i*64} y={165-w.count/max*140} width="32" height={w.count/max*140} rx="4" fill="hsl(var(--primary))"/><text x={56+i*64} y={Math.max(14,157-w.count/max*140)} textAnchor="middle" fontSize="11" fill="hsl(var(--foreground))">{w.count}</text><text x={56+i*64} y="188" textAnchor="middle" fontSize="10" fill="hsl(var(--muted-foreground))">{w.label}</text></g>)}
     </svg><figcaption className="text-xs text-muted-foreground">Counts reflect leads captured in this workspace, rather than estimated channel reach.</figcaption></figure></section>
-      <section className="workspace-panel overflow-hidden"><header className="workspace-panel-heading"><div><h2>Where leads came from</h2><p>Recorded source attribution</p></div></header><ul>{sourceRows.map(([source,count])=><li key={source} className="workspace-row"><span className="flex-1 text-sm">{channelLabel(source)}</span><span className="text-xs text-muted-foreground">{Math.round(count/leadRows.length*100)}%</span><span className="text-sm font-semibold tabular-nums">{count}</span></li>)}</ul>{!sourceRows.length&&<p className="workspace-empty">No leads captured during this period.</p>}</section></div>
+      <section className="workspace-panel overflow-hidden"><header className="workspace-panel-heading"><div><h2>Where leads came from</h2><p>Recorded source attribution</p></div></header><ul>{sourceRows.map(([source,count])=><li key={source} className="workspace-row"><span className="flex-1 text-sm"><ChannelIdentity channel={source} /></span><span className="text-xs text-muted-foreground">{Math.round(count/leadRows.length*100)}%</span><span className="text-sm font-semibold tabular-nums">{count}</span></li>)}</ul>{!sourceRows.length&&<p className="workspace-empty">No leads captured during this period.</p>}</section></div>
     <KpiProgressChart kpis={kpis}/>
     <div className="rounded-lg border p-4 text-xs leading-6 text-muted-foreground">Website and Search Console performance are included in generated reports when Google Analytics is connected. Paid-media spend, social audience growth, and PR monitoring need additional provider integrations. <Link href="/settings/ai" className="font-semibold text-primary">Manage integrations</Link></div>
   </div>;

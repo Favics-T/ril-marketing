@@ -71,6 +71,7 @@ export function BufferConnector({
               {channelList.map((channel) => (
                 <li
                   key={channel.id}
+                  title={channel.descriptor}
                   className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 py-1 pl-2 pr-2.5 text-xs text-muted-foreground"
                 >
                   <ChannelMark
@@ -79,10 +80,8 @@ export function BufferConnector({
                     className="size-3.5 shrink-0 text-foreground"
                   />
                   <span className="min-w-0">
-                    <span className="font-medium text-foreground">
-                      {channel.descriptor}
-                    </span>
-                    {channel.name ? ` · ${channel.name}` : ""}
+                    <span className="sr-only">{channel.descriptor}: </span>
+                    <span className="font-medium text-foreground">{channel.name || "Connected account"}</span>
                   </span>
                 </li>
               ))}

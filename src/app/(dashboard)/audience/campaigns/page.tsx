@@ -1,3 +1,4 @@
+import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listCampaignRollups } from "@/lib/audience/campaigns";
@@ -66,7 +67,7 @@ export default async function CampaignsPage() {
               <dl className="grid gap-x-5 gap-y-2 border-t border-border/80 pt-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div><dt className="dateline">Target audience</dt><dd className="mt-0.5 text-sm text-foreground">{c.target_audience || c.segment_name || "Not defined"}</dd></div>
                 <div><dt className="dateline">Funnel stage</dt><dd className="mt-0.5 text-sm capitalize text-foreground">{c.funnel_stage.replaceAll("_", " ")}</dd></div>
-                <div><dt className="dateline">Channels</dt><dd className="mt-0.5 text-sm text-foreground">{c.channels.length ? c.channels.map((channel)=>channel.replaceAll("_", " ")).join(", ") : "Not selected"}</dd></div>
+                <div><dt className="dateline">Channels</dt><dd className="mt-0.5 text-sm text-foreground">{c.channels.length ? c.channels.map(channel => <ChannelIdentity key={channel} channel={channel} className="mr-2" />) : "Not selected"}</dd></div>
                 <div><dt className="dateline">Planned budget</dt><dd className="mt-0.5 text-sm tabular-nums text-foreground">{c.budget === null ? "Not set" : `${c.budget_currency} ${Number(c.budget).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`}</dd></div>
               </dl>
               <CampaignStatus campaignId={c.id} status={c.status} />

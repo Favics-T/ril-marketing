@@ -1,3 +1,4 @@
+import { ChannelIdentity } from "@/components/channel-identity";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -38,6 +39,6 @@ export function CampaignFields({ segments, initial = {} }: { segments: Array<{id
     <label className={fieldClass}><span className={labelClass}>Ends</span><Input name="ends_on" type="date" defaultValue={initial.ends_on ?? ""} /></label>
     <label className={fieldClass}><span className={labelClass}>Budget · optional</span><Input name="budget" type="number" min="0" step="0.01" defaultValue={initial.budget ?? ""} placeholder="No paid budget" /></label>
     <label className={fieldClass}><span className={labelClass}>Budget currency</span><select name="budget_currency" defaultValue={initial.budget_currency ?? "NGN"} className="h-10 rounded-md border border-input bg-background px-3 text-sm">{currencies.map((currency)=><option key={currency} value={currency}>{currency}</option>)}</select></label>
-    <fieldset className="flex flex-col gap-2 sm:col-span-2"><legend className={labelClass}>Channels</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{channelOptions.map(([value,label])=><label key={value} className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm"><input type="checkbox" name="channels" value={value} defaultChecked={initial.channels?.includes(value)} className="size-4 accent-primary" />{label}</label>)}</div></fieldset>
+    <fieldset className="flex flex-col gap-2 sm:col-span-2"><legend className={labelClass}>Channels</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{channelOptions.map(([value])=><label key={value} className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm"><input type="checkbox" name="channels" value={value} defaultChecked={initial.channels?.includes(value)} className="size-4 accent-primary" /><ChannelIdentity channel={value} /></label>)}</div></fieldset>
   </>;
 }

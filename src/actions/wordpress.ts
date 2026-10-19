@@ -55,6 +55,7 @@ export async function saveWordPressConnection(formData: FormData): Promise<Actio
     }, { onConflict: "organization_id,key" });
     if (error) return { ok: false, error: "Could not save the verified WordPress connection." };
     revalidatePath("/settings/ai");
+    revalidatePath("/audience/landing-pages");
     return { ok: true, message: `Connected as ${profile.user}.` };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not connect WordPress." };
@@ -93,6 +94,7 @@ export async function disconnectWordPress(): Promise<ActionResult> {
     const { error } = await admin.from("integrations").update({ status: "not_connected", config: {} }).eq("organization_id", organizationId).eq("key", "cms_wordpress");
     if (error) return { ok: false, error: "Could not disconnect WordPress." };
     revalidatePath("/settings/ai");
+    revalidatePath("/audience/landing-pages");
     return { ok: true, message: "WordPress disconnected." };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not disconnect WordPress." }; }
 }
@@ -136,6 +138,7 @@ async function deliverApprovedBlog(assetId: string, scheduledFor?: string): Prom
     const published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug, scheduledFor, seo: { title: seo.title ?? "", description: seo.description ?? "" } });
     await saveDelivery(organizationId, requestId, asset.id, { ...published, id: String(published.id) });
     revalidatePath("/library");
+    revalidatePath("/audience/landing-pages");
     revalidatePath(`/library/${assetId}`);
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
@@ -148,7 +151,7 @@ async function deliverApprovedBlog(assetId: string, scheduledFor?: string): Prom
         else await noteUncertainDelivery(organizationId, requestId, error instanceof Error ? error.message : "Request failed.");
       } catch { /* Keep the reservation until the provider result can be recorded. */ }
     }
-    if (requestId) revalidatePath(`/library/${assetId}`);
+    if (requestId) { revalidatePath(`/library/${assetId}`); revalidatePath("/audience/landing-pages"); }
     return { ok: false, error: error instanceof Error ? error.message : "Could not publish to WordPress." };
   }
 }
