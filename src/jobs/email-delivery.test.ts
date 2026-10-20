@@ -27,6 +27,55 @@ function setup(options: { sequence?: string; enrollment?: string; revoked?: bool
   return db;
 }
 
+type Outcome = { status: string; error: string | null; updated_at: string };
+function settleSetup({ remaining, outcomes, nurture = false }: { remaining: number; outcomes: Outcome[]; nurture?: boolean }) {
+  const db = databaseMock((q: Query) => {
+    if (q.operation !== "select") return { data: q.columns ? { id: "updated" } : null, error: null };
+    if (q.table === "email_campaigns") {
+      if (q.single) return { data: { ...campaign, metadata: nurture ? metadata : { source: "newsletter" } } };
+      return { data: q.columns === "id" ? [{ id: "campaign" }] : [campaign] };
+    }
+    if (q.table === "leads") return { data: q.single ? lead : [lead] };
+    if (q.table === "nurture_sequences") return { data: { status: "active", created_by: "author", approved_by: "reviewer" } };
+    if (q.table === "nurture_enrollments") return { data: { status: "active", current_step: 1, lead_id: "lead", sequence_id: "sequence" } };
+    if (q.head) return { count: remaining };
+    if (q.columns === "status,error,updated_at") return { data: outcomes };
+    return { data: [{ id: "delivery", organization_id: "org", campaign_id: "campaign", lead_id: "lead", attempts: 0, unsubscribe_token_hash: "hash" }] };
+  });
+  mocks.admin.mockReturnValue(db);
+  return db;
+}
+const campaignUpdates = (db: ReturnType<typeof databaseMock>) => db.queries.filter((q) => q.table === "email_campaigns" && q.operation === "update");
+const failedRows = (count: number, at = "2026-10-20T10:00:00Z") => Array.from({ length: count }, (_, i) => ({ status: "failed", error: `Error ${i}`, updated_at: at.replace("10:00", `10:${String(i).padStart(2, "0")}`) }));
+const sentRows = (count: number) => Array.from({ length: count }, () => ({ status: "delivered", error: null, updated_at: "2026-10-20T09:00:00Z" }));
+
+describe("campaign outcome after a batch", () => {
+  it("pauses a finished campaign whose every send failed and records why", async () => {
+    const db = settleSetup({ remaining: 0, outcomes: failedRows(3) });
+    await processEmailDeliveryBatch();
+    const [update] = campaignUpdates(db);
+    expect(update.payload).toEqual({ status: "paused", metadata: { source: "newsletter", paused_from: "scheduled", delivery_problem: { failed: 3, attempted: 3, last_error: "Error 2", detected_at: expect.any(String) } } });
+    expect(update.filters).toContainEqual({ method: "eq", column: "status", value: "scheduled" });
+    expect(campaignUpdates(db).some((q) => (q.payload as { status?: string }).status === "sent")).toBe(false);
+    expect(db.queries.some((q) => q.table === "email_campaign_deliveries" && q.operation === "update" && (q.payload as { error?: string }).error === "Campaign paused automatically after repeated send failures.")).toBe(true);
+  });
+  it("pauses mid-run once five or more sends failed and they are at least half", async () => {
+    const db = settleSetup({ remaining: 40, outcomes: [...failedRows(5), ...sentRows(3)] });
+    await processEmailDeliveryBatch();
+    expect(campaignUpdates(db)[0].payload).toMatchObject({ status: "paused" });
+  });
+  it("keeps sending mid-run while failures are below the threshold", async () => {
+    const db = settleSetup({ remaining: 40, outcomes: [...failedRows(4), ...sentRows(1)] });
+    await processEmailDeliveryBatch();
+    expect(campaignUpdates(db)).toHaveLength(0);
+  });
+  it("marks a finished campaign sent when only a few sends failed", async () => {
+    const db = settleSetup({ remaining: 0, outcomes: [...failedRows(2), ...sentRows(8)] });
+    await processEmailDeliveryBatch();
+    expect(campaignUpdates(db).map((q) => q.payload)).toEqual([{ status: "sent" }]);
+  });
+});
+
 beforeEach(() => {
   vi.stubEnv("EMAIL_UNSUBSCRIBE_SECRET", "x".repeat(32));
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://example.com");
@@ -69,6 +118,11 @@ describe("email delivery authorization at send time", () => {
     const db = setup({ countError: true });
     await processEmailDeliveryBatch();
     expect(db.queries.some(q => q.table === "email_campaigns" && q.operation === "update")).toBe(false);
+  });
+  it("still marks a nurture step sent when its delivery failed", async () => {
+    const db = settleSetup({ remaining: 0, outcomes: [{ status: "failed", error: "Rejected", updated_at: "2026-10-20T10:00:00Z" }], nurture: true });
+    await processEmailDeliveryBatch();
+    expect(campaignUpdates(db).map((q) => q.payload)).toEqual([{ status: "sent" }]);
   });
   it("limits interrupted-send recovery to the requested workspace and campaign", async () => {
     const db = setup();

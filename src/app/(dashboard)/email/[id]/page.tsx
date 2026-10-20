@@ -8,6 +8,7 @@ import { applyActiveConsentFilter } from "@/lib/email/consent";
 import { listSegments } from "@/lib/audience/segments";
 import { getUserRole } from "@/lib/audience/access";
 import { isEmailAuthorRole } from "@/lib/email/from-newsletter";
+import { describeDeliveryProblem, readDeliveryProblem } from "@/lib/email/workflow";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { EmailDraftForm } from "@/components/email/email-draft-form";
 
@@ -40,12 +41,14 @@ export default async function EmailCampaignPage({ params }: { params: Promise<{ 
       return { id: segment.id, name: segment.name, count: count ?? 0 };
     })),
   ]) : [{ count: 0 }, []];
-  const segmentName = email.audience_segment_id ? segments.find((segment) => segment.id === email.audience_segment_id)?.name ?? "Segment" : "All opted-in contacts";
+  const problem = email.status === "paused" ? readDeliveryProblem(email.metadata) : null;
+  const segmentName =email.audience_segment_id ? segments.find((segment) => segment.id === email.audience_segment_id)?.name ?? "Segment" : "All opted-in contacts";
 
   return <div className="workspace-page flex flex-col gap-4 md:gap-6">
     <header>
       <Link href="/email" className="group inline-flex min-h-9 items-center gap-1.5 rounded-md text-[13px] font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> Email campaigns</Link>
       <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4"><h1>{email.name}</h1><StatusStamp status={email.status} /></div>
+      {problem ? <p role="alert" className="mt-2 text-sm leading-5 text-destructive">{describeDeliveryProblem(problem)}</p> : null}
       {sourceId ? <p className="mt-2 text-sm text-muted-foreground">From newsletter · {source.data ? <Link href={`/library/${source.data.id}`} className="font-medium text-primary underline underline-offset-2">{source.data.title}</Link> : "no longer available"}</p> : null}
     </header>
     <section className="slip flex flex-col gap-4 p-5 sm:p-6">
