@@ -7,7 +7,7 @@ export const MAX_HASHTAGS = 10;
 const MAX_HASHTAG_LENGTH = 50;
 
 /** Hashtag counts asked of the model; cleaning still caps every caption at MAX_HASHTAGS. */
-const HASHTAG_COUNTS: Record<ImagePlatform, string> = {
+export const HASHTAG_COUNTS: Record<ImagePlatform, string> = {
   linkedin: "3-5", instagram: "5-10", facebook: "3-5", x: "0-2", youtube: "3-5", tiktok: "3-6",
 };
 
@@ -39,12 +39,13 @@ export function cleanHashtags(input: unknown): string[] {
   return tags;
 }
 
-const platformSchema = z.preprocess((value) => {
+export const platformSchema = z.preprocess((value) => {
   if (typeof value !== "string") return value;
   const key = value.trim().toLowerCase();
   return key === "twitter" ? "x" : key;
 }, z.enum(IMAGE_PLATFORMS));
 
+/** The original (v1) shape: a visual description plus captions. Saved analyses without a version use it. */
 export const imageAnalysisSchema = z.object({
   sceneSummary: z.string().trim().min(10).max(1600),
   altText: z.string().trim().min(5).max(500),
@@ -58,11 +59,16 @@ export const imageAnalysisSchema = z.object({
 });
 export type ImageAnalysis = z.infer<typeof imageAnalysisSchema>;
 
-/** Output rules for the image analysis prompt, with hashtag counts for the requested platforms. */
-export function imageAnalysisInstructions(platforms: ImagePlatform[]): string {
+/** The hashtag format rules and per-platform counts, shared by every image prompt version. */
+export function hashtagRules(platforms: ImagePlatform[]): string {
   const counts = platforms.map((platform) => `${platform} ${HASHTAG_COUNTS[platform]}`).join(", ");
+  return `Hashtag rules: "hashtags" is a JSON array with one tag per string. Every tag starts with a single "#" followed only by letters, digits or underscores: no spaces, hyphens, punctuation or emoji. Join several words in CamelCase (#PitchDay, not "Pitch Day"). No duplicates, and do not repeat the hashtags inside "caption". Hashtags per platform: ${counts}.`;
+}
+
+/** Output rules for the v1 image analysis prompt, with hashtag counts for the requested platforms. */
+export function imageAnalysisInstructions(platforms: ImagePlatform[]): string {
   return `Return only a JSON object with this shape: {"sceneSummary":"visual description, max 1600 characters","altText":"max 500 characters","qualityNotes":["possible visual concerns; empty array if none"],"captions":[{"platform":"one of ${platforms.join("|")}","caption":"caption text without hashtags","hashtags":["#OneWord","#CamelCaseTag"],"rationale":"brief content angle"}]}. Write one caption per requested platform.
-Hashtag rules: "hashtags" is a JSON array with one tag per string. Every tag starts with a single "#" followed only by letters, digits or underscores: no spaces, hyphens, punctuation or emoji. Join several words in CamelCase (#PitchDay, not "Pitch Day"). No duplicates, and do not repeat the hashtags inside "caption". Hashtags per platform: ${counts}.`;
+${hashtagRules(platforms)}`;
 }
 
 export const MAX_FAILED_RESPONSE_LENGTH = 2000;
@@ -83,19 +89,25 @@ export function failedResponseSnapshot(text: string): string {
   return redacted.slice(0, MAX_FAILED_RESPONSE_LENGTH);
 }
 
-/** Parses and validates the model's image analysis text, with a readable error on failure. */
-export function parseImageAnalysis(text: string): ImageAnalysis {
+/** The JSON object inside a model reply (code fences and chatter around it are ignored). */
+export function extractImageAnalysisJson(text: string): unknown {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("Media analysis did not return the required structured result.");
-  let json: unknown;
-  try { json = JSON.parse(text.slice(start, end + 1)); }
+  try { return JSON.parse(text.slice(start, end + 1)); }
   catch (error) { throw new Error(`Could not validate the image analysis: ${error instanceof Error ? error.message : "invalid JSON."}`); }
-  const parsed = imageAnalysisSchema.safeParse(json);
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const path = issue?.path.map(String).join(".");
-    throw new Error(`Could not validate the image analysis: ${path ? `${path}: ` : ""}${issue?.message ?? "invalid response."}`);
-  }
+}
+
+/** A readable validation error naming the first failing field. */
+export function imageAnalysisValidationError(error: z.ZodError): Error {
+  const issue = error.issues[0];
+  const path = issue?.path.map(String).join(".");
+  return new Error(`Could not validate the image analysis: ${path ? `${path}: ` : ""}${issue?.message ?? "invalid response."}`);
+}
+
+/** Parses and validates the model's v1 image analysis text, with a readable error on failure. */
+export function parseImageAnalysis(text: string): ImageAnalysis {
+  const parsed = imageAnalysisSchema.safeParse(extractImageAnalysisJson(text));
+  if (!parsed.success) throw imageAnalysisValidationError(parsed.error);
   return parsed.data;
 }
