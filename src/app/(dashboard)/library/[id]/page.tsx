@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatReminderTime, reminderState } from "@/lib/content/reminders";
 import { ReminderFlag } from "@/components/content/reminder-flag";
 import { MarkPosted } from "@/components/content/mark-posted";
+import { NewsletterEmailButton } from "@/components/email/newsletter-email-button";
 
 export const metadata: Metadata = { title: "Content asset" };
 
@@ -153,6 +154,7 @@ export default async function AssetDetailPage({
 					</section>
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
+					<NewsletterEmailButton asset={asset} />
 
 					<PublishHistory publications={publications} assetStatus={asset.status} />
 
