@@ -12,6 +12,20 @@ export interface LlmConfig {
   dialect?: "openai" | "compatible";
 }
 
+export type OpenAiDialect = NonNullable<LlmConfig["dialect"]>;
+
+/**
+ * The token-limit and temperature fields for a chat-completions request in
+ * this dialect. Shared by text and image requests so they can't disagree.
+ */
+export function completionLimitParams(dialect: OpenAiDialect | undefined, maxTokens: number, temperature?: number): Record<string, number> {
+  const openai = dialect === "openai";
+  return {
+    ...(openai ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+    ...(openai || temperature === undefined ? {} : { temperature }),
+  };
+}
+
 /**
  * OpenAI-compatible chat-completions transport (OpenAI, Gemini, Azure,
  * OpenRouter, Ollama, vLLM, …). Moves text only — prompts, parsing and
@@ -29,7 +43,6 @@ export class OpenAiCompatibleClient implements LlmClient {
   async complete(request: LlmRequest): Promise<LlmResponse> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), request.timeoutMs ?? 60_000);
-    const openai = this.config.dialect === "openai";
     try {
       const res = await fetch(`${this.config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
@@ -40,10 +53,7 @@ export class OpenAiCompatibleClient implements LlmClient {
         signal: controller.signal,
         body: JSON.stringify({
           model: this.config.model,
-          ...(openai
-            ? { max_completion_tokens: request.maxTokens }
-            : { max_tokens: request.maxTokens }),
-          ...(openai || request.temperature === undefined ? {} : { temperature: request.temperature }),
+          ...completionLimitParams(this.config.dialect, request.maxTokens, request.temperature),
           ...(request.json ? { response_format: { type: "json_object" } } : {}),
           messages: [{ role: "system", content: request.system }, ...request.messages],
         }),

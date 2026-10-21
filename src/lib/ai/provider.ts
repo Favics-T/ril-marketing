@@ -11,7 +11,7 @@ import type {
 } from "@/lib/ai/types";
 import { REPURPOSE_KINDS } from "@/lib/ai/types";
 import { TemplateProvider } from "@/lib/ai/template";
-import { OpenAiCompatibleClient } from "@/lib/ai/openai-compatible";
+import { OpenAiCompatibleClient, completionLimitParams, type OpenAiDialect } from "@/lib/ai/openai-compatible";
 import { AnthropicClient } from "@/lib/ai/anthropic";
 import { LlmGenerator } from "@/lib/ai/llm-generator";
 import {
@@ -81,19 +81,25 @@ export async function resolveAiConfig(
   return { mode: "template", provider: "openai", model: "template-v1", baseUrl: null, apiKey: null };
 }
 
+// OpenAI and Gemini both speak the OpenAI-compatible wire format; OpenAI's
+// own API takes max_completion_tokens and only the default temperature.
+const dialectFor = (provider: ProviderKey): OpenAiDialect => (provider === "openai" ? "openai" : "compatible");
+
 function buildClient(config: ResolvedLlmConfig & { apiKey: string }): LlmClient {
   if (config.provider === "anthropic") {
     return new AnthropicClient({ apiKey: config.apiKey, model: config.model });
   }
-  // OpenAI and Gemini both speak the OpenAI-compatible wire format; OpenAI's
-  // own API takes max_completion_tokens and only the default temperature.
   return new OpenAiCompatibleClient({
     apiKey: config.apiKey,
     baseUrl: config.baseUrl ?? getProvider(config.provider).baseUrl,
     model: config.model,
-    dialect: config.provider === "openai" ? "openai" : "compatible",
+    dialect: dialectFor(config.provider),
   });
 }
+
+/** Image analysis returns a long structured reply: room for it, and time to write it. */
+export const IMAGE_ANALYSIS_MAX_TOKENS = 4000;
+export const IMAGE_ANALYSIS_TIMEOUT_MS = 90_000;
 
 /**
  * Provider-agnostic, grounded text completion (assistant, comments, reports,
@@ -157,7 +163,7 @@ export async function analyzeImageWithConfiguredProvider(input: {
   const config = await resolveAiConfig(input.organizationId);
   if (config.mode !== "llm" || !config.apiKey) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60_000);
+  const timer = setTimeout(() => controller.abort(), IMAGE_ANALYSIS_TIMEOUT_MS);
   try {
     let response: Response;
     if (config.provider === "anthropic") {
@@ -167,7 +173,7 @@ export async function analyzeImageWithConfiguredProvider(input: {
         signal: controller.signal,
         body: JSON.stringify({
           model: config.model,
-          max_tokens: 1600,
+          max_tokens: IMAGE_ANALYSIS_MAX_TOKENS,
           temperature: 0.2,
           system: input.system,
           messages: [{ role: "user", content: [
@@ -183,8 +189,7 @@ export async function analyzeImageWithConfiguredProvider(input: {
         signal: controller.signal,
         body: JSON.stringify({
           model: config.model,
-          temperature: 0.2,
-          max_tokens: 1600,
+          ...completionLimitParams(dialectFor(config.provider), IMAGE_ANALYSIS_MAX_TOKENS, 0.2),
           messages: [
             { role: "system", content: input.system },
             { role: "user", content: [
