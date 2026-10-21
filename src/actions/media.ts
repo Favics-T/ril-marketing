@@ -9,6 +9,7 @@ import { getBrandGuidance } from "@/lib/brand/knowledge";
 import { analyzeAudioVideoWithConfiguredProvider, analyzeImageWithConfiguredProvider } from "@/lib/ai/provider";
 import { completeWithConfiguredProvider } from "@/lib/ai/provider";
 import { extractDocumentText } from "@/lib/content/document-text";
+import { failedResponseSnapshot, imageAnalysisInstructions, imageAnalysisSchema, parseImageAnalysis, type ImageAnalysis } from "@/lib/ai/image-analysis";
 
 export interface ImageAnalysisResult {
   ok: boolean;
@@ -17,18 +18,6 @@ export interface ImageAnalysisResult {
   error?: string;
 }
 
-const analysisSchema = z.object({
-  sceneSummary: z.string().trim().min(10).max(1600),
-  altText: z.string().trim().min(5).max(500),
-  qualityNotes: z.array(z.string().trim().min(2).max(300)).max(8).default([]),
-  captions: z.array(z.object({
-    platform: z.enum(["linkedin", "instagram", "facebook", "x", "youtube", "tiktok"]),
-    caption: z.string().trim().min(10).max(2000),
-    hashtags: z.array(z.string().trim().regex(/^#[\p{L}\p{N}_]+$/u)).max(15).default([]),
-    rationale: z.string().trim().min(4).max(500),
-  })).min(1).max(4).refine((items) => new Set(items.map((item) => item.platform)).size === items.length, "Caption platforms must be unique."),
-});
-type ImageAnalysis = z.infer<typeof analysisSchema>;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const AUDIO_VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/webm", "audio/mpeg", "audio/mp4", "audio/wav", "audio/webm"]);
@@ -56,6 +45,7 @@ function preferredImagePlatforms(values: string[] | null | undefined): Array<"li
 export async function analyzeActivityImage(attachmentId: string, activityId: string): Promise<ImageAnalysisResult> {
   let organizationId = "";
   let analysisId = "";
+  let failedResponse: string | null = null;
   try {
     organizationId = await requireOrganizationId();
     const ids = z.object({ attachmentId: z.string().uuid(), activityId: z.string().uuid() }).safeParse({ attachmentId, activityId });
@@ -99,7 +89,7 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
 
     const admin = createAdminClient();
     const { data: existingAssets } = await admin.from("content_assets").select("id,platform,generation_id").eq("organization_id", organizationId).contains("metadata", { media_analysis_id: analysisId }).limit(10);
-    let result = existing?.analysis ? analysisSchema.safeParse(existing.analysis) : { success: false as const };
+    let result = existing?.analysis ? imageAnalysisSchema.safeParse(existing.analysis) : { success: false as const };
     let model = existing?.model ?? "";
     if (!result.success) {
       const { data: imageBlob, error: downloadError } = await supabase.storage.from("ril-activity-media").download(attachment.storage_path);
@@ -112,15 +102,21 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
         "Keep visual observations separate from the provided activity context. If focus, clarity or resolution appears poor, note it as a possible issue; do not claim precise image quality measurements.",
         "Return only JSON matching the requested shape. Draft distinct captions for the requested platforms, keep them factual and useful, include accurate concise alt text, and explain the content angle briefly.",
       ].join(" ");
-      const prompt = `Analyze this image for activity: ${activity.title}\nActivity description: ${activity.description ?? "Not provided"}\nRecorded outcomes: ${activity.outcomes ?? "Not provided"}\nAudience: ${segment?.name ?? "Not specified"}\nAudience motivations: ${(segment?.needs_motivations ?? []).join("; ") || "Not provided"}\nRequested platforms: ${preferredPlatforms.join(", ")}\nApproved brand guidance:\n${brandGuidance.join("\n") || "No active brand guidance supplied."}\n\nReturn a JSON object with sceneSummary (visual description, max 1600 characters), altText (max 500 characters), qualityNotes (array of possible visual concerns; empty if none), and captions (one per requested platform, each with platform, caption, hashtags array, and rationale).`;
+      const prompt = `Analyze this image for activity: ${activity.title}\nActivity description: ${activity.description ?? "Not provided"}\nRecorded outcomes: ${activity.outcomes ?? "Not provided"}\nAudience: ${segment?.name ?? "Not specified"}\nAudience motivations: ${(segment?.needs_motivations ?? []).join("; ") || "Not provided"}\nRequested platforms: ${preferredPlatforms.join(", ")}\nApproved brand guidance:\n${brandGuidance.join("\n") || "No active brand guidance supplied."}\n\n${imageAnalysisInstructions(preferredPlatforms)}`;
       const completion = await analyzeImageWithConfiguredProvider({
         organizationId, mimeType: attachment.mime_type as "image/jpeg" | "image/png" | "image/webp",
         base64: imageBuffer.toString("base64"), system, prompt,
       });
       if (!completion) throw new Error("Connect a vision-capable OpenAI, Claude or Gemini model in AI & Integrations to analyze images.");
       let parsed: ImageAnalysis;
-      try { parsed = analysisSchema.parse(extractJson(completion.text)); }
-      catch (error) { throw new Error(error instanceof Error ? `Could not validate the image analysis: ${error.message}` : "Could not validate the image analysis."); }
+      try { parsed = parseImageAnalysis(completion.text); }
+      catch (error) {
+        // The provider was paid for this response, so record the failed run and
+        // keep a redacted copy of what the model said for diagnosis.
+        failedResponse = failedResponseSnapshot(completion.text);
+        try { await admin.from("ai_generations").insert({ organization_id: organizationId, activity_id: activityId, kind: "image_analysis_captioning_failed", model: completion.model }); } catch { /* the analysis error matters more than its provenance */ }
+        throw error;
+      }
       result = { success: true, data: parsed };
       model = completion.model;
       const { error: saveAnalysisError } = await supabase.from("activity_media_analyses").update({ analysis: parsed, model }).eq("organization_id", organizationId).eq("id", analysisId);
@@ -166,7 +162,9 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
     if (organizationId && analysisId) {
       try {
         const supabase = await createClient();
-        await supabase.from("activity_media_analyses").update({ status: "failed", error: message.slice(0, 1200) }).eq("organization_id", organizationId).eq("id", analysisId).eq("status", "processing");
+        // Only a response that failed parsing replaces the analysis; any later
+        // failure keeps the validated analysis saved for resuming.
+        await supabase.from("activity_media_analyses").update({ status: "failed", error: message.slice(0, 1200), ...(failedResponse === null ? {} : { analysis: { failedResponse } }) }).eq("organization_id", organizationId).eq("id", analysisId).eq("status", "processing");
       } catch { /* leave the original failure visible in the action result */ }
     }
     return { ok: false, error: message };
