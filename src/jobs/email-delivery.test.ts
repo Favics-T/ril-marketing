@@ -10,11 +10,11 @@ const lead = { id: "lead", organization_id: "org", email: "optin@example.com", n
 const campaign = { id: "campaign", organization_id: "org", status: "scheduled", delivery_authorized_at: "2026-10-01", subject: "Update", preview_text: "", body: "Approved content", name: "Test" };
 const metadata = { nurture: true, nurture_sequence_id: "sequence", nurture_enrollment_id: "enrollment", nurture_step: 1 };
 
-function setup(options: { sequence?: string; enrollment?: string; revoked?: boolean; countError?: boolean; readError?: boolean; nurture?: boolean } = {}) {
+function setup(options: { sequence?: string; enrollment?: string; revoked?: boolean; countError?: boolean; readError?: boolean; nurture?: boolean; sensitive?: { is_sensitive: boolean; sensitive_approved_by: string | null } } = {}) {
   const db = databaseMock((q: Query) => {
     if (q.operation !== "select") return { data: q.columns ? { id: "delivery" } : null, error: null };
     if (q.table === "email_campaigns") {
-      if (q.single) return options.readError ? { error: { message: "Database unavailable" } } : { data: { ...campaign, metadata: options.nurture === false ? {} : metadata } };
+      if (q.single) return options.readError ? { error: { message: "Database unavailable" } } : { data: { ...campaign, ...options.sensitive, metadata: options.nurture === false ? {} : metadata } };
       return { data: q.columns === "id" ? [{ id: "campaign" }] : [campaign] };
     }
     if (q.table === "leads") return { data: q.single ? { ...lead, marketing_consent: !options.revoked } : [lead] };
@@ -105,6 +105,16 @@ describe("email delivery authorization at send time", () => {
     setup();
     expect((await processEmailDeliveryBatch()).sent).toBe(1);
     expect(fetch).toHaveBeenCalledWith("https://api.resend.com/emails", expect.objectContaining({ headers: expect.objectContaining({ "Idempotency-Key": "ril-delivery-delivery" }), body: expect.stringContaining("/api/email/unsubscribe") }));
+  });
+  it("holds a sensitive campaign that has no senior sign-off instead of sending", async () => {
+    const db = setup({ nurture: false, sensitive: { is_sensitive: true, sensitive_approved_by: null } });
+    expect((await processEmailDeliveryBatch()).pending).toBe(1);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(db.queries.some(q => q.payload && !Array.isArray(q.payload) && q.payload.status === "queued" && q.payload.error === "Sensitive campaign awaiting senior sign-off.")).toBe(true);
+  });
+  it("sends a signed-off sensitive campaign", async () => {
+    setup({ nurture: false, sensitive: { is_sensitive: true, sensitive_approved_by: "senior" } });
+    expect((await processEmailDeliveryBatch()).sent).toBe(1);
   });
   it("defers database errors instead of cancelling the recipient", async () => {
     const db = setup({ readError: true });

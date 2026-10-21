@@ -28,6 +28,8 @@ const stampVariants = cva(
         hot: "border-transparent bg-destructive text-destructive-foreground",
         failed: "border-transparent bg-destructive text-destructive-foreground",
         missed: "border-transparent bg-destructive text-destructive-foreground",
+        // Needs extra care, not action — red outline rather than the red field.
+        sensitive: "border-destructive/70 bg-card text-destructive",
         // Intermediate and inactive — quiet paper.
         warm: "border-foreground/35 bg-card text-foreground/85",
         cold: "border-border bg-transparent text-muted-foreground",
@@ -116,6 +118,8 @@ function mapStatusToVariant(status: string): StatusStampProps["variant"] {
       return "completed";
     case "active":
       return "active";
+    case "sensitive":
+      return "sensitive";
     default:
       return "pending";
   }

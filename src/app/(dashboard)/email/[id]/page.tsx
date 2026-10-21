@@ -11,9 +11,13 @@ import { isEmailAuthorRole } from "@/lib/email/from-newsletter";
 import { describeDeliveryProblem, readDeliveryProblem } from "@/lib/email/workflow";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { EmailDraftForm } from "@/components/email/email-draft-form";
+import { SensitiveSignoffNote } from "@/components/email/email-signoff";
+import { EmailSignoffControls } from "@/components/email/email-signoff-controls";
+import { DEFAULT_SENSITIVITY_SETTINGS, flagRefusal, seniorApprovalRefusal } from "@/lib/email/sensitivity";
+import { getWorkspaceSettings } from "@/lib/settings/workspace";
 
 export const metadata: Metadata = { title: "Email campaign" };
-type EmailRow = { id:string; name:string; subject:string; preview_text:string; body:string; status:string; audience_segment_id:string|null; metadata:Record<string, unknown>|null };
+type EmailRow = { id:string; name:string; subject:string; preview_text:string; body:string; status:string; audience_segment_id:string|null; metadata:Record<string, unknown>|null; created_by:string|null; submitted_by:string|null; approved_by:string|null; is_sensitive:boolean; sensitive_approved_by:string|null };
 
 export default async function EmailCampaignPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,18 +25,21 @@ export default async function EmailCampaignPage({ params }: { params: Promise<{ 
   const organizationId = await getCallerOrganizationId();
   if (!organizationId) notFound();
   const supabase = await createClient();
-  const { data } = await supabase.from("email_campaigns").select("id,name,subject,preview_text,body,status,audience_segment_id,metadata").eq("organization_id", organizationId).eq("id", id).maybeSingle();
+  const { data } = await supabase.from("email_campaigns").select("id,name,subject,preview_text,body,status,audience_segment_id,metadata,created_by,submitted_by,approved_by,is_sensitive,sensitive_approved_by").eq("organization_id", organizationId).eq("id", id).maybeSingle();
   const email = data as EmailRow | null;
   if (!email) notFound();
 
   const sourceId = typeof email.metadata?.source_content_asset_id === "string" ? email.metadata.source_content_asset_id : null;
   const storedOptions = Array.isArray(email.metadata?.subject_options) ? email.metadata.subject_options.filter((option): option is string => typeof option === "string") : [];
   const subjectOptions = storedOptions.includes(email.subject) ? storedOptions : [email.subject, ...storedOptions];
-  const [role, segments, source] = await Promise.all([
+  const [role, segments, source, settings, userResult] = await Promise.all([
     getUserRole(organizationId),
     listSegments(organizationId),
     sourceId ? supabase.from("content_assets").select("id,title").eq("organization_id", organizationId).eq("id", sourceId).maybeSingle<{ id: string; title: string }>() : Promise.resolve({ data: null }),
+    getWorkspaceSettings(organizationId).catch(() => DEFAULT_SENSITIVITY_SETTINGS),
+    supabase.auth.getUser(),
   ]);
+  const actor = { id: userResult.data.user?.id ?? null, role };
   const editable = email.status === "draft" && isEmailAuthorRole(role);
   const [allContacts, segmentCounts] = editable ? await Promise.all([
     applyActiveConsentFilter(supabase.from("leads").select("id", { count: "exact", head: true }).eq("organization_id", organizationId)),
@@ -48,6 +55,7 @@ export default async function EmailCampaignPage({ params }: { params: Promise<{ 
     <header>
       <Link href="/email" className="group inline-flex min-h-9 items-center gap-1.5 rounded-md text-[13px] font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> Email campaigns</Link>
       <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4"><h1>{email.name}</h1><StatusStamp status={email.status} /></div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3"><SensitiveSignoffNote campaign={email} approverRoles={settings.sensitiveApproverRoles} /><EmailSignoffControls emailId={email.id} isSensitive={email.is_sensitive} canFlag={!flagRefusal(email, actor, settings)} canApprove={!seniorApprovalRefusal(email, actor, settings)} /></div>
       {problem ? <p role="alert" className="mt-2 text-sm leading-5 text-destructive">{describeDeliveryProblem(problem)}</p> : null}
       {sourceId ? <p className="mt-2 text-sm text-muted-foreground">From newsletter · {source.data ? <Link href={`/library/${source.data.id}`} className="font-medium text-primary underline underline-offset-2">{source.data.title}</Link> : "no longer available"}</p> : null}
     </header>

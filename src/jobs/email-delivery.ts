@@ -5,6 +5,7 @@ import { getResendConfig } from "@/lib/integrations/resend";
 import { createUnsubscribeToken } from "@/lib/email/tokens";
 import { hasActiveConsent } from "@/lib/email/consent";
 import { ATTEMPTED_DELIVERY_STATUSES, shouldPauseForFailures, type DeliveryProblem } from "@/lib/email/workflow";
+import { awaitingSeniorSignoff } from "@/lib/email/sensitivity";
 
 type Delivery = { id:string; organization_id:string; campaign_id:string; lead_id:string; attempts:number; unsubscribe_token_hash:string };
 type Campaign = { id:string; organization_id:string; status:string; delivery_authorized_at:string|null; subject:string; preview_text:string; body:string; name:string };
@@ -21,10 +22,15 @@ function publicOrigin() {
 
 async function sendOne(delivery: Delivery, campaign: Campaign, lead: Lead, unsubscribeTokens: Map<string,string>) {
   const admin = createAdminClient();
-  const { data: currentCampaign, error: campaignError } = await admin.from("email_campaigns").select("status,delivery_authorized_at,metadata").eq("organization_id", delivery.organization_id).eq("id", delivery.campaign_id).maybeSingle<{status:string;delivery_authorized_at:string|null;metadata:Record<string,unknown>}>();
+  const { data: currentCampaign, error: campaignError } = await admin.from("email_campaigns").select("status,delivery_authorized_at,metadata,is_sensitive,sensitive_approved_by").eq("organization_id", delivery.organization_id).eq("id", delivery.campaign_id).maybeSingle<{status:string;delivery_authorized_at:string|null;metadata:Record<string,unknown>;is_sensitive:boolean;sensitive_approved_by:string|null}>();
   if (campaignError) throw new Error(`Could not recheck campaign: ${campaignError.message}`);
   if (currentCampaign?.status === "paused") {
     await admin.from("email_campaign_deliveries").update({ status: "queued", attempts: Math.max(0, delivery.attempts - 1), next_attempt_at: new Date(Date.now() + 30 * 60_000).toISOString(), error: "Campaign paused before send." }).eq("id", delivery.id);
+    return "queued";
+  }
+  // The database refuses to schedule this; hold rather than send if it ever happens.
+  if (currentCampaign && awaitingSeniorSignoff(currentCampaign)) {
+    await admin.from("email_campaign_deliveries").update({ status: "queued", attempts: Math.max(0, delivery.attempts - 1), next_attempt_at: new Date(Date.now() + 30 * 60_000).toISOString(), error: "Sensitive campaign awaiting senior sign-off." }).eq("id", delivery.id);
     return "queued";
   }
   if (currentCampaign?.status !== "scheduled" || !currentCampaign.delivery_authorized_at) {

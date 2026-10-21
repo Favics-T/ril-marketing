@@ -13,6 +13,8 @@ import { getResendConfig } from "@/lib/integrations/resend";
 import { createUnsubscribeToken, hashUnsubscribeToken } from "@/lib/email/tokens";
 import { applyActiveConsentFilter } from "@/lib/email/consent";
 import { processEmailDeliveryBatch } from "@/jobs/email-delivery";
+import { awaitingSeniorSignoff, flagRefusal, seniorApprovalRefusal, seniorSignoffMessage, submitterOf, type SignoffCampaign } from "@/lib/email/sensitivity";
+import { getWorkspaceSettings } from "@/lib/settings/workspace";
 
 const schema = z.object({
   name: z.string().trim().min(3).max(160),
@@ -55,7 +57,8 @@ export async function createEmailCampaign(_previous: EmailActionResult | null, f
   redirect("/email");
 }
 
-type TransitionItem = { id:string; status:string; created_by:string|null; approved_by:string|null; metadata:Record<string,unknown>|null };
+type TransitionItem = SignoffCampaign & { id:string; metadata:Record<string,unknown>|null };
+const SIGNOFF_COLUMNS = "id,status,created_by,submitted_by,approved_by,is_sensitive,sensitive_approved_by,metadata";
 
 /** Status changes from the email page. Refusals come back as messages, never as thrown errors. */
 export async function transitionEmailCampaign(_previous: EmailActionResult | null, formData: FormData): Promise<EmailActionResult> {
@@ -68,7 +71,7 @@ export async function transitionEmailCampaign(_previous: EmailActionResult | nul
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.id) return { ok: false, error: "Sign in again to change this email campaign." };
     const { data: item, error: fetchError } = await supabase.from("email_campaigns")
-      .select("id,status,created_by,approved_by,metadata").eq("organization_id", organizationId).eq("id", id.data).maybeSingle<TransitionItem>();
+      .select(SIGNOFF_COLUMNS).eq("organization_id", organizationId).eq("id", id.data).maybeSingle<TransitionItem>();
     if (fetchError || !item) return { ok: false, error: "Email campaign not found." };
     // "scheduled" from the page means Resume; only a paused campaign can resume, and only a sending one can pause.
     const allowed = to.data === "review" ? item.status === "draft" : to.data === "approved" ? item.status === "review" : to.data === "scheduled" ? item.status === "paused" : item.status === "scheduled";
@@ -77,13 +80,10 @@ export async function transitionEmailCampaign(_previous: EmailActionResult | nul
       return { ok: false, error: "Approval requires an owner, admin, marketing manager or leadership role." };
     }
     const metadata = { ...(item.metadata ?? {}) };
+    // On submit the database records submitted_by/submitted_at from the signed-in user.
     const patch: Record<string, unknown> = { status: to.data };
-    if (to.data === "review") {
-      metadata.submitted_by = user.id;
-      patch.metadata = metadata;
-    }
     if (to.data === "approved") {
-      if (user.id === item.created_by || user.id === metadata.submitted_by) return { ok: false, error: "A different workspace reviewer must approve this email." };
+      if (user.id === item.created_by || user.id === submitterOf(item)) return { ok: false, error: "A different workspace reviewer must approve this email." };
       patch.approved_by = user.id;
     }
     if (to.data === "paused") {
@@ -92,6 +92,7 @@ export async function transitionEmailCampaign(_previous: EmailActionResult | nul
     }
     if (to.data === "scheduled") {
       patch.status = resumeStatus(item);
+      if (patch.status === "scheduled" && awaitingSeniorSignoff(item)) return { ok: false, error: seniorSignoffMessage(await getWorkspaceSettings(organizationId)) };
       delete metadata.paused_from;
       patch.metadata = metadata;
     }
@@ -106,6 +107,72 @@ export async function transitionEmailCampaign(_previous: EmailActionResult | nul
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not change this email campaign." };
+  }
+}
+
+function revalidateSignoff(id: string) {
+  revalidatePath("/email");
+  revalidatePath(`/email/${id}`);
+  revalidatePath("/approvals");
+}
+
+/**
+ * Flags or unflags a campaign as sensitive. Runs as the signed-in user, so the
+ * database trigger sees auth.uid() and enforces the same rules; it records who
+ * flagged it, clears any senior sign-off and pauses a campaign that was sending.
+ */
+export async function setEmailSensitivity(_previous: EmailActionResult | null, formData: FormData): Promise<EmailActionResult> {
+  try {
+    const organizationId = await requireOrganizationId();
+    const id = z.string().uuid().safeParse(formData.get("id"));
+    const sensitive = z.enum(["true", "false"]).safeParse(formData.get("sensitive"));
+    if (!id.success || !sensitive.success) return { ok: false, error: "Choose a valid email campaign." };
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) return { ok: false, error: "Sign in again to change this email campaign." };
+    const { data: item, error: fetchError } = await supabase.from("email_campaigns")
+      .select(SIGNOFF_COLUMNS).eq("organization_id", organizationId).eq("id", id.data).maybeSingle<TransitionItem>();
+    if (fetchError || !item) return { ok: false, error: "Email campaign not found." };
+    const flag = sensitive.data === "true";
+    if (item.is_sensitive === flag) return { ok: false, error: flag ? "This campaign is already flagged sensitive." : "This campaign isn’t flagged sensitive." };
+    const [role, settings] = await Promise.all([getUserRole(organizationId), getWorkspaceSettings(organizationId)]);
+    const refusal = flagRefusal(item, { id: user.id, role }, settings);
+    if (refusal) return { ok: false, error: refusal };
+    const { data: updated, error } = await supabase.from("email_campaigns").update({ is_sensitive: flag })
+      .eq("organization_id", organizationId).eq("id", item.id).eq("status", item.status).eq("is_sensitive", item.is_sensitive).select("id").maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!updated) return { ok: false, error: "This email campaign changed while you were working. Reload to see its status." };
+    if (flag && item.status === "scheduled") await createAdminClient().from("email_campaign_deliveries").update({ error: "Campaign flagged sensitive; awaiting senior sign-off." }).eq("organization_id", organizationId).eq("campaign_id", item.id).in("status", ["queued", "sending"]);
+    revalidateSignoff(item.id);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not change this email campaign." };
+  }
+}
+
+/** Gives the senior sign-off on a sensitive campaign, as the signed-in user. */
+export async function approveSensitiveEmail(_previous: EmailActionResult | null, formData: FormData): Promise<EmailActionResult> {
+  try {
+    const organizationId = await requireOrganizationId();
+    const id = z.string().uuid().safeParse(formData.get("id"));
+    if (!id.success) return { ok: false, error: "Choose a valid email campaign." };
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) return { ok: false, error: "Sign in again to change this email campaign." };
+    const { data: item, error: fetchError } = await supabase.from("email_campaigns")
+      .select(SIGNOFF_COLUMNS).eq("organization_id", organizationId).eq("id", id.data).maybeSingle<TransitionItem>();
+    if (fetchError || !item) return { ok: false, error: "Email campaign not found." };
+    const [role, settings] = await Promise.all([getUserRole(organizationId), getWorkspaceSettings(organizationId)]);
+    const refusal = seniorApprovalRefusal(item, { id: user.id, role }, settings);
+    if (refusal) return { ok: false, error: refusal };
+    const { data: updated, error } = await supabase.from("email_campaigns").update({ sensitive_approved_by: user.id })
+      .eq("organization_id", organizationId).eq("id", item.id).eq("status", item.status).eq("is_sensitive", true).is("sensitive_approved_by", null).select("id").maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!updated) return { ok: false, error: "This email campaign changed while you were working. Reload to see its status." };
+    revalidateSignoff(item.id);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not record the senior sign-off." };
   }
 }
 
@@ -128,10 +195,11 @@ export async function queueEmailCampaign(campaignId: string): Promise<EmailDeliv
     const ids = z.string().uuid().safeParse(campaignId);
     if (!ids.success) return { ok: false, error: "Choose a valid email campaign." };
     const supabase = await createClient();
-    const { data: campaign } = await supabase.from("email_campaigns").select("id,status,audience_segment_id,created_by,approved_by").eq("organization_id", organizationId).eq("id", campaignId).maybeSingle<{id:string;status:string;audience_segment_id:string|null;created_by:string|null;approved_by:string|null}>();
+    const { data: campaign } = await supabase.from("email_campaigns").select("id,status,audience_segment_id,created_by,approved_by,is_sensitive,sensitive_approved_by").eq("organization_id", organizationId).eq("id", campaignId).maybeSingle<{id:string;status:string;audience_segment_id:string|null;created_by:string|null;approved_by:string|null;is_sensitive:boolean;sensitive_approved_by:string|null}>();
     if (!campaign) return { ok: false, error: "Email campaign not found." };
     if (campaign.status !== "approved") return { ok: false, error: "Only a separately approved email campaign can be queued." };
     if (!campaign.approved_by) return { ok: false, error: "This campaign has no recorded approver, so it can’t be queued." };
+    if (awaitingSeniorSignoff(campaign)) return { ok: false, error: seniorSignoffMessage(await getWorkspaceSettings(organizationId)) };
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.id || user.id === campaign.created_by || user.id === campaign.approved_by) {
       return { ok: false, error: "A workspace reviewer other than the author and the approver must queue this campaign." };
@@ -187,8 +255,9 @@ export async function sendEmailCampaignBatch(campaignId: string): Promise<EmailD
     const id = z.string().uuid().safeParse(campaignId);
     if (!id.success) return { ok: false, error: "Choose a valid campaign." };
     const supabase = await createClient();
-    const { data: campaign } = await supabase.from("email_campaigns").select("status").eq("organization_id", organizationId).eq("id", campaignId).maybeSingle<{status:string}>();
+    const { data: campaign } = await supabase.from("email_campaigns").select("status,is_sensitive,sensitive_approved_by").eq("organization_id", organizationId).eq("id", campaignId).maybeSingle<{status:string;is_sensitive:boolean;sensitive_approved_by:string|null}>();
     if (campaign?.status !== "scheduled") return { ok: false, error: "Campaign must be scheduled and not paused before delivery." };
+    if (awaitingSeniorSignoff(campaign)) return { ok: false, error: seniorSignoffMessage(await getWorkspaceSettings(organizationId)) };
     const { data: authorized, error: authorizationError } = await supabase.from("email_campaigns").update({ delivery_authorized_at: new Date().toISOString() }).eq("organization_id", organizationId).eq("id", campaignId).eq("status", "scheduled").select("id").maybeSingle();
     if (authorizationError || !authorized) return { ok: false, error: authorizationError?.message ?? "Campaign changed before it could be authorized for delivery." };
     const result = await processEmailDeliveryBatch({ organizationId, campaignId, limit: 20 });
