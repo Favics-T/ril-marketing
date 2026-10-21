@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildImageAnalysisPrompt, eventTiming, imageBrandQuery, parseImageAnalysisV2, readSavedImageAnalysis, repairPurpose,
-  IMAGE_ANALYSIS_SYSTEM, type ImagePromptContext,
+  IMAGE_ANALYSIS_SYSTEM, type EventTiming, type ImagePromptContext,
 } from "./image-analysis-v2";
+import type { ImagePlatform } from "./image-analysis";
 
 const RUN_ID = "41000000-0000-4000-8000-0000000000aa";
 const BANNER = "Digital Skills Workshop — Week 3";
-const facts = { timing: "past" as const, today: "2026-10-21", runId: RUN_ID, platforms: ["linkedin", "instagram"] as Array<"linkedin" | "instagram"> };
+const facts: { timing: EventTiming; today: string; runId: string; platforms: ImagePlatform[] } = { timing: "past", today: "2026-10-21", runId: RUN_ID, platforms: ["linkedin", "instagram"] };
 
 const reply = (overrides: Record<string, unknown> = {}) => ({
   imageType: "event_photo",
@@ -108,7 +109,7 @@ describe("parseImageAnalysisV2", () => {
   it("drops captions for platforms that weren't requested, and fails when none are left", () => {
     const extra = reply({ captions: [...reply().captions, { platform: "tiktok", caption: "A TikTok caption here.", hashtags: [], angle: 0, rationale: "Extra." }] });
     expect(parse(extra).captions.map((caption) => caption.platform)).toEqual(["linkedin", "instagram"]);
-    expect(() => parse(reply(), { platforms: ["x"] as never })).toThrow(/none for the requested platforms/);
+    expect(() => parse(reply(), { platforms: ["x"] })).toThrow(/none for the requested platforms/);
   });
   it("needs 2 or 3 angles", () => {
     const angle = reply().angles[0];
