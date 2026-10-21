@@ -8,6 +8,7 @@ import { analyzeActivityAudioVideo, analyzeActivityImage, repurposeActivityDocum
 import type { ActivityAttachment } from "@/lib/content/attachments";
 import { Button } from "@/components/ui/button";
 import { isPreviewableImage } from "@/lib/content/activity-display";
+import { ImageAnalysisSummary, isMarketingAnalysis } from "@/components/content/image-analysis-summary";
 
 const accept = [
   "image/jpeg", "image/png", "image/webp", "image/avif", "image/heic",
@@ -52,8 +53,10 @@ function ImageAnalysisControl({ file, activityId }: { file: ActivityAttachment; 
   const details = analysis?.analysis as {
     sceneSummary?: string; altText?: string; qualityNotes?: string[];
   } | undefined;
+  const pending = busy || analysis?.status === "processing";
 
   function analyze() {
+    if (analysis?.status === "completed" && !window.confirm("Analyse this image again? A new set of caption drafts will be added to the Content Library; the existing drafts stay as they are.")) return;
     setMessage(""); setError(false);
     startTransition(async () => {
       const result: ImageAnalysisResult = await analyzeActivityImage(file.id, activityId);
@@ -66,16 +69,20 @@ function ImageAnalysisControl({ file, activityId }: { file: ActivityAttachment; 
   if (!supported) return null;
   return (
     <div className="mt-2 space-y-2">
-      <Button type="button" variant="outline" size="sm" disabled={busy || analysis?.status === "processing"} onClick={analyze}>
-        {busy || analysis?.status === "processing" ? "Analysing…" : analysis?.status === "completed" ? "Analyse again" : analysis?.status === "failed" ? "Retry analysis" : "Analyse image & draft captions"}
+      <Button type="button" variant="outline" size="sm" disabled={pending} onClick={analyze}>
+        {pending ? "Analysing…" : analysis?.status === "completed" ? "Analyse again" : analysis?.status === "failed" ? "Retry analysis" : "Analyse image & draft captions"}
       </Button>
+      {pending ? <p role="status" className="max-w-[48ch] text-xs text-muted-foreground">Reading the image and drafting captions. This can take up to a minute and a half.</p> : null}
       {message ? <p role={error ? "alert" : "status"} className={error ? "max-w-[48ch] text-xs text-destructive" : "max-w-[48ch] text-xs text-muted-foreground"}>{message}</p> : null}
-      {analysis?.status === "completed" && details ? (
+      {analysis?.status === "completed" && isMarketingAnalysis(analysis.analysis) && !pending ? (
+        <ImageAnalysisSummary analysis={analysis.analysis} model={analysis.model} />
+      ) : analysis?.status === "completed" && details && !pending ? (
         <div className="max-w-[60ch] border-l-2 border-border pl-3 text-xs text-muted-foreground">
           <p><span className="font-medium text-foreground">Image notes:</span> {details.sceneSummary}</p>
           {details.altText ? <p className="mt-1"><span className="font-medium text-foreground">Alt text:</span> {details.altText}</p> : null}
           {details.qualityNotes?.length ? <p className="mt-1">Review: {details.qualityNotes.join("; ")}</p> : null}
           <p className="mt-1">Caption drafts are in the Content Library · {analysis.model}</p>
+          <p className="mt-1">Older analysis — analyse again for the marketing view.</p>
         </div>
       ) : null}
       {analysis?.status === "failed" && !message && analysis.error ? <p role="alert" className="max-w-[48ch] text-xs text-destructive">{analysis.error}</p> : null}
