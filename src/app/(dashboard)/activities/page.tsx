@@ -4,14 +4,21 @@ import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listActivities } from "@/lib/content/activities";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
+import { ActivitySearch } from "@/components/content/activity-search";
 import { formatDay, todayDateline } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Activities" };
 
-export default async function ActivitiesPage() {
+export default async function ActivitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const search = typeof q === "string" ? q.trim() : "";
   const orgId = await getCallerOrganizationId();
   const activities = orgId
-    ? await listActivities(orgId)
+    ? await listActivities(orgId, search)
     : [];
 
   return (
@@ -19,7 +26,7 @@ export default async function ActivitiesPage() {
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div>
           <p className="dateline">
-            {todayDateline()} · {activities.length} logged
+            {todayDateline()} · {activities.length} {search ? "found" : "logged"}
           </p>
           <h1>
             Activities
@@ -34,7 +41,15 @@ export default async function ActivitiesPage() {
         </Button>
       </div>
 
-      {activities.length === 0 ? (
+      <ActivitySearch initialQuery={search} />
+
+      {activities.length === 0 && search ? (
+        <EmptyState
+          title="No matching activities"
+          description={`Nothing matches “${search}”. Try a different word, or clear the search.`}
+          action={{ label: "Clear search", href: "/activities" }}
+        />
+      ) : activities.length === 0 ? (
         <EmptyState
           title="No activities yet"
           description="Log your first program, event, workshop, or partnership so AI can start turning it into marketing content."

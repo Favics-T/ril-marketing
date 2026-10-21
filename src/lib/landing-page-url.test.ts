@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { leadFormPage, parsePublicLandingPageKey, publicLandingPagePath } from "./landing-page-url";
+import { leadFormPage, parsePublicLandingPageKey, publicLandingPagePath, safeRegistrationUrl } from "./landing-page-url";
 
 const id = "0ae379a3-9723-4780-869a-51dbee4dc256";
 
@@ -26,5 +26,56 @@ describe("public lead form props (REN-416)", () => {
     };
     expect(leadFormPage(page)).toEqual({ cta_label: "Register interest", registration_url: "https://example.com/register" });
     expect(JSON.stringify(leadFormPage(page))).not.toContain(page.organization_id);
+  });
+
+  it("drops a registration link that isn't safe to show (REN-417)", () => {
+    expect(leadFormPage({ cta_label: "Register", registration_url: "javascript:alert(1)" })).toEqual({ cta_label: "Register", registration_url: null });
+    expect(leadFormPage({ cta_label: "Register", registration_url: null })).toEqual({ cta_label: "Register", registration_url: null });
+  });
+});
+
+describe("safeRegistrationUrl (REN-417)", () => {
+  it.each([
+    ["https://example.com/register", "https://example.com/register"],
+    ["http://events.example.org/a?b=c#d", "http://events.example.org/a?b=c#d"],
+    ["  https://example.com/register  ", "https://example.com/register"],
+    ["HTTPS://Example.COM", "https://example.com/"],
+    ["https://lu.ma/ril-founders", "https://lu.ma/ril-founders"],
+  ])("accepts %s", (value, expected) => {
+    expect(safeRegistrationUrl(value)).toBe(expected);
+  });
+
+  it.each([
+    "javascript:alert(1)",
+    "JavaScript:alert(1)",
+    "  javascript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "vbscript:msgbox(1)",
+    "ftp://example.com/file",
+    "mailto:events@example.com",
+    "/register",
+    "example.com/register",
+    "not a url",
+    "",
+    "   ",
+  ])("rejects %s", (value) => {
+    expect(safeRegistrationUrl(value)).toBeNull();
+  });
+
+  it.each([
+    "https:ril",
+    "https://ril",
+    "https://localhost",
+    "http://localhost:3000/register",
+    "https://example.",
+    "https://.example.com",
+    "https://example..com",
+  ])("rejects %s, which has no real hostname", (value) => {
+    expect(safeRegistrationUrl(value)).toBeNull();
+  });
+
+  it("rejects missing values", () => {
+    expect(safeRegistrationUrl(null)).toBeNull();
+    expect(safeRegistrationUrl(undefined)).toBeNull();
   });
 });

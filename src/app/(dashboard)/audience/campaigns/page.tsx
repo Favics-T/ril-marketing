@@ -9,6 +9,7 @@ import { CampaignCreate } from "@/components/audience/campaign-create";
 import { CampaignStatus } from "@/components/audience/campaign-status";
 import { CampaignEditor } from "@/components/audience/campaign-editor";
 import Link from "next/link";
+import { campaignAnchor } from "@/lib/content/activity-display";
 
 export const metadata: Metadata = { title: "Campaigns" };
 
@@ -48,7 +49,7 @@ export default async function CampaignsPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {campaigns.map((c) => (
-            <li key={c.id} className="slip flex flex-col gap-3 px-5 py-4 sm:px-6">
+            <li key={c.id} id={campaignAnchor(c.id)} className="slip flex scroll-mt-6 flex-col gap-3 px-5 py-4 sm:px-6">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusStamp status={c.status} />
                 {c.segment_name ? (

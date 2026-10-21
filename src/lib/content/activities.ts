@@ -4,6 +4,7 @@ import type { Activity } from "@/types/audience";
 
 export type ActivityWithSegment = Activity & {
   segment: { id: string; name: string } | null;
+  campaign: { id: string; name: string } | null;
 };
 
 export interface ActivityInput {
@@ -18,12 +19,21 @@ export interface ActivityInput {
   campaign_id?: string;
 }
 
-export async function listActivities(organizationId: string): Promise<Array<Activity & { segment: { id: string; name: string } | null }>> {
+export async function listActivities(
+  organizationId: string,
+  search?: string
+): Promise<Array<Activity & { segment: { id: string; name: string } | null }>> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("activities")
     .select("*, segment:audience_segments(id, name)")
-    .eq("organization_id", organizationId)
+    .eq("organization_id", organizationId);
+  // Drop characters that are wildcards in ilike or separators in PostgREST's or() filter.
+  const term = search?.replace(/[%_*,()"\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 100);
+  if (term) {
+    query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%,outcomes.ilike.%${term}%`);
+  }
+  const { data, error } = await query
     .order("event_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(100);
@@ -38,7 +48,7 @@ export async function getActivity(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("activities")
-    .select("*, segment:audience_segments(id, name)")
+    .select("*, segment:audience_segments(id, name), campaign:campaigns(id, name)")
     .eq("organization_id", organizationId)
     .eq("id", activityId)
     .maybeSingle();
