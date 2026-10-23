@@ -36,6 +36,7 @@ import { DraftSessionProvider } from "@/components/content/draft-session";
 import { YouTubePublishAction } from "@/components/content/youtube-publish-action";
 import { sourceConnectionStatus } from "@/lib/integrations/source-connections";
 import { socialPost } from "@/lib/content/social-media";
+import { NewsletterEmailButton } from "@/components/email/newsletter-email-button";
 
 export const metadata: Metadata = { title: "Content asset" };
 export const maxDuration = 300;
@@ -206,6 +207,7 @@ export default async function AssetDetailPage({
 					{providerUrl && asset.status === "published" ? <section className="slip p-5 sm:p-6"><p className="dateline">{socialAsset ? "Published post" : "Published article"}</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live {socialAsset ? "post" : "article"}</a></section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
+					<NewsletterEmailButton asset={asset} />
 
 					<Link href="/calendar" className="text-sm font-semibold text-primary underline underline-offset-4">Open calendar to change or recover a schedule</Link>
 					<PublishHistory publications={publications} assetStatus={asset.status} />

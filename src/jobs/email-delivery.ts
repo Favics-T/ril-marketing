@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendConfig } from "@/lib/integrations/resend";
 import { createUnsubscribeToken } from "@/lib/email/tokens";
 import { hasActiveConsent } from "@/lib/email/consent";
+import { ATTEMPTED_DELIVERY_STATUSES, shouldPauseForFailures, type DeliveryProblem } from "@/lib/email/workflow";
 
 type Delivery = { id:string; organization_id:string; campaign_id:string; lead_id:string; attempts:number; unsubscribe_token_hash:string };
 type Campaign = { id:string; organization_id:string; status:string; delivery_authorized_at:string|null; subject:string; preview_text:string; body:string; name:string };
@@ -175,9 +176,32 @@ export async function processEmailDeliveryBatch(options: { limit?: number; organ
     for (const outcome of outcomes) { if (outcome === "sent") sent++; else if (outcome === "failed") failed++; else if (outcome === "queued" || outcome === "sending") pending++; }
   }
   const claimedCampaignIds = [...new Set(claimed.map((row) => row.campaign_id))];
-  for (const campaignId of claimedCampaignIds) {
-    const { count, error: countError } = await admin.from("email_campaign_deliveries").select("id", { count: "exact", head: true }).eq("campaign_id", campaignId).in("status", ["queued", "sending"]);
-    if (!countError && count === 0) await admin.from("email_campaigns").update({ status: "sent" }).eq("id", campaignId).eq("status", "scheduled");
-  }
+  for (const campaignId of claimedCampaignIds) await settleCampaign(admin, campaignId);
   return { processed: claimed.length, sent, failed, pending };
+}
+
+/**
+ * After a batch: pause a campaign whose sends are mostly failing (see
+ * shouldPauseForFailures), otherwise mark it sent once nothing is left.
+ * Nurture step emails keep the plain completion rule.
+ */
+async function settleCampaign(admin: ReturnType<typeof createAdminClient>, campaignId: string) {
+  const { count, error: countError } = await admin.from("email_campaign_deliveries").select("id", { count: "exact", head: true }).eq("campaign_id", campaignId).in("status", ["queued", "sending"]);
+  if (countError || count === null) return;
+  const remaining = count;
+  const { data: campaign, error: campaignError } = await admin.from("email_campaigns").select("metadata").eq("id", campaignId).maybeSingle<{ metadata: Record<string, unknown> | null }>();
+  if (!campaignError && campaign && campaign.metadata?.nurture !== true) {
+    const { data: outcomes, error: outcomeError } = await admin.from("email_campaign_deliveries").select("status,error,updated_at").eq("campaign_id", campaignId).in("status", [...ATTEMPTED_DELIVERY_STATUSES]).limit(20000);
+    if (outcomeError) return;
+    const rows = (outcomes ?? []) as Array<{ status: string; error: string | null; updated_at: string }>;
+    const attempted = rows.filter((row) => (ATTEMPTED_DELIVERY_STATUSES as readonly string[]).includes(row.status)).length;
+    const failures = rows.filter((row) => row.status === "failed").sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    if (shouldPauseForFailures({ attempted, failed: failures.length, remaining })) {
+      const problem: DeliveryProblem = { failed: failures.length, attempted, last_error: failures[0]?.error?.slice(0, 300) ?? null, detected_at: new Date().toISOString() };
+      const { data: paused } = await admin.from("email_campaigns").update({ status: "paused", metadata: { ...campaign.metadata, paused_from: "scheduled", delivery_problem: problem } }).eq("id", campaignId).eq("status", "scheduled").select("id").maybeSingle();
+      if (paused) await admin.from("email_campaign_deliveries").update({ error: "Campaign paused automatically after repeated send failures." }).eq("campaign_id", campaignId).in("status", ["queued", "sending"]);
+      return;
+    }
+  }
+  if (remaining === 0) await admin.from("email_campaigns").update({ status: "sent" }).eq("id", campaignId).eq("status", "scheduled");
 }
