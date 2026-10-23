@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { APPROVAL_CATEGORIES } from "@/lib/content/workflow";
-import { CHANNELS, checkChannelLimits, normalizeChannel } from "@/lib/content/channels";
+import { checkChannelLimits, normalizeChannel } from "@/lib/content/channels";
+import type { ChannelOption } from "@/lib/content/connected-channels";
+import { channelLabel } from "@/lib/channels";
+import Link from "next/link";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
+import { useDraftSession } from "@/components/content/draft-session";
 
 const field = "flex flex-col gap-1.5";
 const label = "dateline";
@@ -38,10 +43,12 @@ function LimitMeter({ channel, body, format }: { channel: string; body: string; 
 }
 
 export function DraftEditor({
-  asset,
+  asset, channels,
 }: {
+  channels: ChannelOption[];
   asset: { approval_category?: string; updated_at?: string; id: string; title: string; body: string | null; channel: string | null; format?: string | null; topic: string | null; hook: string | null; cta: string | null; metadata?: Record<string, unknown> | null };
 }) {
+  const { setDirty } = useDraftSession();
   const [channel, setChannel] = useState<string>(normalizeChannel(asset.channel) ?? "");
   const remappedFrom = asset.channel && normalizeChannel(asset.channel) === "other" && asset.channel.trim().toLowerCase() !== "other" ? asset.channel : null;
   const seo = asset.metadata?.seo && typeof asset.metadata.seo === "object" ? asset.metadata.seo as { title?: string; description?: string; keywords?: string[]; internalLinks?: string[] } : {};
@@ -61,12 +68,12 @@ export function DraftEditor({
     ];
   }, [bodyText, seoDescription, seoKeywords, seoLinks, seoTitle]);
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(
-    async (previous, formData) => updateContentDraft(asset.id, previous, formData),
+    async (previous, formData) => { const result = await updateContentDraft(asset.id, previous, formData); if (result.ok) setDirty(false); return result; },
     null
   );
 
   return (
-    <form action={action} className="flex flex-col gap-3 border-t border-border px-5 py-5 sm:px-6">
+    <form id="draft-editor" onChangeCapture={() => setDirty(true)} onReset={event => event.preventDefault()} action={action} className="flex scroll-mt-6 flex-col gap-3 border-t border-border px-5 py-5 sm:px-6">
       <input type="hidden" name="expected_updated_at" value={asset.updated_at ?? ""} />
       <div>
         <p className="dateline">Human review</p>
@@ -79,22 +86,24 @@ export function DraftEditor({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className={field}>
           <span className={label}>Channel</span>
-          <ChannelSelect name="channel" value={channel} onValueChange={setChannel} placeholder="Not set" className="h-10" options={[["", "Not set"], ...CHANNELS.map(c => [c.value, c.label] as const)]} />
+          <ChannelSelect name="channel" value={channel} onValueChange={setChannel} placeholder="Not set" className="h-10" options={[["", "Not set"], ...channels, ...(channel && !channels.some(([value]) => value === channel) ? [[channel, `${channelLabel(channel)} · not connected`] as const] : [])]} />
+          <span className="text-xs text-muted-foreground">Choose from connected accounts. <Link href="/settings/ai" className="text-primary underline">Manage connections</Link></span>
           {remappedFrom ? <span className="text-xs text-muted-foreground">Previously typed as &ldquo;{remappedFrom}&rdquo;. Pick the matching channel.</span> : null}
         </label>
         <label className={field}><span className={label}>Topic</span><Input name="topic" maxLength={200} defaultValue={asset.topic ?? ""} /></label>
         <label className={field}><span className={label}>Hook</span><Input name="hook" maxLength={500} defaultValue={asset.hook ?? ""} /></label>
         <label className={field}><span className={label}>Call to action</span><Input name="cta" maxLength={500} defaultValue={asset.cta ?? ""} /></label>
       </div>
-      <fieldset className="flex flex-col gap-3 border-t border-border pt-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2"><div><p className="dateline">Website content</p><legend className="mt-1 text-sm font-semibold">Search metadata &amp; on-page checks</legend></div><span className="dateline">{seoChecks.filter(Boolean).length}/4 checks · editorial aid only</span></div>
+      <details className="border-t border-border pt-4" open={channel === "website"}>
+        <DisclosureSummary>Search details for website articles{channel === "website" ? ` · ${seoChecks.filter(Boolean).length}/4 editorial checks` : " (optional)"}</DisclosureSummary>
+        <div className="mt-4 flex flex-col gap-3">
         <label className={field}><span className={label}>SEO title · {seoTitle.length}/60 recommended</span><Input name="seo_title" maxLength={70} value={seoTitle} onChange={(event) => setSeoTitle(event.target.value)} placeholder="Clear page title with the main topic" /></label>
         <label className={field}><span className={label}>Meta description · {seoDescription.length}/160 recommended</span><Textarea name="seo_description" rows={3} maxLength={320} value={seoDescription} onChange={(event) => setSeoDescription(event.target.value)} placeholder="Summarise the page accurately for search results" /></label>
         <div className="grid gap-3 sm:grid-cols-2"><label className={field}><span className={label}>Target terms · comma separated</span><Input name="seo_keywords" maxLength={500} value={seoKeywords} onChange={(event) => setSeoKeywords(event.target.value)} placeholder="innovation, founders programme" /></label><label className={field}><span className={label}>Internal link suggestions · one per line</span><Textarea name="seo_internal_links" rows={2} maxLength={1000} value={seoLinks} onChange={(event) => setSeoLinks(event.target.value)} placeholder="Related program or resource URLs" /></label></div>
         <p className="text-xs leading-5 text-muted-foreground">Checks cover recommended title and description lengths, a target term in the title and copy, and at least one internal link suggestion. They do not predict rankings or replace a technical SEO audit.</p>
-      </fieldset>
+      </div></details>
       {state?.error ? <p role="alert" className="text-sm text-destructive">{state.error}</p> : null}
-      {state?.ok ? <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">Draft saved.</p> : null}
+      {state?.ok ? <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">Draft saved. When the copy is ready, choose Review in Content status.</p> : null}
       <Button type="submit" size="sm" className="w-fit" disabled={pending}>{pending ? "Saving…" : "Save draft"}</Button>
     </form>
   );

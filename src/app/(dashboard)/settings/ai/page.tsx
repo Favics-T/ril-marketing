@@ -18,6 +18,8 @@ import { WordPressSettingsForm } from "@/components/settings/wordpress-settings-
 import { StrapiSettingsForm } from "@/components/settings/strapi-settings-form";
 import { GoogleAnalyticsSettingsForm } from "@/components/settings/google-analytics-settings-form";
 import { ConnectionHealthPanel } from "@/components/settings/connection-health-panel";
+import { SourceConnector } from "@/components/settings/source-connectors";
+import { sourceConnectionStatus } from "@/lib/integrations/source-connections";
 
 export const metadata: Metadata = { title: "AI & Integrations" };
 
@@ -36,6 +38,8 @@ const CONNECTOR_KEYS = new Set([
   "cms_strapi",
   "google_analytics",
   "email_resend",
+  "notion",
+  "youtube",
 ]);
 
 const MANAGER_ROLES = ["owner", "admin", "marketing_manager"];
@@ -191,7 +195,9 @@ export default async function AiSettingsPage({
   const aiConnected = serverKey || Boolean(ai?.hasKey);
   const startProvider = isProviderKey(ai?.provider) ? ai.provider : "openai";
   const resendConnected = Boolean(resend);
-  const connectedCount = [buffer.connected, wordpress.connected, strapi.connected, googleAnalytics.connected, resendConnected]
+  const emptySource = { connected: false, configured: false, accountName: null, clientId: "" };
+  const [notion, youtube] = orgId ? await Promise.all([sourceConnectionStatus(orgId, "notion"), sourceConnectionStatus(orgId, "youtube")]) : [emptySource, emptySource];
+  const connectedCount = [buffer.connected, wordpress.connected, strapi.connected, googleAnalytics.connected, resendConnected, notion.connected, youtube.connected]
     .filter(Boolean).length;
   const otherIntegrations = integrations.filter(
     (row) => !CONNECTOR_KEYS.has(row.key)
@@ -302,12 +308,15 @@ export default async function AiSettingsPage({
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             <p className="dateline tabular-nums">
-              {connectedCount} of 5 connections saved
+              {connectedCount} of 7 connections saved
             </p>
           </div>
         </div>
 
         <div className="mt-4 grid gap-4">
+          <h3 className="mt-2 text-sm font-semibold">Import and repurpose content</h3>
+          <SourceConnector provider="notion" initial={notion} canManage={canManageConnectors} />
+          <SourceConnector provider="youtube" initial={youtube} canManage={canManageConnectors} />
           <h3 className="mt-2 text-sm font-semibold">Publish to social media</h3>
           <BufferConnector
             connected={buffer.connected}

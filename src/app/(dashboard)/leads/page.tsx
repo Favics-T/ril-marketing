@@ -82,9 +82,10 @@ export default async function LeadsPage({
           title="No leads yet"
           description={
             stage === "all"
-              ? "Leads land here from landing pages, registration links, email campaigns, and manual entry."
+              ? "Create a campaign landing page and share its public link. People who submit its form will appear here for follow-up."
               : "No leads in this stage right now."
           }
+          action={stage === "all" ? { label: "Manage lead capture pages", href: "/audience/landing-pages" } : { label: "View all leads", href: "/leads" }}
         />
       ) : (
         <section className="slip overflow-hidden" aria-label="Lead records"><div className="workspace-list-heading"><span>Contact and funnel stage</span><span>Captured / score</span></div><ul className="ledger">

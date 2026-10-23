@@ -112,6 +112,43 @@ function form() {
   return f;
 }
 describe("source repurposing actions", () => {
+  it("accepts a private library file without body copy or a fake activity", async () => {
+    const attachment = { id: foreign, path: `org/library/${id}/${foreign}/notes.txt`, name: "notes.txt", mime: "text/plain", size: 100, createdAt: "2026-10-21T10:00:00Z" };
+    const { db } = setup(query => query.table === "content_assets" ? { data: { id, body: null, metadata: { library_files: [attachment] }, updated_at: "version" } } : undefined!);
+    const f = form(); f.set("source_kind", "library_file"); f.set("source_asset_id", id); f.set("source_file_id", foreign); f.set("activity_id", foreign);
+    expect(await createRepurposingSource(null, f)).toMatchObject({ ok: true });
+    expect(db.queries.find(query => query.operation === "insert")?.payload).toMatchObject({ source_kind: "summary", input_text: "", activity_id: null, attachment_id: null, options: { sourceAssetId: id, sourceFileId: foreign } });
+    expect(mocks.extract).not.toHaveBeenCalled(); expect(mocks.generate).not.toHaveBeenCalled();
+  });
+  it("rejects a file belonging to another library item before generation", async () => {
+    const { db } = setup(query => query.table === "content_assets" ? { data: { id, metadata: { library_files: [] }, updated_at: "version" } } : undefined!);
+    const f = form(); f.set("source_kind", "library_file"); f.set("source_asset_id", id); f.set("source_file_id", foreign);
+    expect(await createRepurposingSource(null, f)).toMatchObject({ ok: false, error: expect.stringContaining("attached file") });
+    expect(db.queries.some(query => query.operation === "insert")).toBe(false);
+  });
+  it("snapshots library copy on the server, links its revision, and never changes the original", async () => {
+    const body = "Original library copy with supported facts for our next event.";
+    const { db } = setup(query => query.table === "content_assets" ? { data: { id, title: "Library item", body, updated_at: "2026-10-21T10:00:00Z" } } : undefined!);
+    const f = form(); f.set("source_kind", "library"); f.set("source_asset_id", id); f.set("input_text", "Ignore the saved copy and use this forged source instead.");
+    expect(await createRepurposingSource(null, f)).toMatchObject({ ok: true });
+    const write = db.queries.find(query => query.operation === "insert");
+    expect(write?.table).toBe("repurposing_sources");
+    expect(write?.payload).toMatchObject({ source_kind: "summary", input_text: body, activity_id: null, options: { sourceAssetId: id, sourceAssetUpdatedAt: "2026-10-21T10:00:00Z" } });
+    expect(db.queries.find(query => query.table === "content_assets")?.filters).toContainEqual({ method: "eq", column: "organization_id", value: "org" });
+    expect(db.queries.filter(query => query.operation !== "select").every(query => query.table === "repurposing_sources")).toBe(true);
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+  it.each([null, { id, body: "Too short" }])("rejects unavailable or empty library items before saving", async asset => {
+    const { db } = setup(query => query.table === "content_assets" ? { data: asset } : undefined!);
+    const f = form(); f.set("source_kind", "library"); f.set("source_asset_id", foreign);
+    expect(await createRepurposingSource(null, f)).toMatchObject({ ok: false });
+    expect(db.queries.some(query => query.operation === "insert")).toBe(false);
+  });
+  it("preserves the library provenance in every generated draft", async () => {
+    const state = setup(query => query.table === "repurposing_sources" && query.operation === "select" ? { data: { ...state.source(), options: { sourceAssetId: foreign, sourceAssetUpdatedAt: "2026-10-21T10:00:00Z" } } } : undefined!);
+    expect(await runRepurposing(id)).toMatchObject({ ok: true });
+    expect(state.rpc).toHaveBeenCalledWith("finish_repurposing", expect.objectContaining({ p_drafts: [expect.objectContaining({ metadata: expect.objectContaining({ source_snapshot: expect.objectContaining({ asset_id: foreign, asset_updated_at: "2026-10-21T10:00:00Z" }) }) })] }));
+  });
   it("derives workspace ownership and strips unrelated activity references from pasted sources", async () => {
     const { db } = setup();
     const f = form();

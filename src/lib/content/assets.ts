@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { PublicationRow } from "@/lib/content/publications";
 import { CALENDAR_STATUSES, calendarAt } from "@/lib/content/calendar";
 import { reminderState, type ReminderState } from "@/lib/content/reminders";
+import { z } from "zod";
 
 export interface ContentAssetRow {
   id: string;
@@ -56,7 +57,11 @@ export async function listAssets(
     .range((page - 1) * pageSize, page * pageSize - 1);
   if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
   if (filters.channel && filters.channel !== "all") query = query.eq("channel", filters.channel);
-  if (filters.activityId && filters.activityId !== "all") query = query.eq("source_activity_id", filters.activityId);
+  if (filters.activityId && filters.activityId !== "all") {
+    const activity = z.uuid().safeParse(filters.activityId);
+    if (!activity.success) return { assets: [], total: 0 };
+    query = query.or(`source_activity_id.eq.${activity.data},metadata.cs.${JSON.stringify({ linked_activity_ids: [activity.data] })}`);
+  }
   if (filters.campaignId && filters.campaignId !== "all") query = query.eq("campaign_id", filters.campaignId);
   if (filters.q?.trim()) {
     const terms = filters.q

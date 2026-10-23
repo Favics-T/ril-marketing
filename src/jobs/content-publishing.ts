@@ -36,7 +36,7 @@ export async function processContentPublishingBatch(
     .from("publications")
     .select("organization_id,content_asset_id")
     .in("status", ["queued", "scheduled", "missed"])
-    .in("channel", ["buffer", "wordpress"])
+    .in("channel", ["buffer", "wordpress", "youtube"])
     .not("external_id", "is", null)
     .or(`scheduled_for.is.null,scheduled_for.lte.${new Date().toISOString()}`)
     .order("created_at", { ascending: true })

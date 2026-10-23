@@ -6,6 +6,7 @@ import { askMarketingAssistant } from "@/actions/assistant";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DisclosureSummary } from "@/components/ui/disclosure-summary";
+import { RichText } from "@/components/ui/rich-text";
 
 const questions = [
   "What should I work on next?",
@@ -57,7 +58,7 @@ export function MarketingAssistant({ aiConnected }: { aiConnected: boolean }) {
       {answer ? (
         <section className="slip assistant-response p-6 sm:p-7" aria-live="polite">
           <div className="flex flex-wrap items-center justify-between gap-2"><p className="dateline">Assistant recommendation</p><p className="dateline">{model === "workspace-summary" ? <Link href="/settings/ai" className="text-primary hover:underline">Connect AI provider</Link> : `Model · ${model}`}</p></div>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{answer}</p>
+          <div className="mt-3"><RichText>{answer}</RichText></div>
         </section>
       ) : null}
     </div>

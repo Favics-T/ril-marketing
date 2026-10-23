@@ -10,6 +10,8 @@ import { listActivityAttachments } from "@/lib/content/attachments";
 import { ActivityAttachments } from "@/components/content/activity-attachments";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ActivityLibraryContent } from "@/components/content/activity-library-content";
+import { activityLibraryItems } from "@/lib/content/library-attachments";
 
 export const metadata: Metadata = { title: "Activity" };
 
@@ -25,6 +27,7 @@ export default async function ActivityDetailPage({
 	const activity = await getActivity(orgId, id);
 	if (!activity) notFound();
 	const attachments = await listActivityAttachments(orgId, id);
+  const library = await activityLibraryItems(orgId, id);
 
 	const campaign = campaignFact(activity.campaign);
 	const facts: Array<{ label: string; value: string; href?: string | null }> = [
@@ -126,6 +129,7 @@ export default async function ActivityDetailPage({
 				</section>
 			</div>
 			<ActivityAttachments organizationId={orgId} activityId={activity.id} attachments={attachments} />
+      <ActivityLibraryContent activityId={activity.id} linked={library.linked} recent={library.recent} />
 		</div>
 	);
 }

@@ -7,6 +7,7 @@ import {
 } from "@/lib/integrations/oauth";
 import { bufferEnv, stageBufferHandshake } from "@/lib/integrations/buffer";
 import { getUserRole } from "@/lib/audience/access";
+import { stageYouTubeHandshake } from "@/lib/integrations/source-connections";
 
 /**
  * GET /api/integrations/[key]/connect — start OAuth.
@@ -27,14 +28,14 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const def = getOAuthProvider(key);
-    if (!def || key !== "buffer") {
+    if (key !== "youtube" && (!def || key !== "buffer")) {
       return NextResponse.json(
         { error: `${key} is not a supported connector yet.` },
         { status: 400 }
       );
     }
-    const env = bufferEnv();
-    if (!env) {
+    const env = key === "buffer" ? bufferEnv() : null;
+    if (key === "buffer" && !env) {
       settings.searchParams.set(
         "connect_error",
         "Social publishing isn't switched on for this workspace yet. Ask a workspace owner to register the Buffer app (BUFFER_CLIENT_ID)."
@@ -47,10 +48,14 @@ export async function GET(
     }
     const role = await getUserRole(organizationId);
     if (!role || !["owner", "admin", "marketing_manager"].includes(role)) return NextResponse.json({ error: "Connection settings require an owner, admin or marketing manager." }, { status: 403 });
+    if (key === "youtube") {
+      const redirectUri = new URL("/api/integrations/youtube/callback", request.url).toString();
+      return NextResponse.redirect(await stageYouTubeHandshake(organizationId, user.id, redirectUri));
+    }
     const { state, codeChallenge } = await stageBufferHandshake(organizationId);
     const redirectUri = new URL(`/api/integrations/${key}/callback`, request.url).toString();
     return NextResponse.redirect(
-      buildAuthorizeUrl(def, { clientId: env.clientId, redirectUri, state, codeChallenge })
+      buildAuthorizeUrl(def!, { clientId: env!.clientId, redirectUri, state, codeChallenge })
     );
   } catch (err) {
     settings.searchParams.set(

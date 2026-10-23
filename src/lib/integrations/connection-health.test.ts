@@ -9,8 +9,9 @@ vi.mock("./wordpress",()=>({getWordPressConfig:mocks.wp,verifyWordPressConnectio
 vi.mock("./strapi",()=>({getStrapiConfig:mocks.strapi,verifyStrapiConnection:mocks.strapiVerify}));
 vi.mock("./google-analytics",()=>({getGoogleAnalyticsConfig:mocks.google,verifyGoogleAnalyticsConnection:mocks.googleVerify}));
 vi.mock("./resend",()=>({getResendConfig:mocks.resend,verifyResendSender:mocks.sender}));
+vi.mock("./content-import",()=>({listNotionPages:async()=>({items:[]}),youtubeRequest:async()=>new Response(JSON.stringify({items:[{id:"channel"}]}))}));
 import {inspectProviderConnections} from "./connection-health";
-const keys=["ai","buffer","cms_wordpress","cms_strapi","google_analytics","email_resend"];
+const keys=["ai","buffer","cms_wordpress","cms_strapi","google_analytics","email_resend","notion","youtube"];
 function setup(rows:unknown[]=keys.map(key=>({key,status:"connected",config:{provider:"gemini",apiKey:"private-test-key",model:"gemini-3.8-flash"}}))) {
   const db=databaseMock(()=>({data:rows,error:null}));mocks.admin.mockReturnValue(db);return db;
 }
@@ -25,7 +26,7 @@ beforeEach(()=>{
 describe("provider health checks",()=>{
   it("reports missing setup instead of treating a saved flag as verification",async()=>{
     const db=setup([]);const result=await inspectProviderConnections("org");
-    expect(result).toHaveLength(6);expect(result.every(row=>row.state==="needs_setup")).toBe(true);
+    expect(result).toHaveLength(8);expect(result.every(row=>row.state==="needs_setup")).toBe(true);
     expect(mocks.model).not.toHaveBeenCalled();expect(mocks.sender).not.toHaveBeenCalled();
     expect(db.queries.every(q=>q.operation==="select")).toBe(true);
   });
@@ -37,7 +38,7 @@ describe("provider health checks",()=>{
   it.each([["cms_wordpress","wpVerify"],["google_analytics","googleVerify"],["cms_strapi","strapiVerify"],["buffer","buffer"]] as const)("keeps other checks usable when %s fails",async(key,method)=>{
     mocks[method].mockRejectedValueOnce(new Error("remote error containing private-test-key"));
     const result=await inspectProviderConnections("org");expect(result.find(row=>row.key===key)?.state).toBe("needs_attention");
-    expect(result.filter(row=>row.state==="ready")).toHaveLength(5);expect(JSON.stringify(result)).not.toContain("private-test-key");
+    expect(result.filter(row=>row.state==="ready")).toHaveLength(7);expect(JSON.stringify(result)).not.toContain("private-test-key");
   });
   it("does not accept empty or unusable Buffer channels as ready",async()=>{
     for(const channels of [[],[{isQueuePaused:true}],[{isLocked:true}],[{isDisconnected:true}]]) {

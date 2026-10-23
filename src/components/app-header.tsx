@@ -8,6 +8,7 @@ import { CustomSidebarTrigger } from "@/components/custom-sidebar-trigger";
 import { navGroups, navLinks } from "@/components/app-shared";
 import { NavUser } from "@/components/nav-user";
 import { WorkspaceSearch } from "@/components/workspace-search";
+import { WorkflowHelp } from "@/components/workflow-help";
 
 export function AppHeader({ userEmail }: { userEmail?: string }) {
 	const pathname = usePathname();
@@ -29,7 +30,7 @@ export function AppHeader({ userEmail }: { userEmail?: string }) {
 				"workspace-topbar sticky top-0 z-30 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b px-5 md:px-9 xl:px-12"
 			)}
 		>
-			<div className="flex items-center gap-3">
+			<div className="flex min-w-0 items-center gap-2 sm:gap-3">
 				<CustomSidebarTrigger />
 				<Separator
 					className="mr-2 h-4 data-[orientation=vertical]:self-center"
@@ -40,7 +41,8 @@ export function AppHeader({ userEmail }: { userEmail?: string }) {
 					<AppBreadcrumbs page={activeItem} />
 				</div>
 			</div>
-			<div className="flex items-center gap-3">
+			<div className="flex shrink-0 items-center gap-1 sm:gap-3">
+				<WorkflowHelp />
 				<WorkspaceSearch />
 				<NavUser email={userEmail} />
 			</div>

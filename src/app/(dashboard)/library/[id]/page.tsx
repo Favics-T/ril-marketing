@@ -1,7 +1,9 @@
 import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getConnectedChannelOptions } from "@/lib/content/connected-channels";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getAsset, listAssetApprovals, listAssetPublications } from "@/lib/content/assets";
@@ -27,8 +29,16 @@ import { RichText } from "@/components/ui/rich-text";
 import { getUserRole, isReviewerRole } from "@/lib/audience/access";
 import { formatReminderTime, reminderState } from "@/lib/content/reminders";
 import { ReminderFlag } from "@/components/content/reminder-flag";
+import { LibraryFiles } from "@/components/content/library-files";
+import { signedLibraryFiles } from "@/lib/content/library-attachments";
+import { linkedActivityIds } from "@/lib/content/library-files";
+import { DraftSessionProvider } from "@/components/content/draft-session";
+import { YouTubePublishAction } from "@/components/content/youtube-publish-action";
+import { sourceConnectionStatus } from "@/lib/integrations/source-connections";
+import { socialPost } from "@/lib/content/social-media";
 
 export const metadata: Metadata = { title: "Content asset" };
+export const maxDuration = 300;
 
 const statusLabel = (s: string) =>
 	s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -44,11 +54,15 @@ export default async function AssetDetailPage({
 
 	const asset = await getAsset(orgId, id);
 	if (!asset) notFound();
+  const channels = await getConnectedChannelOptions(orgId);
+  const files = await signedLibraryFiles(orgId, id, asset.metadata);
 	const socialAsset = isSocialAsset(asset.channel, asset.platform);
 	const manualPost = asset.metadata?.manual_post as { url?: string; recorded_at?: string } | undefined;
 	const liveUrl = typeof manualPost?.url === "string" ? parseLivePostUrl(manualPost.url) : null;
 	const [approvals, publications] = await Promise.all([listAssetApprovals(orgId, id), listAssetPublications(orgId, id)]);
 	const workflowClient = await createClient();
+  const activityIds = [...new Set([asset.source_activity_id, ...linkedActivityIds(asset.metadata)].filter((value): value is string => Boolean(value)))];
+  const linkedActivities = activityIds.length ? await workflowClient.from("activities").select("id,title").eq("organization_id", orgId).in("id", activityIds) : { data: [] };
  const canPublish=isReviewerRole(await getUserRole(orgId));
  const [signoffs, reviewers] = await Promise.all([
    workflowClient.from("content_signoffs").select("*").eq("organization_id", orgId).eq("content_asset_id", id).eq("approval_revision", asset.approval_revision ?? 1).order("tier"),
@@ -56,6 +70,10 @@ export default async function AssetDetailPage({
  ]);
  if (signoffs.error || reviewers.error) throw new Error("Could not load recorded approvals. Refresh before taking action.");
  const releaseReady = (signoffs.data?.length ?? 0) >= (needsSecondApproval(asset.approval_category ?? "standard", asset.sensitivity) ? 2 : 1);
+  const youtubeEligible = canPublish && releaseReady && asset.status === "approved" && [asset.platform, asset.channel].includes("youtube");
+  const youtube = youtubeEligible ? await sourceConnectionStatus(orgId, "youtube") : null;
+  const imported = asset.metadata?.external_import as { provider?: string; source_url?: string; warning?: string } | undefined;
+  const importUrl = imported?.source_url && /^https:\/\/(www\.)?(notion\.so|youtube\.com)\//.test(imported.source_url) ? imported.source_url : null;
 	const reminder = reminderState(asset);
 	const isCalendarProposal = asset.metadata?.calendar_generator === true;
 	const recommendationReason = typeof asset.metadata?.recommendation_reason === "string" ? asset.metadata.recommendation_reason : null;
@@ -90,7 +108,7 @@ export default async function AssetDetailPage({
 	].filter((m) => m.value);
 
 	return (
-		<div className="workspace-page flex flex-col gap-4 md:gap-6">
+		<DraftSessionProvider key={asset.id}><div className="workspace-page flex flex-col gap-4 md:gap-6">
 			<header>
 				<Link
 					href="/library"
@@ -102,7 +120,7 @@ export default async function AssetDetailPage({
 					<h1>
 						{asset.title}
 					</h1>
-					<StatusStamp status={asset.status} />
+          <div className="flex flex-wrap items-center gap-3"><StatusStamp status={asset.status} /><Button asChild variant="outline"><a href="#content-files">Files{files.filter(file => !file.removedAt).length ? ` (${files.filter(file => !file.removedAt).length})` : " & attachments"}</a></Button>{asset.body?.trim() || files.some(file => !file.removedAt) ? <Button asChild variant="outline"><Link href={`/repurpose?asset=${asset.id}`}><Copy aria-hidden="true" className="size-4" />Repurpose content</Link></Button> : null}</div>
 				</div>
 			</header>
 
@@ -134,7 +152,7 @@ export default async function AssetDetailPage({
 					) : null}
 					{seo && (seo.title || seo.description || seo.keywords?.length || seo.internalLinks?.length) ? <section className="border-t border-border/80 px-5 py-4 sm:px-6"><p className="dateline">SEO preparation</p>{seo.title ? <p className="mt-2 text-[13px] font-bold tracking-[-0.01em]">{seo.title}</p> : null}{seo.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{seo.description}</p> : null}{seo.keywords?.length ? <p className="mt-2 text-[13px] leading-5 text-muted-foreground">Target terms · {seo.keywords.join(", ")}</p> : null}{seo.internalLinks?.length ? <ul className="mt-2 flex flex-col gap-1 text-xs text-primary">{seo.internalLinks.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{url}</a></li>)}</ul> : null}<p className="mt-2 text-[13px] leading-5 text-muted-foreground">Editorial search metadata only. Search performance is not verified until analytics data is connected.</p></section> : null}
 					<GeneratedDetails metadata={asset.metadata} />
-					{["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor key={asset.updated_at} asset={asset} /> : null}
+					{["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor channels={channels} key={asset.updated_at} asset={asset} /> : null}
 					</section>
 
 				<div className="flex flex-col gap-4 lg:gap-6">
@@ -172,17 +190,19 @@ export default async function AssetDetailPage({
 					<section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
 						<div>
 							<p className="dateline">Approval pipeline</p>
-							<h2 className="mt-1 text-base font-bold">Move this asset</h2>
+							<h2 className="mt-1 text-base font-bold">Content status</h2>
 						</div>
 						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below, or change the schedule in the calendar.</p> : <AssetTransition key={asset.updated_at} assetId={asset.id} status={asset.status} manualSocialPosting={socialAsset} scheduledFor={asset.scheduled_for} expectedUpdatedAt={asset.updated_at} category={asset.approval_category} sensitivity={asset.sensitivity} signoffs={(signoffs.data ?? []) as ContentSignoff[]} reviewers={(reviewers.data ?? []) as ContentReviewer[]} authorId={asset.created_by} secondReviewerId={asset.second_reviewer_id} />}
 					</section>
 					{socialAsset && (releaseReady || ["published", "analysing"].includes(asset.status)) && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
 					{buffer ? <SocialPublishAction assetId={asset.id} connected={buffer.connected} channels={buffer.channels} copy={asset} updatedAt={asset.updated_at} /> : null}
+          {youtube ? <YouTubePublishAction key={asset.updated_at} assetId={asset.id} updatedAt={asset.updated_at} title={socialPost(asset.metadata).videoTitle || asset.title} connected={youtube.connected} accountName={youtube.accountName} files={files.filter(file => !file.removedAt && ["video/mp4", "video/quicktime", "video/webm"].includes(file.mime)).map(file => ({ id: file.id, name: file.name }))} /> : null}
+          {importUrl ? <section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Imported source</h2><a href={importUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline">Open original {imported?.provider === "notion" ? "Notion page" : "YouTube video"}</a><p className="text-sm leading-6 text-muted-foreground">This is an editable copy. Changes here do not change the original source.</p>{imported?.warning ? <p className="text-sm leading-6 text-muted-foreground">{imported.warning}</p> : null}</section> : null}
 					{socialAsset && asset.format !== "short-form video" ? <ContentDetails key={`media-${asset.updated_at}`} assetId={asset.id} updatedAt={asset.updated_at} metadata={asset.metadata} editable={["idea","ai_generated","editing"].includes(asset.status)} platform={asset.platform || asset.channel} /> : null}
 					{asset.metadata?.clip || asset.format === "short-form video" ? <ContentDetails key={`clip-${asset.updated_at}`} assetId={asset.id} updatedAt={asset.updated_at} metadata={asset.metadata} editable={["idea","ai_generated","editing"].includes(asset.status)} platform={asset.platform || asset.channel} clip /> : null}
 					{canPublish && socialAsset && ["approved","published","analysing"].includes(asset.status) ? <RecurringContent assetId={asset.id} /> : null}
 					{typeof asset.metadata?.repurposing_source_id === "string" ? <section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Source and interpretation</h2><Link className="text-sm text-primary underline" href={`/repurpose/${asset.metadata.repurposing_source_id}`}>Open original source and extraction</Link>{["interpretation_notes","missing_information"].map(key => Array.isArray(asset.metadata[key]) && (asset.metadata[key] as unknown[]).length ? <div key={key}><h3 className="text-sm font-semibold">{key === "interpretation_notes" ? "AI interpretation" : "Missing information"}</h3><ul className="list-disc pl-5 text-sm text-muted-foreground">{(asset.metadata[key] as unknown[]).filter((text):text is string=>typeof text==="string").map((text,index)=><li key={index}>{text}</li>)}</ul></div> : null)}</section> : null}
-					{publishing && asset.status === "scheduled" ? <PublicationStatus assetId={asset.id} provider={publishing.provider || "provider"} error={delivery?.data?.error} url={providerUrl} missingReceipt={!delivery?.data?.external_id} /> : null}
+					{publishing && asset.status === "scheduled" ? <PublicationStatus assetId={asset.id} provider={publishing.provider || "provider"} error={delivery?.data?.error} url={providerUrl} missingReceipt={!delivery?.data?.external_id && publishing.provider !== "youtube"} /> : null}
 					{providerUrl && asset.status === "published" ? <section className="slip p-5 sm:p-6"><p className="dateline">{socialAsset ? "Published post" : "Published article"}</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live {socialAsset ? "post" : "article"}</a></section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
 					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
@@ -216,6 +236,8 @@ export default async function AssetDetailPage({
 					</section>
 				</div>
 			</div>
-		</div>
+			<LibraryFiles organizationId={orgId} assetId={id} files={files} editable={["idea", "ai_generated", "editing"].includes(asset.status)} />
+      {linkedActivities.data?.length ? <section className="slip p-5 sm:p-6"><h2 className="text-base font-semibold">Linked activities</h2><ul className="mt-3 space-y-2">{linkedActivities.data.map(activity => <li key={activity.id}><Link href={`/activities/${activity.id}`} className="inline-flex min-h-9 items-center text-sm font-semibold text-primary underline">{activity.title}</Link>{asset.source_activity_id === activity.id ? <span className="ml-2 text-xs text-muted-foreground">Original source</span> : null}</li>)}</ul></section> : null}
+		</div></DraftSessionProvider>
 	);
 }

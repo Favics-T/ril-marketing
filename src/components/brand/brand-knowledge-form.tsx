@@ -46,7 +46,7 @@ export function BrandKnowledgeForm({
   }, [entry, router, state]);
 
   return (
-    <form action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+    <form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="brand-title">Entry name</Label>

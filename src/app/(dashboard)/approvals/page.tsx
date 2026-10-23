@@ -27,7 +27,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const items: Item[] = [
     ...(results[0].data??[]).map(r=>({...r,category:"content",href:`/library/${r.id}`})),
     ...(results[1].data??[]).map(r=>({...r,title:r.summary,category:"insights",href:`/audience/insights/${r.id}`})),
-    ...(results[2].data??[]).map(r=>({...r,title:r.name,category:"email",href:"/email"})),
+    ...(results[2].data??[]).map(r=>({...r,title:r.name,category:"email",href:`/email?review=${r.id}#email-${r.id}`})),
     ...(results[3].data??[]).map(r=>({...r,category:"pages",href:`/audience/landing-pages/${r.id}`})),
   ];
   const visible=items.filter(item=>filter==="all"||item.category===filter).sort((a,b)=>a.created_at.localeCompare(b.created_at));

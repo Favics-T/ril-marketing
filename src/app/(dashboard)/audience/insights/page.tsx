@@ -77,9 +77,10 @@ export default async function InsightsPage({
           title="No insights yet"
           description={
             status === "all"
-              ? "Insights appear after the audience-analysis pass runs over your engagement, registration, and conversion data."
+              ? "Findings are prepared from recorded engagement, registrations and conversions. Start by publishing reviewed content and collecting results."
               : "Nothing with this status right now."
           }
+          action={status === "all" ? { label: "View recorded results", href: "/analytics" } : { label: "View all insights", href: "/audience/insights" }}
         />
       ) : (
         <ul className="ledger slip overflow-hidden">

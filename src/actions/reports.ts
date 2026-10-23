@@ -25,6 +25,20 @@ export async function generateMarketingReport(formData: FormData): Promise<void>
   redirect("/reports");
 }
 
+export async function createReportDraft(_previous: { ok?: boolean; error?: string } | null, formData: FormData): Promise<{ ok?: boolean; error?: string }> {
+  const parsed = inputSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Choose a valid reporting period." };
+  try {
+    const organizationId = await requireOrganizationId();
+    const { data: { user } } = await createClient().then(client => client.auth.getUser());
+    await createMarketingReport(organizationId, parsed.data.period_type, parsed.data.period_start, parsed.data.period_end, user?.id ?? null);
+  } catch {
+    return { error: "Could not create the report. Check that you are signed in, then try again. Your existing reports are unchanged." };
+  }
+  revalidatePath("/reports");
+  return { ok: true };
+}
+
 export async function saveReportSchedule(formData: FormData): Promise<void> {
   const organizationId = await requireOrganizationId();
   const role = await getUserRole(organizationId);

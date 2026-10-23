@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 
 const selectClass =
 	"h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -48,7 +49,8 @@ export function ActivityForm({
 	}, [state, router]);
 
 	return (
-		<form action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+		<form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+			<p className="text-sm text-muted-foreground">Start with a name and what happened. Only the activity name is required; you can add files after saving.</p>
 			<div className="grid gap-5 sm:grid-cols-2">
 				<div className="space-y-2 sm:col-span-2">
 					<Label htmlFor="title">Activity name</Label>
@@ -65,8 +67,16 @@ export function ActivityForm({
 					<Label htmlFor="event_date">Event date</Label>
 					<Input id="event_date" name="event_date" type="date" defaultValue={activity?.event_date ?? ""} />
 				</div>
+				<div className="space-y-2 sm:col-span-2">
+					<Label htmlFor="description">What happened or is planned?</Label>
+					<Textarea id="description" name="description" rows={4} defaultValue={activity?.description ?? ""} placeholder="Describe the activity, key facts and who it is for." />
+				</div>
+			</div>
+			<details open={Boolean(activity?.registration_url || activity?.audience_segment_id || activity?.campaign_id || activity?.outcomes || activity?.speakers.length || activity?.partners.length)} className="border-t pt-4">
+				<DisclosureSummary>People, campaign &amp; registration (optional)</DisclosureSummary>
+				<div className="mt-4 grid gap-5 sm:grid-cols-2">
 				<div className="space-y-2">
-					<Label htmlFor="registration_url">Registration URL</Label>
+					<Label htmlFor="registration_url">Registration link</Label>
 					<Input
 						id="registration_url"
 						name="registration_url"
@@ -98,16 +108,6 @@ export function ActivityForm({
 						{campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
 					</select>
 				</div>
-				<div className="space-y-2 sm:col-span-2">
-					<Label htmlFor="description">Description</Label>
-					<Textarea
-						id="description"
-						name="description"
-						rows={4}
-						defaultValue={activity?.description ?? ""}
-						placeholder="What happened / will happen, key themes, who should care…"
-					/>
-				</div>
 				<div className="space-y-2">
 					<Label htmlFor="speakers">Speakers (one per line)</Label>
 					<Textarea id="speakers" name="speakers" rows={4} defaultValue={activity?.speakers.join("\n") ?? ""} />
@@ -127,6 +127,7 @@ export function ActivityForm({
 					/>
 				</div>
 			</div>
+			</details>
 			{state?.ok === false ? (
 				<p role="alert" className="text-sm text-destructive">
 					{state.error}

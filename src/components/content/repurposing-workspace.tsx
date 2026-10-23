@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import Link from "next/link";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 
 const selectClass = "h-11 rounded-md border border-input bg-card px-3 text-sm";
 const field = "flex flex-col gap-1.5 text-sm";
@@ -22,16 +24,25 @@ export function SourceCreateForm({
   files,
   initialActivity = "",
   initialAttachment = "",
+  library = [], initialAsset = "",
+  libraryFiles = [], initialFile = "",
 }: {
   activities: Array<{ id: string; title: string }>;
   files: Array<{ id: string; activity_id: string; file_name: string }>;
   initialActivity?: string;
   initialAttachment?: string;
+  library?: Array<{ id: string; title: string }>;
+  initialAsset?: string;
+  libraryFiles?: Array<{ id: string; assetId: string; name: string }>;
+  initialFile?: string;
 }) {
   const router = useRouter();
   const [kind, setKind] = useState(
-    initialAttachment ? "attachment" : "activity",
+    initialFile ? "library_file" : initialAsset ? "library" : initialAttachment ? "attachment" : initialActivity ? "activity" : "summary",
   );
+  const [assetId, setAssetId] = useState(initialAsset);
+  const [sourceFileId, setSourceFileId] = useState(initialFile);
+  const [title, setTitle] = useState(library.find(item => item.id === initialAsset)?.title ?? "");
   const [activity, setActivity] = useState(initialActivity);
   const [state, action, pending] = useActionState(
     createRepurposingSource,
@@ -41,18 +52,9 @@ export function SourceCreateForm({
     if (state?.ok && state.id) router.push(`/repurpose/${state.id}`);
   }, [state, router]);
   return (
-    <form action={action} className="slip flex flex-col gap-4 p-5 sm:p-6">
+    <form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-4 p-5 sm:p-6">
       <h2 className="text-lg font-semibold">Start with one source</h2>
-      <label className={field}>
-        Source title
-        <Input
-          name="title"
-          required
-          minLength={2}
-          maxLength={200}
-          placeholder="Name this recording, article or activity"
-        />
-      </label>
+      <p className="text-sm leading-6 text-muted-foreground">Choose what you want to reuse, then select the drafts you need. You&apos;ll check the source before starting AI generation.</p>
       <label className={field}>
         Source type
         <select
@@ -61,21 +63,29 @@ export function SourceCreateForm({
           value={kind}
           onChange={(event) => setKind(event.target.value)}
         >
-          {SOURCE_KINDS.map((value) => (
+          {["library", "library_file", ...SOURCE_KINDS].map((value) => (
             <option key={value} value={value}>
               {
                 {
+                  library: "Content Library item",
+                  library_file: "File attached to a Content Library item",
                   activity: "Activity and its source material",
                   attachment: "Attached video, audio, image or document",
                   url: "Public URL",
                   transcript: "Paste a transcript",
-                  summary: "Write a manual summary",
-                }[value]
+                  summary: "Paste text or write a summary",
+                }[value as "library" | "library_file" | typeof SOURCE_KINDS[number]]
               }
             </option>
           ))}
         </select>
       </label>
+      <label className={field}>
+        Source name
+        <Input name="title" value={title} onChange={event => setTitle(event.target.value)} disabled={pending} required minLength={2} maxLength={200} placeholder="A name to find this source later" />
+      </label>
+      {["library", "library_file"].includes(kind) ? <label className={field}>Content Library item<select aria-label="Content Library item" name="source_asset_id" value={assetId} onChange={event => { setAssetId(event.target.value); setSourceFileId(""); const selected = library.find(item => item.id === event.target.value); if (selected) setTitle(selected.title); }} className={selectClass} required disabled={pending}><option value="">Choose content to repurpose</option>{library.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select><span className="text-xs text-muted-foreground">The original item stays unchanged. Each generated version needs its own review.</span>{!library.length ? <span className="text-sm text-muted-foreground">Add content to the library first, or choose another source type.</span> : null}</label> : null}
+      {kind === "library_file" ? <label className={field}>Attached library file<select name="source_file_id" value={sourceFileId} onChange={event => setSourceFileId(event.target.value)} className={selectClass} required disabled={pending}><option value="">Choose an attached file</option>{libraryFiles.filter(file => file.assetId === assetId).map(file => <option key={file.id} value={file.id}>{file.name}</option>)}</select><span className="text-xs leading-5 text-muted-foreground">Documents and images support up to 8 MB; recordings up to 14 MB. Files stay private and AI runs only after you save and choose Generate drafts.</span>{assetId && !libraryFiles.some(file => file.assetId === assetId) ? <Link href={`/library/${assetId}#content-files`} className="text-xs font-semibold text-primary underline">Attach files to this item first</Link> : null}</label> : null}
       {["activity", "attachment"].includes(kind) ? (
         <label className={field}>
           Activity
@@ -93,6 +103,7 @@ export function SourceCreateForm({
               </option>
             ))}
           </select>
+          {!activities.length ? <span className="text-xs text-muted-foreground">No activities yet. <Link href="/activities/new" className="text-primary underline">Log an activity</Link>, or choose pasted text above.</span> : null}
         </label>
       ) : null}
       {kind === "attachment" ? (
@@ -138,7 +149,7 @@ export function SourceCreateForm({
       ) : null}
       {["transcript", "summary"].includes(kind) ? (
         <label className={field}>
-          {kind === "transcript" ? "Transcript" : "Manual summary"}
+          {kind === "transcript" ? "Transcript" : "Source text"}
           <Textarea
             name="input_text"
             rows={8}
@@ -162,7 +173,7 @@ export function SourceCreateForm({
               type="checkbox"
               name="kinds"
               value={item.kind}
-              defaultChecked
+              defaultChecked={item.kind === "blog"}
             />
             {item.label}
           </label>
@@ -173,7 +184,7 @@ export function SourceCreateForm({
           source supports them.
         </p>
       </fieldset>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <details className="border-t pt-3"><DisclosureSummary>Writing preferences (optional)</DisclosureSummary><div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className={field}>
           Newsletter style
           <select
@@ -204,11 +215,9 @@ export function SourceCreateForm({
           Call to action
           <Input name="cta" maxLength={200} />
         </label>
-      </div>
+      </div></details>
       <p className="text-xs leading-5 text-muted-foreground">
-        Saving creates an Idea. AI processing starts only when you choose
-        Generate on the next page. All output stays AI generated until a person
-        reviews it.
+        Next: review the saved source and choose Generate drafts. Saving here does not run AI or publish anything.
       </p>
       {state?.error ? (
         <p role="alert" className="text-sm text-destructive">
@@ -216,7 +225,7 @@ export function SourceCreateForm({
         </p>
       ) : null}
       <Button className="w-fit" type="submit" disabled={pending}>
-        {pending ? "Saving source…" : "Save source Idea"}
+        {pending ? "Saving source…" : "Save source & continue"}
       </Button>
     </form>
   );
@@ -236,11 +245,11 @@ export function SourceRunControls({ source }: { source: RepurposingSource }) {
   const active = source.status === "processing";
   return (
     <section className="slip flex flex-col gap-4 p-5 sm:p-6">
-      <h2 className="text-base font-semibold">Generate and recover</h2>
+      <h2 className="text-base font-semibold">{source.status === "completed" ? "Drafts are ready to review" : source.error ? "Finish creating your drafts" : "Create your drafts"}</h2>
       <p className="text-sm leading-6 text-muted-foreground">
         {active
           ? "A run is processing this source. Refresh to see its result. Interrupted runs can be retried after ten minutes."
-          : "Extraction is saved before generation. If a format fails, saved drafts are kept and retries fill missing outputs."}
+          : source.status === "completed" ? "Open a generated draft below to check the copy and request review. The original source stays unchanged." : "Generate drafts from this saved source. Check each result against the original before sending it for review. If a format fails, you can retry without losing successful drafts."}
       </p>
       <div className="flex flex-wrap gap-2">
         <Button

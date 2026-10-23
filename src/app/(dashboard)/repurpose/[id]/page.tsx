@@ -42,9 +42,9 @@ export default async function SourcePage({
         </Link>
         <h1 className="mt-2">{source.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {source.source_kind} · Revision {source.revision} ·{" "}
+          {source.options.sourceFileId ? "Content Library file" : source.options.sourceAssetId ? "Content Library" : { activity: "Activity", attachment: "Source file", url: "Public link", transcript: "Transcript", summary: "Source text" }[source.source_kind]} · Version {source.revision} ·{" "}
           {source.status === "idea"
-            ? "Idea"
+            ? "Ready to generate"
             : source.status === "completed"
               ? "Drafts generated"
               : "Processing"}
@@ -54,7 +54,7 @@ export default async function SourcePage({
         <div className="flex flex-col gap-6">
           <SourceRunControls key={source.updated_at} source={source} />
           <section className="slip flex flex-col gap-3 p-5 sm:p-6">
-            <h2 className="text-base font-semibold">Generated assets</h2>
+            <h2 className="text-base font-semibold">Generated drafts</h2>
             {outputs?.length ? (
               <ul className="flex flex-col gap-3">
                 {outputs.map((row, index) => {
@@ -86,8 +86,7 @@ export default async function SourcePage({
               </ul>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No drafts yet. Failed extraction keeps the source as an Idea,
-                with retry and manual recovery available above.
+                No drafts yet. Choose Generate drafts above, then open each result here to edit and request review.
               </p>
             )}
             {source.analysis.warnings?.length ? (
@@ -101,6 +100,7 @@ export default async function SourcePage({
         </div>
         <section className="slip flex flex-col gap-4 p-5 sm:p-6">
           <h2 className="text-base font-semibold">Source evidence</h2>
+          {source.options.sourceAssetId ? <><Link href={`/library/${source.options.sourceAssetId}${source.options.sourceFileId ? "#content-files" : ""}`} className="text-sm font-semibold text-primary underline">Original Content Library item{source.options.sourceFileId ? " & source file" : ""}</Link><p className="text-xs text-muted-foreground">{source.options.sourceFileId ? "This source reads the attached private file. Uploaded files are not overwritten; extracted evidence is saved before drafting." : "This source uses the copy saved when it was created. Later edits to the original do not change this revision."}</p></> : null}
           {source.source_url ? (
             <a
               href={source.source_url}
@@ -115,8 +115,7 @@ export default async function SourcePage({
             <RichText>{source.analysis.summary}</RichText>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Evidence appears after extraction. Nothing has been invented to
-              fill this space.
+              A source summary appears after processing. Check the original text or file before generating drafts.
             </p>
           )}
           {["topics", "quotes", "statistics", "angles", "callsToAction"].map(

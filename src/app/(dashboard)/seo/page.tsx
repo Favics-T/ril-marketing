@@ -65,7 +65,7 @@ export default async function SeoWorkspacePage() {
 
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4"><div><p className="dateline">Editorial queue · {assets.length} drafts</p><h2 className="mt-1 text-lg font-bold">Website content</h2></div><Link href="/library?channel=website" className="inline-flex min-h-9 items-center rounded-md py-2 text-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">Open Content Library</Link></div>
-      {!assets.length ? <EmptyState title="No website drafts to review" description="Create a blog draft from an activity or move an existing website asset into Editing to start its search optimization workflow." /> : <ul className="flex flex-col gap-3">{assets.map((asset) => <SeoAssetWorkflow key={asset.id} asset={{ id: asset.id, title: asset.title, body: asset.body, status: asset.status, topic: asset.topic, channel: asset.channel, seo: asset.audit, seoAppliedAt: asset.appliedAt }} />)}</ul>}
+      {!assets.length ? <EmptyState title="No website drafts to review" description="Create a blog draft with body copy. Editable website articles appear here for search checks before review." action={{ label: "Create a blog draft", href: "/library/new?channel=website&format=blog" }} /> : <ul className="flex flex-col gap-3">{assets.map((asset) => <SeoAssetWorkflow key={asset.id} asset={{ id: asset.id, title: asset.title, body: asset.body, status: asset.status, topic: asset.topic, channel: asset.channel, seo: asset.audit, seoAppliedAt: asset.appliedAt }} />)}</ul>}
     </section>
 
     <section className="slip p-5">

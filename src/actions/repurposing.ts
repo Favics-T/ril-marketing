@@ -20,6 +20,7 @@ import {
 } from "@/lib/content/repurposing-source";
 import { publicResourceUrl } from "@/lib/integrations/public-resource";
 import { getActivity } from "@/lib/content/activities";
+import { libraryFiles } from "@/lib/content/library-files";
 
 function refresh(id: string) {
   revalidatePath("/repurpose");
@@ -42,9 +43,11 @@ export async function createRepurposingSource(
 ) {
   try {
     const { org, client, user } = await caller();
+    const libraryFileSource = form.get("source_kind") === "library_file";
+    const librarySource = form.get("source_kind") === "library" || libraryFileSource;
     const parsed = sourceInputSchema.parse({
       title: form.get("title"),
-      source_kind: form.get("source_kind"),
+      source_kind: librarySource ? "summary" : form.get("source_kind"),
       activity_id: form.get("activity_id") || null,
       attachment_id: form.get("attachment_id") || null,
       source_url: form.get("source_url") || "",
@@ -57,6 +60,25 @@ export async function createRepurposingSource(
         cta: form.get("cta") || "",
       },
     });
+    if (librarySource) {
+      const assetId = z.uuid().parse(form.get("source_asset_id"));
+      const { data: asset, error } = await client.from("content_assets")
+        .select("id,title,body,metadata,updated_at").eq("organization_id", org).eq("id", assetId).maybeSingle();
+      if (error || !asset) throw new Error("Choose content from this workspace's library.");
+      parsed.options = { ...parsed.options, sourceAssetId: asset.id, sourceAssetUpdatedAt: asset.updated_at };
+      if (libraryFileSource) {
+        const fileId = z.uuid().parse(form.get("source_file_id"));
+        const file = libraryFiles(asset.metadata, org, asset.id).find(file => file.id === fileId);
+        if (!file) throw new Error("Choose an attached file from this library item.");
+        if (file.size > (file.mime.startsWith("audio/") || file.mime.startsWith("video/") ? 14 : 8) * 1024 * 1024) throw new Error("This file is too large for repurposing. Use a recording up to 14 MB, or a document or image up to 8 MB.");
+        parsed.input_text = "";
+        parsed.options.sourceFileId = file.id;
+      } else {
+        if (typeof asset.body !== "string" || asset.body.trim().length < 30) throw new Error("Add at least 30 characters of content, or choose an attached library file to repurpose.");
+        if (asset.body.length > 50000) throw new Error("This item is too long. Use a shorter source summary instead.");
+        parsed.input_text = asset.body;
+      }
+    }
     if (
       parsed.options.newsletterStyle &&
       !NEWSLETTER_STYLES.includes(
@@ -91,7 +113,7 @@ export async function createRepurposingSource(
     else parsed.source_url = "";
     if (
       ["summary", "transcript"].includes(parsed.source_kind) &&
-      parsed.input_text.trim().length < 30
+      parsed.input_text.trim().length < 30 && !parsed.options.sourceFileId
     )
       throw new Error("Supply at least 30 characters of source text.");
     const { data, error } = await createAdminClient()
@@ -340,6 +362,9 @@ export async function runRepurposing(id: string) {
           summary: analysis.summary,
           transcript: analysis.transcript,
           manual: !!source.manual_summary,
+          asset_id: source.options.sourceAssetId ?? null,
+          asset_updated_at: source.options.sourceAssetUpdatedAt ?? null,
+          file_id: source.options.sourceFileId ?? null,
         },
       },
     }));

@@ -40,12 +40,12 @@ export default async function CampaignsPage() {
         </p>
       </div>
 
-      <CampaignCreate segments={segments.map(({ id, name }) => ({ id, name }))} />
+      <CampaignCreate initiallyOpen={campaigns.length === 0} segments={segments.map(({ id, name }) => ({ id, name }))} />
 
       {campaigns.length === 0 ? (
         <EmptyState
           title="No campaigns yet"
-          description="Campaigns group content, leads, and performance around one objective. They appear here once created."
+          description="Open Create a campaign above. Give it a name and objective, then link its activities and content so their results stay together."
         />
       ) : (
         <ul className="flex flex-col gap-6">

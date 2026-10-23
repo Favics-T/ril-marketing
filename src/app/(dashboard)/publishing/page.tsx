@@ -36,7 +36,7 @@ export default async function PublishingPage({ searchParams }: { searchParams: P
   };
   return <div className="workspace-page flex flex-col gap-6">
     <header className="flex flex-wrap items-end justify-between gap-4">
-      <div><h1>Social publishing</h1><p className="mt-2 max-w-[64ch] text-sm leading-6 text-muted-foreground">Review your posts, send approved copy through Buffer, or post manually and record the live link.</p></div>
+      <div><h1>Social publishing</h1><p className="mt-2 max-w-[64ch] text-sm leading-6 text-muted-foreground">Review your posts, send approved copy through Buffer, upload approved videos directly to YouTube, or post manually and record the live link.</p></div>
       <Button asChild><Link href="/library/new"><Plus data-icon="inline-start" aria-hidden="true" />Create content</Link></Button>
     </header>
     <section aria-label="Publishing connection" className="slip flex flex-wrap items-center justify-between gap-4 p-5">
@@ -60,7 +60,7 @@ export default async function PublishingPage({ searchParams }: { searchParams: P
         <Link href={`/library/${asset.id}`} className="group block min-w-0 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"><h2 className="break-words text-base font-semibold group-hover:text-primary">{asset.title}</h2><p className="mt-2 line-clamp-2 break-words text-sm leading-6 text-muted-foreground">{asset.body || "No post copy yet."}</p></Link>
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>{asset.status === "scheduled" ? `${request?.provider && request.state !== "failed" ? "Provider delivery" : "Manual posting reminder"} · ${formatDayTime(asset.scheduled_for)}` : asset.published_at ? `Published ${formatDayTime(asset.published_at)}` : `Updated ${formatDayTime(asset.updated_at)}`}</span><div className="flex flex-wrap items-center gap-4">{liveUrl ? <a href={liveUrl} target="_blank" rel="noreferrer" className="font-semibold text-primary underline underline-offset-4">View live post</a> : null}<Link href={`/library/${asset.id}`} className="font-semibold text-primary underline underline-offset-4">{asset.status === "review" ? "Review post" : asset.status === "approved" ? "Prepare to publish" : asset.status === "scheduled" ? "Manage delivery" : "View post"}</Link></div></div>
       </li>;
-    })}</ul> : <EmptyState title="No posts in this view" description="Create a social draft or choose another publishing stage." />}
+    })}</ul> : <EmptyState title="No posts in this view" description="Create a social draft, request review, then return here to publish the approved copy." action={{ label: "Create a social draft", href: "/library/new" }} />}
     {result.total > 20 ? <nav aria-label="Social post pages" className="flex items-center justify-between gap-4"><span className="text-sm text-muted-foreground">Page {result.page} of {Math.ceil(result.total / 20)}</span><div className="flex gap-2">{result.page > 1 ? <Button asChild variant="outline"><Link href={href(result.stage, result.page - 1)}>Previous</Link></Button> : null}{result.page * 20 < result.total ? <Button asChild variant="outline"><Link href={href(result.stage, result.page + 1)}>Next</Link></Button> : null}</div></nav> : null}
   </div>;
 }

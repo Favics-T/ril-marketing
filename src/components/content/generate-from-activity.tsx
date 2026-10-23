@@ -55,7 +55,7 @@ export function GenerateFromActivity({ activityId }: { activityId: string }) {
 				) : null}
 				<div className="flex flex-wrap gap-2">
 					<Button asChild size="sm" className="w-fit">
-						<Link href="/library">Review in Content Library</Link>
+						<Link href={`/library?activity=${activityId}`}>Review these drafts</Link>
 					</Button>
 					{failed.length ? (
 						<Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => retry(failed)}>

@@ -23,6 +23,7 @@ vi.mock("@/lib/content/document-text", () => ({
 }));
 import { extractRepurposingSource } from "./repurposing-extraction";
 import { htmlSourceText, parseSourceAnalysis } from "./repurposing-source";
+import { databaseMock } from "@/test/database-mock";
 const source = {
   organization_id: "org",
   source_kind: "transcript",
@@ -33,6 +34,25 @@ const source = {
 } as RepurposingSource;
 beforeEach(() => vi.clearAllMocks());
 describe("grounded source extraction", () => {
+  it("reads a workspace-scoped private library file, including a retained source attachment", async () => {
+    const assetId = "70000000-0000-4000-8000-000000000002", fileId = "70000000-0000-4000-8000-000000000003";
+    const path = `org/library/${assetId}/${fileId}/notes.txt`;
+    const db = databaseMock(() => ({ data: { id: assetId, metadata: { library_files: [{ id: fileId, path, name: "notes.txt", mime: "text/plain", size: 100, createdAt: "2026-10-21T10:00:00Z", removedAt: "2026-10-21T11:00:00Z" }] } } }));
+    const download = vi.fn().mockResolvedValue({ data: new Blob(["Supported facts from the original attached source document."]), error: null });
+    mocks.client.mockResolvedValue({ ...db, storage: { from: () => ({ download }) } });
+    mocks.document.mockResolvedValue("Supported facts from the original attached source document.");
+    mocks.text.mockResolvedValue({ text: JSON.stringify({ summary: "A supported summary of the attached document." }) });
+    await extractRepurposingSource({ ...source, source_kind: "summary", input_text: "", options: { sourceAssetId: assetId, sourceFileId: fileId } });
+    expect(download).toHaveBeenCalledWith(path);
+    expect(db.queries[0].filters).toContainEqual({ method: "eq", column: "organization_id", value: "org" });
+    expect(db.queries[0].filters).toContainEqual({ method: "eq", column: "id", value: assetId });
+    expect(mocks.resource).not.toHaveBeenCalled();
+  });
+  it("does not download or send AI data for unavailable library sources", async () => {
+    const db = databaseMock(() => ({ data: null })); mocks.client.mockResolvedValue(db);
+    await expect(extractRepurposingSource({ ...source, options: { sourceAssetId: "missing", sourceFileId: "missing" } })).rejects.toThrow("no longer available");
+    expect(mocks.text).not.toHaveBeenCalled(); expect(mocks.media).not.toHaveBeenCalled();
+  });
   it("keeps verbatim source text, discards invented quotes and preserves only supplied timestamps", async () => {
     mocks.text.mockResolvedValue({
       text: JSON.stringify({

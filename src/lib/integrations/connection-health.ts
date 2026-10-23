@@ -9,6 +9,7 @@ import { getStrapiConfig, verifyStrapiConnection } from "./strapi";
 import { getGoogleAnalyticsConfig, verifyGoogleAnalyticsConnection } from "./google-analytics";
 import { getResendConfig, verifyResendSender } from "./resend";
 import { publicAppOrigin } from "./public-app-origin";
+import { listNotionPages, youtubeRequest } from "./content-import";
 
 export type ConnectionHealth = {
   key: string;
@@ -27,6 +28,8 @@ export async function inspectProviderConnections(organizationId: string): Promis
   const definitions = [
     { key: "ai", name: "AI writing", href: "/settings/ai#ai-provider-heading", setup: "Choose your AI provider and add its connection key." },
     { key: "buffer", name: "Buffer", href: "/settings/ai#connection-buffer", setup: "Add a Buffer API key, then link your social accounts inside Buffer." },
+    { key: "notion", name: "Notion", href: "/settings/ai#connection-notion", setup: "Add a Notion connection secret and share your source pages with that connection." },
+    { key: "youtube", name: "YouTube", href: "/settings/ai#connection-youtube", setup: "Save your Google app details, then authorize your YouTube channel." },
     { key: "cms_wordpress", name: "WordPress", href: "/settings/ai#connection-cms_wordpress", setup: "Add your WordPress address, username and application password." },
     { key: "cms_strapi", name: "Strapi", href: "/settings/ai#connection-cms_strapi", setup: "Add your Strapi address, API token and article collection." },
     { key: "google_analytics", name: "Google Analytics & Search Console", href: "/settings/ai#connection-google_analytics", setup: "Add your Google service-account key and give it access to both properties." },
@@ -40,6 +43,15 @@ export async function inspectProviderConnections(organizationId: string): Promis
     if (!envAi && row?.status !== "connected") return result("needs_setup", definition.setup);
     try {
       switch (definition.key) {
+        case "notion": {
+          const pages = await listNotionPages(organizationId, "");
+          return result("ready", pages.items.length ? "Notion returned shared pages. Nothing was imported." : "Notion accepts the connection. Share pages with it before importing content.");
+        }
+        case "youtube": {
+          const response = await youtubeRequest(organizationId, "channels?part=snippet&mine=true");
+          const payload = await response.json();
+          return payload.items?.length ? result("ready", "YouTube returned your channel. Nothing was uploaded or published.") : result("needs_attention", "No YouTube channel was returned. Reconnect the correct channel.");
+        }
         case "ai": {
           const providerValue = envAi ? process.env.AI_PROVIDER ?? "openai" : row?.config.provider;
           if (!isProviderKey(providerValue)) return result("needs_attention", "Choose a supported AI provider and save its key again.");
@@ -92,6 +104,8 @@ export async function inspectProviderConnections(organizationId: string): Promis
       const recovery: Record<string, string> = {
         ai: "Recheck your AI provider, key and model.",
         buffer: "Reconnect the Buffer key and refresh linked accounts.",
+        notion: "Reconnect Notion and share the source pages with your connection.",
+        youtube: "Reconnect YouTube, enable YouTube Data API v3, and check the Google app's quota and consent setup.",
         cms_wordpress: "Use Test connection in WordPress setup to check the address, application password and publishing permissions.",
         cms_strapi: "Check the Strapi address, token and collection permissions, then save again.",
         google_analytics: "Check the Google key file, enable both APIs, and grant the service account access to GA4 and Search Console.",

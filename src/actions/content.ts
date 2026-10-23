@@ -15,6 +15,7 @@ import { NEWSLETTER_STYLES, REPURPOSE_KINDS, type GenerationOptions, type Repurp
 import { loadActivitySourceMaterial } from "@/lib/content/source-material";
 import { APPROVAL_CATEGORIES } from "@/lib/content/workflow";
 import { CHANNELS, normalizeChannel } from "@/lib/content/channels";
+import { getConnectedChannelOptions } from "@/lib/content/connected-channels";
 import { testAiConnection } from "@/lib/ai/provider";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secret-box";
 import { syncIndustryTrends } from "@/jobs/trend-monitoring";
@@ -655,13 +656,16 @@ export async function updateContentDraft(
 
     const { data: asset } = await supabase
       .from("content_assets")
-      .select("status,metadata,updated_at")
+      .select("status,metadata,updated_at,channel")
       .eq("organization_id", organizationId)
       .eq("id", assetId)
-      .maybeSingle<{ status: string; metadata: Record<string, unknown> | null; updated_at: string }>();
+      .maybeSingle<{ status: string; metadata: Record<string, unknown> | null; updated_at: string; channel: string | null }>();
     if (!asset) return { ok: false, error: "Content draft not found." };
     if (!["idea", "ai_generated", "editing"].includes(asset.status)) {
       return { ok: false, error: "Move this asset back to Editing before changing its copy." };
+    }
+    if (parsed.data.channel && parsed.data.channel !== normalizeChannel(asset.channel) && !(await getConnectedChannelOptions(organizationId)).some(([value]) => value === parsed.data.channel)) {
+      return { ok: false, error: "This channel is no longer connected. Refresh the page or connect it in Settings." };
     }
     const previousMetadata = asset.metadata ?? {};
     const metadata = {
@@ -715,6 +719,9 @@ export async function createManualAsset(formData: FormData): Promise<ActionResul
     });
     if (!parsed.success) {
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    }
+    if (parsed.data.channel && !(await getConnectedChannelOptions(organizationId)).some(([value]) => value === parsed.data.channel)) {
+      return { ok: false, error: "Choose a connected channel, or leave the draft unassigned." };
     }
     const supabase = await createClient();
     const { data, error } = await supabase

@@ -12,6 +12,7 @@ import {
 import { loadActivitySourceMaterial } from "@/lib/content/source-material";
 import { getActivity } from "@/lib/content/activities";
 import { readPublicResource } from "@/lib/integrations/public-resource";
+import { libraryFiles, LIBRARY_FILE_BUCKET } from "./library-files";
 import {
   htmlSourceText,
   parseSourceAnalysis,
@@ -28,7 +29,16 @@ export async function extractRepurposingSource(
     mime = "",
     bytes: Buffer | undefined;
   if (!source.manual_summary.trim()) {
-    if (source.source_kind === "activity") {
+    if (source.options?.sourceFileId) {
+      const client = await createClient();
+      const { data: asset, error } = await client.from("content_assets").select("id,metadata").eq("organization_id", source.organization_id).eq("id", source.options.sourceAssetId).maybeSingle();
+      const file = !error && asset ? libraryFiles(asset.metadata, source.organization_id, asset.id, true).find(file => file.id === source.options.sourceFileId) : null;
+      if (!file) throw new Error("This library source file is no longer available in this workspace.");
+      if (file.size > 14 * 1024 * 1024) throw new Error("This source exceeds 14 MB. Use a shorter file or paste its transcript.");
+      const { data, error: downloadError } = await client.storage.from(LIBRARY_FILE_BUCKET).download(file.path);
+      if (downloadError || !data) throw new Error("The private library file could not be read. Refresh and try again.");
+      bytes = Buffer.from(await data.arrayBuffer()); mime = file.mime;
+    } else if (source.source_kind === "activity") {
       if (!source.activity_id) throw new Error("Choose a source activity.");
       const activity = await getActivity(
         source.organization_id,

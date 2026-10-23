@@ -37,6 +37,9 @@ export type ContentLength = "short" | "standard" | "long";
  * prompt resolves sensible defaults so the UI can add controls later.
  */
 export interface GenerationOptions {
+  sourceAssetId?: string;
+  sourceAssetUpdatedAt?: string;
+  sourceFileId?: string;
   tone?: string;
   length?: ContentLength;
   audience?: string;

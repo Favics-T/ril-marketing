@@ -25,6 +25,9 @@ export const sourceInputSchema = z.object({
       tone: z.string().max(120),
       seoFocusKeyword: z.string().max(80),
       cta: z.string().max(200),
+      sourceAssetId: z.uuid(),
+      sourceAssetUpdatedAt: z.string().max(80),
+      sourceFileId: z.uuid(),
     })
     .partial(),
 });

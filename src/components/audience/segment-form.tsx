@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 
 type ProgramOption = { id: string; name: string };
 
@@ -49,7 +50,8 @@ export function SegmentForm({
 	}, [editing, state, router]);
 
 	return (
-		<form action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+		<form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+			<p className="text-sm leading-6 text-muted-foreground">Name the group and describe who it includes. Add preferences when you know them; you can update them later.</p>
 			<div className="space-y-2">
 				<Label htmlFor="name">Segment name</Label>
 				<Input
@@ -70,7 +72,7 @@ export function SegmentForm({
 					defaultValue={segment?.description ?? ""}
 				/>
 			</div>
-			<div className="grid gap-5 sm:grid-cols-2">
+			<details className="border-t pt-4"><DisclosureSummary>Audience preferences (optional)</DisclosureSummary><div className="mt-4 grid gap-5 sm:grid-cols-2">
 				<div className="space-y-2">
 					<Label htmlFor="needs_motivations">Needs &amp; motivations (one per line)</Label>
 					<Textarea
@@ -81,7 +83,7 @@ export function SegmentForm({
 					/>
 				</div>
 				<div className="space-y-2">
-					<Label htmlFor="preferred_hooks">Hooks that land (one per line)</Label>
+					<Label htmlFor="preferred_hooks">Messages that resonate (one per line)</Label>
 					<Textarea
 						id="preferred_hooks"
 						name="preferred_hooks"
@@ -107,7 +109,7 @@ export function SegmentForm({
 						defaultValue={(segment?.preferred_platforms ?? []).join(", ")}
 					/>
 				</div>
-			</div>
+			</div></details>
 			{programs.length ? (
 				<fieldset className="space-y-2">
 					<legend className="dateline">Linked programs</legend>

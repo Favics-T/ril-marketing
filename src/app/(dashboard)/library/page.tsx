@@ -31,6 +31,7 @@ export default async function LibraryPage({
   const channel = sp.channel ?? "all";
   const activity = sp.activity ?? "all";
   const campaign = sp.campaign ?? "all";
+  const hasFilters = status !== "all" || Boolean(q) || channel !== "all" || activity !== "all" || campaign !== "all";
 
   const orgId = await getCallerOrganizationId();
   const supabase = orgId ? await createClient() : null;
@@ -86,13 +87,13 @@ export default async function LibraryPage({
         <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
           Manage drafts, review content, and keep track of everything you publish.
         </p>
-      </div><Button asChild><Link href="/library/new"><Plus data-icon="inline-start" aria-hidden="true" />Add content</Link></Button></header>
+      </div><div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href="/library/import">Import content</Link></Button><Button asChild><Link href="/library/new"><Plus data-icon="inline-start" aria-hidden="true" />Add content</Link></Button></div></header>
 
       <form method="get" action="/library" className="slip grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
         {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
         <label className="flex flex-col gap-1.5 lg:col-span-2"><span className="dateline">Search copy</span><input name="q" defaultValue={q} maxLength={200} placeholder="Title or draft text" className="h-10 rounded-lg border border-input bg-background px-3 text-sm" /></label>
         <label className="flex flex-col gap-1.5"><span className="dateline">Channel</span><ChannelSelect key={channel} name="channel" defaultValue={channel} className="h-10" options={[["all", "All channels"], ...channelOptions.map(value => [value, channelLabel(value)] as const)]} /></label>
-        <label className="flex flex-col gap-1.5"><span className="dateline">Source activity</span><select name="activity" defaultValue={activity} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All activities</option>{activityOptions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+        <label className="flex flex-col gap-1.5"><span className="dateline">Activity</span><select name="activity" defaultValue={activity} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All activities</option>{activityOptions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
         <label className="flex flex-col gap-1.5"><span className="dateline">Campaign</span><select name="campaign" defaultValue={campaign} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All campaigns</option>{campaignOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <div className="flex items-center justify-end gap-2 sm:col-span-2 lg:col-span-5"><Button variant="ghost" asChild><Link href="/library">Clear filters</Link></Button><Button type="submit" className="min-h-10 rounded-lg px-4 text-[13px] font-semibold">Apply filters</Button></div>
       </form>
@@ -112,22 +113,22 @@ export default async function LibraryPage({
 
       {result.assets.length === 0 ? (
         <EmptyState
-          title="No content yet"
+          title={hasFilters ? "No content matches these filters" : "No content yet"}
           description={
-            status === "all"
-              ? "Assets appear once you generate content from an activity or create one manually."
-              : "No assets match this filter. Try another stage."
+            hasFilters ? "Clear the filters to see all content, or add a new draft."
+              : "Write or paste your first draft. You can also repurpose an activity, file or existing source."
           }
+          action={hasFilters ? { label: "Clear filters", href: "/library" } : { label: "Add content", href: "/library/new" }}
         />
       ) : (
         <section className="slip overflow-hidden" aria-label="Content assets">
         <div className="workspace-list-heading"><span>Content and channel</span><span>Last activity</span></div>
         <ul className="ledger">
           {result.assets.map((a) => (
-            <li key={a.id}>
+            <li key={a.id} className="flex flex-col sm:flex-row sm:items-center">
               <Link
                 href={`/library/${a.id}`}
-                className="content-library-row flex items-start justify-between gap-4 px-5 py-4 outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
+                className="content-library-row flex min-w-0 flex-1 items-start justify-between gap-4 px-5 py-4 outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
               >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -157,6 +158,7 @@ export default async function LibraryPage({
                   : formatDay(a.scheduled_for ?? a.published_at ?? a.created_at)}
               </span>
               </Link>
+              <Link href={`/repurpose?asset=${a.id}`} aria-label={`Repurpose ${a.title}`} className="mx-5 mb-3 inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm font-semibold text-primary outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring sm:mx-3 sm:mb-0">Repurpose</Link>
             </li>
           ))}
         </ul></section>

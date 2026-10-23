@@ -5,12 +5,13 @@ import { getBufferPost } from "@/lib/integrations/buffer";
 import { getWordPressConfig, getWordPressPost } from "@/lib/integrations/wordpress";
 import { getStrapiConfig, getStrapiDelivery } from "@/lib/integrations/strapi";
 import { socialPost } from "@/lib/content/social-media";
+import { getYouTubeDelivery } from "@/lib/integrations/youtube-publishing";
 
 export type DeliveryPost = { id: string; status: "queued" | "published" | "failed"; scheduledFor?: string | null; publishedAt?: string | null; url?: string; error?: string; sourceText?: string; sourceChannelId?: string; sourceMediaUrls?: string[]; sourceSlug?: string; seoSaved?: boolean | null };
 export type PublishingAsset = { id: string; status: string; updated_at: string; metadata: Record<string, unknown> | null };
 
 // Claim the asset version before any provider call; a second click cannot submit the same approved copy.
-export async function claimPublication(org: string, asset: PublishingAsset, provider: "buffer" | "wordpress" | "strapi", actorId: string, scheduledFor?: string, bufferChannelId?: string) {
+export async function claimPublication(org: string, asset: PublishingAsset, provider: "buffer" | "wordpress" | "strapi" | "youtube", actorId: string, scheduledFor?: string, bufferChannelId?: string) {
   const previous = asset.metadata?.publishing as { state?: string } | undefined;
   if (previous && previous.state !== "failed") throw new Error("This asset already has a publishing request. Check its delivery status first.");
   const admin = createAdminClient();
@@ -19,7 +20,7 @@ export async function claimPublication(org: string, asset: PublishingAsset, prov
   const id = randomUUID();
   const { data, error } = await admin.from("content_assets").update({
     status: "scheduled", scheduled_for: scheduledFor ?? new Date().toISOString(),
-    metadata: { ...asset.metadata, publishing: { provider, publication_id: id, ...(bufferChannelId ? { buffer_channel_id: bufferChannelId } : {}) } },
+    metadata: { ...asset.metadata, publishing: { provider, publication_id: id, ...(bufferChannelId ? provider === "youtube" ? { youtube_channel_id: bufferChannelId } : { buffer_channel_id: bufferChannelId } : {}) } },
   }).eq("organization_id", org).eq("id", asset.id).eq("status", asset.status).eq("updated_at", asset.updated_at).select("id").maybeSingle();
   if (error || !data) throw new Error("This asset changed or could not be reserved. Refresh before publishing.");
   const { error: recordError } = await admin.from("publications").insert({ id, organization_id: org, content_asset_id: asset.id, channel: provider, status: "queued", scheduled_for: scheduledFor ?? null, actor_id: actorId });
@@ -66,12 +67,13 @@ export async function syncPublication(org: string, assetId: string) {
   const { data: publication, error } = await createAdminClient().from("publications").select("id,channel,external_id,status").eq("organization_id", org).eq("content_asset_id", assetId).in("status", ["queued", "scheduled", "missed"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error("Could not read the publishing request.");
   if (!publication) return "No pending delivery.";
-  if (!publication.external_id && publication.channel !== "strapi") throw new Error("The provider receipt is unavailable. Check the provider account before sending again; delivery may have started.");
+  if (!publication.external_id && !["strapi", "youtube"].includes(publication.channel)) throw new Error("The provider receipt is unavailable. Check the provider account before sending again; delivery may have started.");
   const {data: pendingChange, error: scheduleError} = await createAdminClient().from("content_schedule_changes").select("id").eq("organization_id", org).eq("content_asset_id", assetId).eq("status", "pending").maybeSingle();
   if (scheduleError) throw new Error("Could not check pending schedule changes. Refresh before checking delivery.");
   if (pendingChange) return "A schedule change needs recovery from the calendar.";
   let post: DeliveryPost;
-  if (publication.channel === "buffer") post = await getBufferPost(org, publication.external_id);
+  if (publication.channel === "youtube") post = await getYouTubeDelivery(org, assetId, publication.external_id);
+  else if (publication.channel === "buffer") post = await getBufferPost(org, publication.external_id);
   else if (publication.channel === "wordpress") {
     const config = await getWordPressConfig(org);
     if (!config) throw new Error("Reconnect WordPress to check delivery.");
