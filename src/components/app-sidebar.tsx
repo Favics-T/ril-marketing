@@ -24,10 +24,10 @@ export function AppSidebar() {
               height={45}
               className="h-8 w-auto shrink-0 group-data-[collapsible=icon]:hidden"
             />
-            <span className="workspace-sidebar-monogram hidden size-8 shrink-0 items-center justify-center rounded-lg bg-flag font-bold text-white group-data-[collapsible=icon]:flex" aria-hidden="true">R</span>
-            <span className="min-w-0 group-data-[collapsible=icon]:hidden"><span className="block text-sm font-semibold text-foreground">Renaissance</span><span className="block text-[11px] text-[var(--surface-strong-muted)]">Marketing workspace</span></span>
+            <span className="workspace-sidebar-monogram hidden size-8 shrink-0 items-center justify-center group-data-[collapsible=icon]:flex" aria-hidden="true"><PanelLeftOpen className="size-5" /></span>
           </Link>
         </SidebarMenuButton>
+        <p className="workspace-sidebar-caption group-data-[collapsible=icon]:hidden">Marketing workspace</p>
         <label className="workspace-sidebar-search flex h-9 items-center gap-2 border px-2.5 group-data-[collapsible=icon]:hidden">
           <Search className="size-4 shrink-0" aria-hidden="true" />
           <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Find a page…" aria-label="Find a page" className="min-w-0 flex-1 bg-transparent text-xs outline-none" />
@@ -42,7 +42,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent onClick={event => { if ((event.target as HTMLElement).closest("a")) setOpenMobile(false); }}>
         <nav aria-label="Workspace navigation">
-          {groups.map((group, index) => <NavGroup key={group.label ?? index} {...group} />)}
+          {groups.map((group, index) => <NavGroup key={group.label ?? index} {...group} filtering={Boolean(query.trim())} />)}
           {groups.length === 0 && <p className="px-5 py-6 text-xs text-muted-foreground" role="status">No pages match “{query}”.</p>}
         </nav>
       </SidebarContent>

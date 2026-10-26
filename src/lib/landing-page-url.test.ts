@@ -98,6 +98,7 @@ describe("safeRegistrationUrl (REN-417)", () => {
     "https:ril",
     "https://ril",
     "https://localhost",
+    "https://user:secret@example.com/register",
     "http://localhost:3000/register",
     "https://example.",
     "https://.example.com",

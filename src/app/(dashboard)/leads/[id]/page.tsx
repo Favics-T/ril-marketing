@@ -53,7 +53,7 @@ export default async function LeadDetailPage({
 	];
 
 	return (
-		<div className="workspace-page flex flex-col gap-4 md:gap-6">
+		<div className="workspace-page lead-workspace flex flex-col gap-4 md:gap-6">
 			<header>
 				<Link
 					href="/leads"
@@ -75,19 +75,20 @@ export default async function LeadDetailPage({
 
 			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<section className="slip flex flex-col lg:col-span-2">
-					<div className="ledger flex flex-col">
+					<div className="ril-record-heading"><h2>Contact &amp; context</h2><p>Use the recorded interest and consent to guide the next conversation.</p></div>
+					<dl className="ril-lead-facts">
 						{facts.map((f) => (
 							<div
 								key={f.label}
 								className="flex items-baseline justify-between gap-4 px-5 py-3.5 sm:px-6"
 							>
-								<span className="dateline">{f.label}</span>
-								<span className="max-w-[60%] truncate text-sm font-medium text-foreground">
+								<dt>{f.label}</dt>
+								<dd>
 									{f.label === "Source" ? <ChannelIdentity channel={f.value} /> : f.value}
-								</span>
+								</dd>
 							</div>
 						))}
-					</div>
+					</dl>
 					{lead.score_reason ? (
 						<div className="border-t border-border/80 px-5 py-4 sm:px-6">
 							<p className="dateline">Why this score</p>

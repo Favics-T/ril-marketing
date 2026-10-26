@@ -6,12 +6,14 @@ import { ArrowLeft } from "lucide-react";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getLandingPageOptions } from "@/lib/landing-pages";
 import { LandingPageForm } from "@/components/landing-pages/landing-page-form";
+import { getUserRole, isReviewerRole } from "@/lib/audience/access";
 
 export const metadata: Metadata = { title: "Create landing page" };
 
 export default async function NewLandingPage() {
   const organizationId = await getCallerOrganizationId();
   if (!organizationId) redirect("/onboarding");
+  if (!isReviewerRole(await getUserRole(organizationId))) redirect("/audience/landing-pages");
   const options = await getLandingPageOptions(organizationId);
   return (
     <div className="workspace-page mx-auto w-full max-w-6xl">

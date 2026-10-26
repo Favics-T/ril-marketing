@@ -26,7 +26,7 @@ export function ConnectorCard({
   id?: string;
 }) {
   return (
-    <section id={id} className="slip scroll-mt-24 flex flex-col px-5 py-5 sm:px-6">
+    <section id={id} className="slip ril-connector scroll-mt-24 flex flex-col px-5 py-5 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3.5">
           <span

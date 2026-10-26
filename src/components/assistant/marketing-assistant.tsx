@@ -32,7 +32,7 @@ export function MarketingAssistant({ aiConnected }: { aiConnected: boolean }) {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="ril-assistant flex flex-col gap-5">
       <section className="slip flex flex-col gap-5 p-6 sm:p-7">
         <div>
           <p className="dateline">Grounded in your workspace</p>
@@ -40,7 +40,7 @@ export function MarketingAssistant({ aiConnected }: { aiConnected: boolean }) {
           <p className="mt-2 text-sm leading-6 text-muted-foreground">Use your campaigns, activities, approved insights and brand guidance to decide what comes next.</p>
         </div>
         <form onSubmit={submit} className="flex flex-col gap-3">
-          <label htmlFor="assistant-question" className="sr-only">Your marketing question</label><Textarea id="assistant-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="What should the team prioritize this week?" rows={4} maxLength={1200} required minLength={3} disabled={busy} />
+          <label htmlFor="assistant-question" className="text-sm font-semibold">Your marketing question</label><Textarea id="assistant-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="What should the team prioritize this week?" rows={4} maxLength={1200} required minLength={3} disabled={busy} />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">{aiConnected ? "AI response is grounded in this organization’s live data." : "Connect an AI provider to enable natural-language answers."}</p>
             <Button type="submit" disabled={busy || question.trim().length < 3}>{busy ? "Reviewing workspace…" : "Ask assistant"}</Button>

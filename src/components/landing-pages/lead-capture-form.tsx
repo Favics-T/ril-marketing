@@ -22,9 +22,11 @@ function trackedLinkToken(): string | undefined {
 export function LeadCaptureForm({
   page,
   pageKey,
+  preview = false,
 }: {
   page: LeadFormPage;
   pageKey: string;
+  preview?: boolean;
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
@@ -33,6 +35,7 @@ export function LeadCaptureForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (preview) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     setMessage("");
@@ -79,6 +82,8 @@ export function LeadCaptureForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
+      <fieldset disabled={preview || busy} className="flex min-w-0 flex-col gap-3">
+      <legend className="sr-only">Register your interest</legend>
       <label className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Name</span>
         <Input name="name" maxLength={200} autoComplete="name" />
@@ -143,9 +148,10 @@ export function LeadCaptureForm({
           <ExternalLink className="size-4" aria-hidden="true" />
         </a>
       ) : null}
-      <Button type="submit" disabled={busy}>
+      <Button type="submit" disabled={busy || preview}>
         {busy ? "Sending…" : page.cta_label}
       </Button>
+      </fieldset>
     </form>
   );
 }

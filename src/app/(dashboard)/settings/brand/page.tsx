@@ -1,3 +1,4 @@
+import { SettingsNavigation } from "@/components/settings/settings-navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
@@ -17,7 +18,7 @@ export default async function BrandKnowledgePage() {
     : [];
 
   return (
-    <div className="workspace-page flex flex-col gap-4 md:gap-6">
+    <div className="workspace-page settings-page flex flex-col gap-4 md:gap-6">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div>
           <p className="dateline">{todayDateline()} · {entries.length} entries</p>
@@ -32,6 +33,7 @@ export default async function BrandKnowledgePage() {
           <Link href="/settings/brand/new">Add an entry</Link>
         </Button>
       </header>
+      <SettingsNavigation />
 
       {entries.length === 0 ? (
         <EmptyState

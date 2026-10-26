@@ -9,8 +9,8 @@ export function ProductHome({ signedIn = false }: { signedIn?: boolean }) {
     <SiteHeader signedIn={signedIn} />
     <main id="main">
       <Hero />
-      <Tagline />
       <FlowStrip />
+      <Tagline />
       <Modules />
       <Approval />
       <Learning />

@@ -38,7 +38,7 @@ export function Faq() {
     <section
       aria-labelledby="faq-heading"
       id="faq"
-      className="scroll-mt-20 border-t border-border"
+      className="ril-home-faq scroll-mt-20 border-t border-border"
     >
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-16 sm:px-8 sm:py-24 lg:grid-cols-12">
         <Reveal className="lg:col-span-4">
@@ -88,9 +88,9 @@ export function CloseCta() {
   return (
     <section
       aria-labelledby="close-heading"
-      className="relative overflow-hidden bg-primary text-primary-foreground"
+      className="ril-home-close relative overflow-hidden bg-primary text-primary-foreground"
     >
-      <BrandShapes variant="blue" />
+      <BrandShapes />
       <div className="relative mx-auto w-full max-w-6xl px-6 py-20 sm:px-8 sm:py-28">
         <Reveal>
           <h2
@@ -112,7 +112,7 @@ export function CloseCta() {
               href="/sign-up"
               className="group inline-flex h-12 items-center gap-2 rounded-md bg-white px-7 text-base font-semibold text-[var(--ril-blue-deep)] transition-colors duration-200 hover:bg-white/90"
             >
-              Get started
+              Create your workspace
               <ArrowRight
                 aria-hidden
                 className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
@@ -141,7 +141,7 @@ const pageLinks = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-background">
+    <footer className="ril-home-footer border-t border-border bg-background">
       <div className="mx-auto w-full max-w-6xl px-6 py-14 sm:px-8">
         <div className="flex flex-col justify-between gap-10 sm:flex-row">
           <div className="max-w-sm">
@@ -192,7 +192,7 @@ export function SiteFooter() {
                 href="/sign-up"
                 className="text-muted-foreground transition-colors duration-200 hover:text-foreground"
               >
-                Get started
+                Create your workspace
               </Link>
               <Link
                 href="https://www.renaissancelabs.org"

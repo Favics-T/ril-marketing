@@ -5,6 +5,8 @@ import "./motion.css";
 import { Open_Sans } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { AnalyticsBeacon } from "@/components/analytics-beacon";
+import "./ril-system.css";
+import "./ril-brand.css";
 
 const rilSans = Open_Sans({
   subsets: ["latin"],

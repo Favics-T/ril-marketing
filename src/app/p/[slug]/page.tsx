@@ -9,7 +9,8 @@ import {
   safeRegistrationUrl,
 } from "@/lib/landing-page-url";
 import { LeadCaptureForm } from "@/components/landing-pages/lead-capture-form";
-import { PageCopy } from "@/components/landing-pages/page-copy";
+import { LandingPageContent } from "@/components/landing-pages/page-content";
+import { pageContent } from "@/lib/landing-page-content";
 
 export async function generateMetadata({
   params,
@@ -20,7 +21,7 @@ export async function generateMetadata({
   const page = await getPublishedLandingPage(slug).catch(() => null);
   if (!page) return { title: "Page not found" };
   // The headline, never the internal page name, titles the public page and its link previews.
-  const description = page.meta_description || page.headline;
+  const description = page.meta_description || pageContent(page.metadata).description || page.headline;
   return {
     title: page.headline,
     description,
@@ -56,22 +57,7 @@ export default async function PublicLandingPage({
           aria-label="Renaissance Innovation Labs home"
           className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Image
-            src="/logo/blackLogo.svg"
-            alt="Renaissance Innovation Labs"
-            width={100}
-            height={45}
-            unoptimized
-            className="h-9 w-auto dark:hidden"
-          />
-          <Image
-            src="/logo/whiteLogo.svg"
-            alt="Renaissance Innovation Labs"
-            width={176}
-            height={79}
-            unoptimized
-            className="hidden h-9 w-auto dark:block"
-          />
+          <Image src="/logo/blackLogo.svg" alt="Renaissance Innovation Labs" width={100} height={45} unoptimized className="h-10 w-auto" />
         </Link>
         <span className="dateline hidden sm:inline">
           From Renaissance Innovation Labs
@@ -79,15 +65,7 @@ export default async function PublicLandingPage({
       </header>
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-10 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-16">
         <article className="max-w-3xl">
-          <h1 className="max-w-[18ch] text-balance text-4xl font-bold leading-[1.1] tracking-tight sm:text-6xl">
-            {page.headline}
-          </h1>
-          {page.body ? (
-            <PageCopy
-              markdown={page.body}
-              className="mt-8 text-base leading-8 text-muted-foreground sm:text-lg"
-            />
-          ) : null}
+          <LandingPageContent headline={page.headline} body={page.body} metadata={page.metadata} ctaLabel={page.cta_label} />
           {registrationUrl ? (
             <a
               href={registrationUrl}
@@ -99,7 +77,7 @@ export default async function PublicLandingPage({
             </a>
           ) : null}
         </article>
-        <aside className="h-fit rounded-2xl border border-border/80 bg-card p-6 sm:p-8 lg:sticky lg:top-8">
+        <aside id="register-interest" className="h-fit scroll-mt-8 rounded-2xl border border-border/80 bg-card p-6 sm:p-8 lg:sticky lg:top-8">
           <p className="dateline">Get in touch</p>
           <h2 className="mt-1 text-balance text-xl font-bold tracking-tight">
             {page.cta_label}

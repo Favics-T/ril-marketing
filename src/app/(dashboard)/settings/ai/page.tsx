@@ -1,3 +1,4 @@
+import { SettingsNavigation } from "@/components/settings/settings-navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, MailIcon, Sparkles, TriangleAlert } from "lucide-react";
@@ -212,6 +213,7 @@ export default async function AiSettingsPage({
           Start with AI, then add only the services you need.
         </p>
       </header>
+      <SettingsNavigation />
 
       <ConnectionHealthPanel canManage={canManageConnectors} />
 

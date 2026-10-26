@@ -27,7 +27,7 @@ export function AppHeader({ userEmail }: { userEmail?: string }) {
 	return (
 		<header
 			className={cn(
-				"workspace-topbar sticky top-0 z-30 flex h-[72px] shrink-0 items-center justify-between gap-2 border-b px-5 md:px-9 xl:px-12"
+				"workspace-topbar sticky top-0 z-30 flex shrink-0 items-center justify-between gap-2"
 			)}
 		>
 			<div className="flex min-w-0 items-center gap-2 sm:gap-3">

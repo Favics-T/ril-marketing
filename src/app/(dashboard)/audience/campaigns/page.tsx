@@ -42,6 +42,8 @@ export default async function CampaignsPage() {
 
       <CampaignCreate initiallyOpen={campaigns.length === 0} segments={segments.map(({ id, name }) => ({ id, name }))} />
 
+      {campaigns.length > 1 ? <nav className="ril-campaign-index" aria-label="Jump to campaign"><span>Campaigns in this workspace</span>{campaigns.map(campaign => <Link key={campaign.id} href={`#${campaignAnchor(campaign.id)}`}>{campaign.name}</Link>)}</nav> : null}
+
       {campaigns.length === 0 ? (
         <EmptyState
           title="No campaigns yet"

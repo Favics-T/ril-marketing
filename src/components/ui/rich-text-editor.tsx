@@ -32,6 +32,7 @@ export function RichTextEditor({
   maxLength,
   placeholder,
   label,
+  onValueChange,
 }: {
   name: string;
   defaultValue?: string;
@@ -39,6 +40,7 @@ export function RichTextEditor({
   placeholder?: string;
   /** Accessible name for the editing area. */
   label: string;
+  onValueChange?: (markdown: string) => void;
 }) {
   const [markdown, setMarkdown] = useState(defaultValue);
   const editor = useEditor({
@@ -71,7 +73,11 @@ export function RichTextEditor({
           "rich-text min-h-48 px-3 py-2.5 text-sm leading-6 outline-none [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:text-base [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:text-muted-foreground [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
       },
     },
-    onUpdate: ({ editor }) => setMarkdown(editor.isEmpty ? "" : editor.getMarkdown()),
+    onUpdate: ({ editor }) => {
+      const value = editor.isEmpty ? "" : editor.getMarkdown();
+      setMarkdown(value);
+      onValueChange?.(value);
+    },
   });
 
   const over = markdown.length > maxLength;

@@ -85,7 +85,7 @@ export default async function InsightsPage({
       ) : (
         <ul className="ledger slip overflow-hidden">
           {result.insights.map((ins) => (
-            <li key={ins.id} className="flex flex-col gap-4 px-5 py-6 sm:px-6">
+            <li key={ins.id} className="ril-insight-record">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusStamp status={ins.status} />
                 <span className="dateline">

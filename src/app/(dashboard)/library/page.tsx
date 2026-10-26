@@ -1,3 +1,4 @@
+import { DirectoryFilters } from "@/components/directory-filters";
 import { ContentChannels } from "@/components/channel-identity";
 import { ChannelSelect } from "@/components/channel-select";
 import { channelLabel } from "@/lib/channels";
@@ -10,7 +11,7 @@ import { ASSET_STATUSES } from "@/lib/content/transitions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusStamp } from "@/components/ui/status-stamp";
-import { formatDay, todayDateline } from "@/lib/format";
+import { formatDay } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { reminderState } from "@/lib/content/reminders";
 import { ReminderFlag } from "@/components/content/reminder-flag";
@@ -75,116 +76,30 @@ export default async function LibraryPage({
     return `/library${qs ? `?${qs}` : ""}`;
   };
 
-  return (
-    <div className="workspace-page flex flex-col gap-4 md:gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-4"><div>
-        <p className="dateline">
-          {todayDateline()} · {result.total} assets
-        </p>
-        <h1>
-          Content Library
-        </h1>
-        <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-          Manage drafts, review content, and keep track of everything you publish.
-        </p>
-      </div><div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href="/library/import">Import content</Link></Button><Button asChild><Link href="/library/new"><Plus data-icon="inline-start" aria-hidden="true" />Add content</Link></Button></div></header>
-
-      <form method="get" action="/library" className="slip grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-        {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
-        <label className="flex flex-col gap-1.5 lg:col-span-2"><span className="dateline">Search copy</span><input name="q" defaultValue={q} maxLength={200} placeholder="Title or draft text" className="h-10 rounded-lg border border-input bg-background px-3 text-sm" /></label>
-        <label className="flex flex-col gap-1.5"><span className="dateline">Channel</span><ChannelSelect key={channel} name="channel" defaultValue={channel} className="h-10" options={[["all", "All channels"], ...channelOptions.map(value => [value, channelLabel(value)] as const)]} /></label>
-        <label className="flex flex-col gap-1.5"><span className="dateline">Activity</span><select name="activity" defaultValue={activity} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All activities</option>{activityOptions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
-        <label className="flex flex-col gap-1.5"><span className="dateline">Campaign</span><select name="campaign" defaultValue={campaign} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All campaigns</option>{campaignOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <div className="flex items-center justify-end gap-2 sm:col-span-2 lg:col-span-5"><Button variant="ghost" asChild><Link href="/library">Clear filters</Link></Button><Button type="submit" className="min-h-10 rounded-lg px-4 text-[13px] font-semibold">Apply filters</Button></div>
-      </form>
-
-      <nav aria-label="Filter by status" className="flex flex-wrap">
-        {filters.map((f) => (
-          <Link
-            key={f}
-            href={filterHref(f)}
-            aria-current={status === f ? "page" : undefined}
-            className="capitalize"
-          >
-            {f === "all" ? "All" : f === "ai_generated" ? "AI generated" : f.replace(/_/g, " ")}
-          </Link>
-        ))}
-      </nav>
-
-      {result.assets.length === 0 ? (
-        <EmptyState
-          title={hasFilters ? "No content matches these filters" : "No content yet"}
-          description={
-            hasFilters ? "Clear the filters to see all content, or add a new draft."
-              : "Write or paste your first draft. You can also repurpose an activity, file or existing source."
-          }
-          action={hasFilters ? { label: "Clear filters", href: "/library" } : { label: "Add content", href: "/library/new" }}
-        />
-      ) : (
-        <section className="slip overflow-hidden" aria-label="Content assets">
-        <div className="workspace-list-heading"><span>Content and channel</span><span>Last activity</span></div>
-        <ul className="ledger">
-          {result.assets.map((a) => (
-            <li key={a.id} className="flex flex-col sm:flex-row sm:items-center">
-              <Link
-                href={`/library/${a.id}`}
-                className="content-library-row flex min-w-0 flex-1 items-start justify-between gap-4 px-5 py-4 outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
-              >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusStamp status={a.status} />
-                  <ReminderFlag state={reminderState(a, now)} />
-                  {a.metadata?.calendar_generator === true ? (
-                    <span className="rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                      Calendar proposal
-                    </span>
-                  ) : null}
-                  {a.sensitivity === "high" ? (
-                    <span className="rounded-md border border-destructive bg-destructive/5 px-1.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-destructive">
-                      High sensitivity
-                    </span>
-                  ) : null}
-                </div>
-                <h2 className="mt-2 text-sm font-semibold tracking-[-0.02em] text-foreground">
-                  {a.title}
-                </h2>
-                <p className="mt-0.5 truncate text-[13px] leading-5 text-muted-foreground">
-                  <ContentChannels channel={a.channel} platform={a.platform} format={a.format} />
-                </p>
-              </div>
-              <span className="dateline shrink-0 tabular-nums">
-                {a.metadata?.calendar_generator === true && typeof a.metadata.suggested_publish_at === "string"
-                  ? `Suggested ${formatDay(a.metadata.suggested_publish_at)}`
-                  : formatDay(a.scheduled_for ?? a.published_at ?? a.created_at)}
-              </span>
-              </Link>
-              <Link href={`/repurpose?asset=${a.id}`} aria-label={`Repurpose ${a.title}`} className="mx-5 mb-3 inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm font-semibold text-primary outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring sm:mx-3 sm:mb-0">Repurpose</Link>
-            </li>
-          ))}
-        </ul></section>
-      )}
-
-      {totalPages > 1 ? (
-        <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
-          {page > 1 ? (
-            <Link href={pageHref(page - 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              <ArrowLeft className="mr-2 size-4" aria-hidden="true" /> Previous
-            </Link>
-          ) : (
-            <span />
-          )}
-          <span className="dateline tabular-nums">
-            Page {page} / {totalPages}
-          </span>
-          {page < totalPages ? (
-            <Link href={pageHref(page + 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              Next <ArrowRight className="ml-2 size-4" aria-hidden="true" />
-            </Link>
-          ) : (
-            <span />
-          )}
-        </nav>
-      ) : null}
+  return <div className="workspace-page library-directory">
+    <header className="flex flex-wrap items-center justify-between gap-4"><div><h1>Content Library</h1><p className="mt-1 text-muted-foreground">Drafts, reviews, and published content.</p></div><div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href="/library/import">Import content</Link></Button><Button asChild><Link href="/library/new"><Plus data-icon="inline-start" aria-hidden="true" />Add content</Link></Button></div></header>
+    <div className="record-directory">
+      <DirectoryFilters active={hasFilters}>
+        <form method="get" action="/library">
+          {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
+          <label><span>Search content</span><input name="q" defaultValue={q} maxLength={200} placeholder="Title or draft text" className="border px-3 py-2" /></label>
+          <details open={channel !== "all" || activity !== "all" || campaign !== "all"}><summary>More filters</summary><div>
+            <label><span>Channel</span><ChannelSelect key={channel} name="channel" defaultValue={channel} options={[["all", "All channels"], ...channelOptions.map(value => [value, channelLabel(value)] as const)]} /></label>
+            <label><span>Source activity</span><select name="activity" defaultValue={activity} className="border px-3 py-2"><option value="all">All activities</option>{activityOptions.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+            <label><span>Campaign</span><select name="campaign" defaultValue={campaign} className="border px-3 py-2"><option value="all">All campaigns</option>{campaignOptions.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          </div></details>
+          <div><Button type="submit">Apply filters</Button>{hasFilters ? <Button asChild variant="ghost"><Link href="/library">Clear</Link></Button> : null}</div>
+        </form>
+        <nav className="directory-filter-nav" aria-label="Content status"><p>Workflow status</p>{filters.map(value => <Link key={value} href={filterHref(value)} aria-current={status === value ? "page" : undefined}>{value === "all" ? "All content" : value === "ai_generated" ? "AI generated" : value.replaceAll("_", " ")}</Link>)}</nav>
+      </DirectoryFilters>
+      <section className="directory-results" aria-label="Content results">
+        <div className="directory-result-heading"><p><strong>{result.total.toLocaleString()}</strong> {result.total === 1 ? "content item" : "content items"}{hasFilters ? " match your filters" : " in your library"}</p><span>Most recent first</span></div>
+        {!result.assets.length ? <EmptyState title={hasFilters ? "No content matches these filters" : "Your next draft starts here"} description={hasFilters ? "Try a different search or clear your filters to see all content." : "Write a draft, import existing material, or repurpose an activity for your audience."} action={hasFilters ? { label: "Clear filters", href: "/library" } : { label: "Add content", href: "/library/new" }} /> : <div className="directory-records"><div className="workspace-list-heading"><span>Content and channel</span><span>Next action</span></div><ul>{result.assets.map(asset => <li key={asset.id} className="directory-record-row">
+          <div className="directory-record-main"><Link href={`/library/${asset.id}`}><h2>{asset.title}</h2></Link><div className="library-record-details"><ContentChannels channel={asset.channel} platform={asset.platform} format={asset.format} /><div className="directory-record-state"><StatusStamp status={asset.status} /><ReminderFlag state={reminderState(asset, now)} />{asset.metadata?.calendar_generator === true ? <span className="text-xs text-muted-foreground">Calendar proposal</span> : null}{asset.sensitivity === "high" ? <span className="text-xs font-semibold text-destructive">High sensitivity</span> : null}</div></div></div>
+          <div className="directory-record-meta"><span>{asset.metadata?.calendar_generator === true && typeof asset.metadata.suggested_publish_at === "string" ? `Suggested ${formatDay(asset.metadata.suggested_publish_at)}` : formatDay(asset.scheduled_for ?? asset.published_at ?? asset.created_at)}</span><Link href={`/repurpose?asset=${asset.id}`} aria-label={`Repurpose ${asset.title}`} className="directory-record-secondary">Repurpose</Link></div>
+        </li>)}</ul></div>}
+        {totalPages > 1 ? <nav className="directory-pagination" aria-label="Pagination">{page > 1 ? <Link href={pageHref(page - 1)}><ArrowLeft aria-hidden="true" />Previous</Link> : <span />}<span>Page {page} of {totalPages}</span>{page < totalPages ? <Link href={pageHref(page + 1)}>Next<ArrowRight aria-hidden="true" /></Link> : <span />}</nav> : null}
+      </section>
     </div>
-  );
+  </div>;
 }

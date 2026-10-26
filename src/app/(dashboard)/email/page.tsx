@@ -1,3 +1,4 @@
+import { WorkflowGuide } from "@/components/workflow-guide";
 import { Button } from "@/components/ui/button";
 import { publicAppOrigin } from "@/lib/integrations/public-app-origin";
 import type { Metadata } from "next";
@@ -70,8 +71,9 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
     deliveryStats.set(delivery.campaign_id, stats);
   }
 
-  return <div className="workspace-page workflow-page">
+  return <div className="workspace-page workflow-page email-workspace">
     <header><p className="dateline">{todayDateline()} · audience-led delivery</p><h1>Email Marketing</h1><p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">Write campaign emails for a defined audience. Only opted-in, unsuppressed contacts are eligible; each send checks consent again before delivery.{campaignFilter ? " Showing this campaign’s email drafts." : ""}</p></header>
+    <WorkflowGuide label="Email workflow" steps={[{ title: "Draft", description: "Choose the message and audience." }, { title: "Review", description: "A different reviewer approves." }, { title: "Queue", description: "Consent is checked before delivery." }, { title: "Send", description: "Confirm the batch and track results." }]} />
     <p className="text-sm leading-6 text-muted-foreground">Write a draft → ask another reviewer to approve it → choose when to send. {resend?.webhookSecret ? "Your sender setup is saved." : <a href="#sender-settings" className="font-semibold text-primary underline underline-offset-4">Set up a sender before delivery.</a>}</p>
     <details className="slip p-5 sm:p-6" open={emails.length === 0}><DisclosureSummary>Create an email draft</DisclosureSummary><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create an email draft</h2><p className="mt-1 text-sm text-muted-foreground">Drafts need a second reviewer before they can be marked approved.</p></div>
       <EmailCreateForm campaignFilter={campaignFilter ?? ""} campaigns={campaignRollups.map(campaign => ({ id: campaign.id, name: campaign.name }))} segments={segments.map(segment => ({ id: segment.id, name: segment.name, count: countBySegment.get(segment.id) ?? 0 }))} allContactsCount={leadCount.count ?? 0} senderReady={Boolean(resend?.webhookSecret)} />

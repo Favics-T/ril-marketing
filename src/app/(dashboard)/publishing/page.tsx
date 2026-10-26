@@ -1,3 +1,4 @@
+import { WorkflowGuide } from "@/components/workflow-guide";
 import { ContentChannels } from "@/components/channel-identity";
 import { ChannelSelect } from "@/components/channel-select";
 import { channelLabel } from "@/lib/channels";
@@ -34,11 +35,12 @@ export default async function PublishingPage({ searchParams }: { searchParams: P
     const query = new URLSearchParams({ stage, platform: result.platform, page: String(page) });
     return `/publishing?${query}`;
   };
-  return <div className="workspace-page flex flex-col gap-6">
+  return <div className="workspace-page publishing-workspace flex flex-col gap-6">
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div><h1>Social publishing</h1><p className="mt-2 max-w-[64ch] text-sm leading-6 text-muted-foreground">Review your posts, send approved copy through Buffer, upload approved videos directly to YouTube, or post manually and record the live link.</p></div>
       <Button asChild><Link href="/library/new"><Plus data-icon="inline-start" aria-hidden="true" />Create content</Link></Button>
     </header>
+    <WorkflowGuide label="Publishing workflow" steps={[{ title: "Prepare", description: "Write the post and attach its media." }, { title: "Review", description: "Record approval for this revision." }, { title: "Deliver", description: "Choose a channel, time, or manual post." }, { title: "Confirm", description: "Check the receipt or save the live link." }]} />
     <section aria-label="Publishing connection" className="slip flex flex-wrap items-center justify-between gap-4 p-5">
       <div><h2 className="text-sm font-semibold">{buffer.connected ? "Buffer connection saved" : "Start with manual posting"}</h2><p className="mt-1 max-w-[70ch] text-sm leading-6 text-muted-foreground">{buffer.connected ? `${buffer.channels.length} saved channels. Approval and media are checked before sending. Publish now, choose an exact time or use the next Buffer queue slot.` : "Copy approved text and record its live link without a connection. Connect Buffer to send approved text, images and videos to supported accounts."}</p></div>
       <Button asChild variant="outline"><Link href="/settings/ai#connection-buffer">{buffer.connected ? "Manage Buffer" : "Connect Buffer"}<ArrowUpRight data-icon="inline-end" aria-hidden="true" /></Link></Button>

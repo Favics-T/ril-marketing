@@ -1,7 +1,8 @@
+import { AssetWorkflow } from "@/components/content/asset-workflow";
 import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Copy } from "lucide-react";
+import { ArrowLeft, Copy, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getConnectedChannelOptions } from "@/lib/content/connected-channels";
 import { notFound } from "next/navigation";
@@ -109,7 +110,7 @@ export default async function AssetDetailPage({
 	].filter((m) => m.value);
 
 	return (
-		<DraftSessionProvider key={asset.id}><div className="workspace-page flex flex-col gap-4 md:gap-6">
+		<DraftSessionProvider key={asset.id}><div className="workspace-page asset-workspace flex flex-col gap-4 md:gap-6">
 			<header>
 				<Link
 					href="/library"
@@ -124,10 +125,11 @@ export default async function AssetDetailPage({
           <div className="flex flex-wrap items-center gap-3"><StatusStamp status={asset.status} /><Button asChild variant="outline"><a href="#content-files">Files{files.filter(file => !file.removedAt).length ? ` (${files.filter(file => !file.removedAt).length})` : " & attachments"}</a></Button>{asset.body?.trim() || files.some(file => !file.removedAt) ? <Button asChild variant="outline"><Link href={`/repurpose?asset=${asset.id}`}><Copy aria-hidden="true" className="size-4" />Repurpose content</Link></Button> : null}</div>
 				</div>
 			</header>
+            <AssetWorkflow status={asset.status} approvalsReady={releaseReady} />
 
 			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<section className="slip flex flex-col lg:col-span-2">
-					<div className="px-5 py-5 sm:px-6">
+					<details className="asset-saved-preview" open={!['idea', 'ai_generated', 'editing'].includes(asset.status)}><summary><span>Saved copy</span><ChevronDown aria-hidden="true" /></summary><div className="px-5 py-5 sm:px-6">
 						{asset.body ? (
 							<RichText>{asset.body}</RichText>
 						) : (
@@ -135,7 +137,7 @@ export default async function AssetDetailPage({
 								This asset is still a brief. Add body copy before review.
 							</p>
 						)}
-					</div>
+					</div></details>
 					{meta.length ? (
 						<div className="ledger flex flex-col border-t border-border/80">
 							{meta.map((m) => (

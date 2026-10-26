@@ -6,7 +6,7 @@ import "@/components/content-mix-motion.css";
 import { channelLabel } from "@/lib/channels";
 import type { KpiProgress } from "@/lib/audience/kpis";
 
-const TINTS = ["#e5e7eb", "#a6b0bd", "#748194"];
+const TINTS = ["var(--ril-blue-accessible)", "var(--ril-grey-light)", "var(--ril-grey-mid)"];
 
 export function ContentMixChart({ channels, total }: { channels: { channel: string; count: number }[]; total: number }) {
   const count = channels.reduce((sum, item) => sum + item.count, 0);
@@ -16,9 +16,9 @@ export function ContentMixChart({ channels, total }: { channels: { channel: stri
   let angle = -Math.PI / 2 - (slices[0]?.count ?? 0) / Math.max(count,1) * Math.PI;
   const point = (radius: number, at: number) => `${120+radius*Math.cos(at)} ${120+radius*Math.sin(at)}`;
   return (
-    <section aria-labelledby="content-mix-heading" className="flex flex-col overflow-hidden rounded-xl border border-[var(--surface-strong-border)] bg-[var(--surface-strong)] text-[var(--surface-strong-foreground)]">
+    <section aria-labelledby="content-mix-heading" className="ril-content-mix flex flex-col overflow-hidden rounded-xl border border-[var(--surface-strong-border)] bg-[var(--surface-strong)] text-[var(--surface-strong-foreground)]">
       <header className="border-b border-[var(--surface-strong-border)] px-6 py-5"><h2 id="content-mix-heading" className="text-[15px] font-semibold">Content mix</h2><p className="mt-1 text-xs leading-5 text-[var(--surface-strong-muted)]">{count < total ? `${count} sampled assets of ${total}` : `${count} content assets`} · share by channel</p></header>
-      {!count ? <div className="px-5 py-12 text-sm text-[#d7e0eb]">Add content to see how it is distributed across your channels. <Link href="/library/new" className="mt-4 block underline">Add content</Link></div> : <figure className="px-5 pb-5 pt-3">
+      {!count ? <div className="px-5 py-12 text-sm text-[var(--work-muted)]">Add content to see how it is distributed across your channels. <Link href="/library/new" className="mt-4 block underline">Add content</Link></div> : <figure className="px-5 pb-5 pt-3">
         <ContentMixMotion><svg viewBox="0 0 240 240" className="mx-auto my-5 w-full max-w-60" role="img" aria-label={`Content mix, ${count} assets: ${slices.map(s=>`${channelLabel(s.channel)} ${Number((s.count/count*100).toFixed(1))} percent`).join(", ")}`}>
           {slices.map((slice,i)=>{
             const fraction=slice.count/count;
@@ -32,10 +32,10 @@ export function ContentMixChart({ channels, total }: { channels: { channel: stri
             const outerLarge=end-start-2*outerInset>Math.PI?1:0;
             const innerLarge=end-start-2*innerInset>Math.PI?1:0;
             const path=`M ${point(104,start+outerInset)} A 104 104 0 ${outerLarge} 1 ${point(104,end-outerInset)} Q ${point(104,end)} ${point(104-corner,end)} L ${point(48+corner,end)} Q ${point(48,end)} ${point(48,end-innerInset)} A 48 48 0 ${innerLarge} 0 ${point(48,start+innerInset)} Q ${point(48,start)} ${point(48+corner,start)} L ${point(104-corner,start)} Q ${point(104,start)} ${point(104,start+outerInset)} Z`;
-            return <g key={slice.channel} className="content-mix-slice" style={{"--slice-delay":`${i*60}ms`,"--slice-x":`${Math.cos(mid)*4}px`,"--slice-y":`${Math.sin(mid)*4}px`} as CSSProperties}><g className="content-mix-slice-body">{slices.length===1?<circle cx="120" cy="120" r="76" fill="none" stroke={TINTS[i]} strokeWidth="56"/>:<path d={path} fill={TINTS[i]}/>}<title>{`${channelLabel(slice.channel)}: ${slice.count} assets (${Number((fraction*100).toFixed(1))}%)`}</title>{fraction>.06&&<text x={120+76*Math.cos(mid)} y={120+76*Math.sin(mid)} dominantBaseline="middle" textAnchor="middle" fill={i<2?"#182332":"#0b1420"} fontSize="14" fontWeight="600" style={{fontVariantNumeric:"tabular-nums"}}>{Math.round(fraction*100)}%</text>}</g></g>;
+            return <g key={slice.channel} className="content-mix-slice" style={{"--slice-delay":`${i*60}ms`,"--slice-x":`${Math.cos(mid)*4}px`,"--slice-y":`${Math.sin(mid)*4}px`} as CSSProperties}><g className="content-mix-slice-body">{slices.length===1?<circle cx="120" cy="120" r="76" fill="none" stroke={TINTS[i]} strokeWidth="56"/>:<path d={path} fill={TINTS[i]}/>}<title>{`${channelLabel(slice.channel)}: ${slice.count} assets (${Number((fraction*100).toFixed(1))}%)`}</title>{fraction>.06&&<text x={120+76*Math.cos(mid)} y={120+76*Math.sin(mid)} dominantBaseline="middle" textAnchor="middle" fill={i===0?"var(--ril-white)":"var(--ril-black)"} fontSize="14" fontWeight="600" style={{fontVariantNumeric:"tabular-nums"}}>{Math.round(fraction*100)}%</text>}</g></g>;
           })}
         </svg></ContentMixMotion>
-        <ul className="mb-2 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-medium" aria-label="Channel legend">{slices.map((slice,i)=><li key={slice.channel} className="flex items-center gap-2"><span className="size-2.5 shrink-0 rounded-[2px]" style={{background:TINTS[i]}} aria-hidden="true"/><span className="capitalize text-[#e5e7eb]">{<ChannelIdentity channel={slice.channel} />}</span><span className="tabular-nums text-[var(--surface-strong-muted)]">{slice.count}</span></li>)}</ul>
+        <ul className="mb-2 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm font-medium" aria-label="Channel legend">{slices.map((slice,i)=><li key={slice.channel} className="flex items-center gap-2"><span className="size-2.5 shrink-0 rounded-[2px]" style={{background:TINTS[i]}} aria-hidden="true"/><span className="capitalize text-[var(--work-text)]">{<ChannelIdentity channel={slice.channel} />}</span><span className="tabular-nums text-[var(--surface-strong-muted)]">{slice.count}</span></li>)}</ul>
         <figcaption className="sr-only">Share of content by channel. {slices.map(s=>`${channelLabel(s.channel)}: ${s.count} assets.`).join(" ")}</figcaption>
       </figure>}
     </section>

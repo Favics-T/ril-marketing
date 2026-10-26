@@ -9,7 +9,7 @@ import * as React from "react";
  * Reduced-motion and no-JS readers see full colour from the start.
  */
 const TEXT =
-  "One busy week becomes a month of content. AI drafts it. Humans decide it. And every signup traces back to the asset that earned it.";
+  "Your activity is the source. Your audience gives it direction. AI prepares the draft. Your team makes the call.";
 
 export function Tagline() {
   const words = React.useMemo(() => TEXT.split(" "), []);
@@ -47,7 +47,7 @@ export function Tagline() {
   }, [words.length]);
 
   return (
-    <section aria-label="The promise" className="border-b border-border">
+    <section aria-label="The promise" className="ril-home-statement">
       <div className="mx-auto w-full max-w-6xl px-6 py-20 sm:px-8 sm:py-28">
         <p
           ref={ref}

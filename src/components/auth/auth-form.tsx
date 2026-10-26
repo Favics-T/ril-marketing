@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Lock, Mail, FlaskConical } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { authSchema, type AuthInput } from "@/lib/validation/audience";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -75,8 +76,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   }
 
   return (
-    <div>
-      <Link href="/" aria-label="Renaissance Innovation Labs home" className="mb-9 flex size-10 items-center justify-center rounded-full border border-border"><FlaskConical className="size-5" aria-hidden="true" /></Link>
+    <div className="ril-auth-form">
+      <Link href="/" aria-label="Renaissance Innovation Labs home" className="ril-auth-logo"><Image src="/logo/blackLogo.svg" alt="Renaissance Innovation Labs" width={116} height={52} priority /></Link>
       <h1 className="text-2xl font-semibold leading-tight tracking-tight">
         {mode === "sign-in" ? "Sign in" : "Create account"}
       </h1>
@@ -153,7 +154,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             {pending
               ? "Please wait…"
               : mode === "sign-in"
-                ? "Login"
+                ? "Sign in"
                 : "Create account"}
           </Button>
           <p className="text-center text-sm text-muted-foreground">

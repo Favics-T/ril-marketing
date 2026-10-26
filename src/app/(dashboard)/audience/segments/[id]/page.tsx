@@ -29,7 +29,7 @@ export default async function SegmentDetailPage({
 	]);
 
 	return (
-		<div className="workspace-page flex flex-col gap-4 md:gap-6">
+		<div className="workspace-page segment-workspace flex flex-col gap-4 md:gap-6">
 			<header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
 				<div>
 					<Link
@@ -45,6 +45,7 @@ export default async function SegmentDetailPage({
 				<SegmentDelete segmentId={segment.id} />
 			</header>
 
+			<p className="ril-record-intro">Keep the audience profile alongside its evidence. Only approved insights inform new content recommendations.</p>
 			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<div className="lg:col-span-2">
 					<SegmentForm
@@ -63,7 +64,8 @@ export default async function SegmentDetailPage({
 				</div>
 
 				<section className="slip flex h-fit flex-col p-5 sm:p-6">
-					<p className="dateline">Insights for this segment</p>
+					<h2 className="ril-record-aside-title">Audience evidence</h2>
+					<p className="dateline mt-2">{insights.length} insights for this segment</p>
 					{insights.length ? (
 						<ul className="ledger mt-2 flex flex-col">
 							{insights.map((ins) => (

@@ -1,3 +1,4 @@
+import { SettingsNavigation } from "@/components/settings/settings-navigation";
 import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import type { Metadata } from "next";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
@@ -22,6 +23,7 @@ export default async function AutomationPage() {
   const items = (events ?? []) as QueueEvent[];
   return <div className="workspace-page settings-page">
     <header><p className="dateline">{todayDateline()}</p><h1>Automation</h1><p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">Prepare campaign drafts when an activity is saved. Your team still edits, approves and publishes every public item.</p></header>
+      <SettingsNavigation />
     <section className="slip p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="dateline">Activity created → campaign drafts</p><h2 className="mt-1 text-lg font-bold">Activity-to-drafts automation</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-muted-foreground">For new activities, create a draft campaign, audience-grounded social and newsletter assets, an email draft and a landing-page draft. Nothing is sent, published, or approved automatically.</p></div><StatusStamp status={enabled ? "active" : "paused"}>{enabled ? "ENABLED" : "DISABLED"}</StatusStamp></div>
       <form action={saveAutomationSettings} className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/80 pt-4"><input type="hidden" name="activity_to_drafts_enabled" value={enabled ? "false" : "true"} /><FormSubmitButton variant={enabled ? "outline" : "default"} className="min-h-10 rounded-lg font-semibold">{enabled ? "Disable for future activities" : "Enable for future activities"}</FormSubmitButton><span className="text-xs leading-5 text-muted-foreground">Only owner, admin and marketing manager roles can change this setting. Existing activities are not retroactively processed.</span></form>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">Draft preparation runs in the background and may wait until the next daily run. Check the history below for progress. Follow-up email enrolment is managed separately in <Link href="/nurture" className="text-primary underline">Nurture</Link>.</p>

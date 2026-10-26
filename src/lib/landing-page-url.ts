@@ -27,6 +27,7 @@ export function safeRegistrationUrl(
     return null;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.username || url.password) return null;
   const labels = url.hostname.split(".");
   if (labels.length < 2 || labels.some((label) => !label)) return null;
   return url.href;

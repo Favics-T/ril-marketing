@@ -4,12 +4,12 @@ import { ProductHome } from "@/components/landing/product-home";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.renaissancelabs.org"),
-  title: "RIL AI Marketing Operating System | One event in. A whole campaign out.",
+  title: "RIL Marketing Workspace | One event in. A whole campaign out.",
   description:
-    "Turn RIL programs, events, and partnerships into on-brand content, scheduled posts, emails, and leads, with a human approving everything that matters.",
+    "Bring activities, audience insights, drafts, reviews, and campaign follow-up together in the RIL Marketing Workspace. AI prepares; your team decides.",
   robots: { index: true, follow: true },
   openGraph: {
-    title: "RIL AI Marketing Operating System",
+    title: "RIL Marketing Workspace",
     description:
       "One event in. A whole campaign out. AI drafts. Humans decide.",
     type: "website",
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "RIL AI Marketing Operating System",
+    title: "RIL Marketing Workspace",
     description: "One event in. A whole campaign out. AI drafts. Humans decide.",
   },
 };

@@ -1,281 +1,49 @@
-import {
-  BarChart3,
-  CalendarDays,
-  CalendarPlus,
-  LayoutDashboard,
-  Link2,
-  Mail,
-  RefreshCw,
-  Send,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { LayoutDashboard, TrendingUp, BarChart3, CalendarPlus, RefreshCw, CalendarDays, Send, Mail, Users, Link2, ArrowRight } from "lucide-react";
 import { Reveal } from "./reveal";
 
 const flow = [
-  { n: "01", title: "Log the activity", body: "Programs and partnerships log what's happening once." },
-  { n: "02", title: "AI understands it", body: "AI surfaces topics, quotes, angles, and audiences." },
-  { n: "03", title: "Repurpose everything", body: "Blogs, newsletters, clips, captions, and posts from one source." },
-  { n: "04", title: "You approve", body: "Edit, approve, or suppress. Nothing moves without a stamp." },
-  { n: "05", title: "Publish and capture", body: "Scheduled posts, emails, and pages. Every signup traces to its asset." },
-  { n: "06", title: "Learn and repeat", body: "Performance becomes the next round of recommendations." },
-] as const;
+  { title: "Log the activity", body: "Capture the programme, event, or partnership once, with its source material." },
+  { title: "Find the useful angles", body: "AI brings together the activity, your brand knowledge, and approved audience insights." },
+  { title: "Create for each channel", body: "Turn the source into blog, newsletter, social, and short-form drafts." },
+  { title: "Review with context", body: "Edit the copy, check its source, and record the approvals it needs." },
+  { title: "Publish and capture", body: "Choose the right channel and time. Connect registrations to the campaign." },
+  { title: "Learn from the response", body: "Use engagement and conversion signals to inform the next recommendation." },
+];
 
 export function FlowStrip() {
-  return (
-    <section
-      aria-labelledby="flow-heading"
-      id="workflow"
-      className="scroll-mt-20 border-b border-border bg-muted/40"
-    >
-      <div className="mx-auto w-full max-w-6xl px-6 py-16 sm:px-8 sm:py-24">
-        <Reveal>
-          <h2
-            id="flow-heading"
-            className="max-w-[20ch] text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl"
-          >
-            From one activity to a whole campaign.
-          </h2>
-        </Reveal>
-        <Reveal delay={100}>
-          <p className="mt-4 max-w-[60ch] text-base leading-7 text-muted-foreground">
-            Six steps, run every week. A person approves every public step.
-          </p>
-        </Reveal>
-        <ol className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-          {flow.map((step, i) => (
-            <Reveal
-              as="li"
-              key={step.n}
-              delay={i * 60}
-              className="border-t-2 border-foreground/10 pt-5"
-            >
-              <span className="dateline">{step.n}</span>
-              <h3 className="mt-3 text-base font-bold text-foreground">
-                {step.title}
-              </h3>
-              <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-                {step.body}
-              </p>
-            </Reveal>
-          ))}
-        </ol>
-      </div>
-    </section>
-  );
+  return <section id="workflow" className="ril-home-workflow" aria-labelledby="flow-heading"><div className="ril-home-section-heading"><h2 id="flow-heading">From the thing you did.<br />To the people it matters to.</h2><p>The source, the content, and the decision stay connected. A person approves every public step.</p></div><ol className="ril-home-workflow-list">{flow.map((step, index) => <Reveal as="li" key={step.title} delay={index * 40}><span className="ril-flow-number" aria-hidden="true">{index + 1}</span><div><h3>{step.title}</h3><p>{step.body}</p></div></Reveal>)}</ol></section>;
 }
 
-
-const moduleGroups = [
-  {
-    title: "See what matters",
-    className: "bg-muted/60",
-    modules: [
-      { icon: LayoutDashboard, title: "Command Centre", body: "Campaigns, approvals, leads, and tasks in one live view." },
-      { icon: TrendingUp, title: "Trends to Content", body: "Turn industry signals into timely drafts, with claims checked before they ship." },
-      { icon: BarChart3, title: "Analytics & Reports", body: "See what worked, what did not, and what to try next." },
-    ],
-  },
-  {
-    title: "Make and publish",
-    className: "border-y border-border bg-background",
-    modules: [
-      { icon: CalendarPlus, title: "Activity Hub", body: "Log a program, event, or partnership once, then build from it." },
-      { icon: RefreshCw, title: "Repurposing Engine", body: "Turn video, audio, images, and docs into ready-to-review drafts." },
-      { icon: CalendarDays, title: "Content Calendar", body: "Plan drafts, approvals, and scheduled posts in one view." },
-      { icon: Send, title: "Social & Publishing", body: "Approve platform-ready posts before publishing through Buffer." },
-    ],
-  },
-  {
-    title: "Reach and learn",
-    className: "bg-primary text-primary-foreground",
-    modules: [
-      { icon: Mail, title: "Email Marketing", body: "Create consent-filtered email campaign drafts from approved content for reviewer approval." },
-      { icon: Users, title: "Leads & CRM", body: "Capture, score, and follow up with every lead." },
-      { icon: Link2, title: "Registration Links", body: "Track which content brings each signup." },
-    ],
-  },
-] as const;
+const groups = [
+  { title: "See what matters", description: "A useful view of the work, the signals, and the next decision.", modules: [
+    { icon: LayoutDashboard, title: "Command Centre", body: "Review content, plan upcoming work, and follow up with leads." },
+    { icon: TrendingUp, title: "Trends to content", body: "Turn sourced industry signals into drafts for human review." },
+    { icon: BarChart3, title: "Analytics and reports", body: "Review recorded results, their source, and the limits of the available data." },
+  ] },
+  { title: "Make and publish", description: "Start with one source. Keep the context through every draft and channel.", modules: [
+    { icon: CalendarPlus, title: "Activity Hub", body: "Log a programme, event, or partnership and add the material behind it." },
+    { icon: RefreshCw, title: "Repurposing", body: "Create review drafts from existing text, documents, images, audio, or video." },
+    { icon: CalendarDays, title: "Content calendar", body: "See the schedule and choose the next publishing time." },
+    { icon: Send, title: "Publishing", body: "Move approved content through configured channels or record a manual post." },
+  ] },
+  { title: "Reach and learn", description: "Connect campaign activity to real interest, consent, and follow-up.", modules: [
+    { icon: Mail, title: "Email marketing", body: "Prepare consent-filtered campaigns for independent approval and delivery." },
+    { icon: Users, title: "Leads and CRM", body: "Capture interest, understand each score, and plan a useful follow-up." },
+    { icon: Link2, title: "Campaign links", body: "Keep registration and lead attribution connected to the campaign." },
+  ] },
+];
 
 export function Modules() {
-  return (
-    <section
-      aria-labelledby="modules-heading"
-      id="platform"
-      className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-16 sm:px-8 sm:py-24"
-    >
-      <Reveal>
-        <h2
-          id="modules-heading"
-          className="max-w-[18ch] text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl"
-        >
-          One connected system, from first idea to follow-up.
-        </h2>
-      </Reveal>
-      <Reveal delay={100}>
-        <p className="mt-4 max-w-[60ch] text-base leading-7 text-muted-foreground">
-          Log an activity once. The same source keeps your plans, content, and
-          audience results connected.
-        </p>
-      </Reveal>
-      <div className="mt-12 grid gap-4 lg:grid-cols-[0.85fr_1.1fr_0.85fr]">
-        {moduleGroups.map((group, i) => (
-          <Reveal key={group.title} delay={i * 70} className={`h-full ${group.className}`}>
-            <article className="h-full p-6 sm:p-7 lg:p-8">
-              <h3 className="text-xl font-bold tracking-tight">{group.title}</h3>
-              <ul className="mt-6 divide-y divide-current/10">
-                {group.modules.map((m) => (
-                  <li key={m.title} className="py-4 first:pt-0 last:pb-0">
-                    <div className="flex items-start gap-3">
-                      <m.icon className={`mt-0.5 size-[18px] shrink-0 ${i === 2 ? "text-primary-foreground/80" : "text-primary"}`} aria-hidden />
-                      <div>
-                        <h4 className="text-sm font-bold">{m.title}</h4>
-                        <p className={`mt-1 text-sm leading-6 ${i === 2 ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{m.body}</p>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          </Reveal>
-        ))}
-      </div>
-    </section>
-  );
+  return <section id="platform" className="ril-home-modules" aria-labelledby="modules-heading"><div className="ril-home-section-heading"><h2 id="modules-heading">One workspace.<br />A connected way to work.</h2><p>From the first source to the next conversation, the same context stays with your team.</p></div><div>{groups.map(group => <article className="ril-home-module-group" key={group.title}><div><h3>{group.title}</h3><p>{group.description}</p></div><ul>{group.modules.map(module => <li key={module.title}><module.icon aria-hidden="true" /><div><h4>{module.title}</h4><p>{module.body}</p></div></li>)}</ul></article>)}</div></section>;
 }
-
-const aiCan = [
-  "Generate, summarise, and repurpose",
-  "Recommend, analyse, and classify",
-  "Suggest, draft, and detect",
-  "Score leads and flag trends",
-];
-const humanMust = [
-  "Major public announcements",
-  "Partnership communications",
-  "Sensitive or crisis responses",
-  "Paid advertising budgets",
-  "Important emails and strategy",
-];
 
 export function Approval() {
-  return (
-    <section
-      aria-labelledby="approval-heading"
-      className="bg-primary text-primary-foreground"
-    >
-      <div className="mx-auto w-full max-w-6xl px-6 py-16 sm:px-8 sm:py-24">
-        <Reveal>
-          <h2
-            id="approval-heading"
-            className="max-w-[20ch] text-3xl font-bold leading-tight tracking-tight sm:text-4xl"
-          >
-            AI drafts. Humans decide.
-          </h2>
-        </Reveal>
-        <Reveal delay={100}>
-          <p className="mt-4 max-w-[58ch] text-base leading-7 text-primary-foreground/85">
-            The engine does the heavy lifting; the judgement stays with the
-            team. Nothing public moves without a person&apos;s stamp on it.
-          </p>
-        </Reveal>
-        <div className="mt-12 grid gap-4 md:grid-cols-2">
-          <Reveal delay={120}>
-            <div className="h-full rounded-xl border border-white/25 p-6 sm:p-7">
-              <h3 className="text-base font-bold">AI handles the repetitive</h3>
-              <ul className="mt-4 flex flex-col gap-2.5">
-                {aiCan.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-3 text-sm leading-6 text-primary-foreground/85"
-                  >
-                    <span
-                      aria-hidden
-                      className="mt-2 size-1.5 shrink-0 rounded-full bg-primary-foreground/60"
-                    />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Reveal>
-          <Reveal delay={180}>
-            <div className="h-full rounded-xl bg-white p-6 text-foreground sm:p-7">
-              <h3 className="text-base font-bold">Humans approve the important</h3>
-              <ul className="mt-4 flex flex-col gap-2.5">
-                {humanMust.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-3 text-sm leading-6"
-                  >
-                    <span
-                      aria-hidden
-                      className="mt-2 size-1.5 shrink-0 rounded-full bg-primary"
-                    />
-                    <span className="font-medium">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Reveal>
-        </div>
-      </div>
-    </section>
-  );
+  return <section className="ril-home-approval" aria-labelledby="approval-heading"><div className="ril-home-approval-inner"><div><h2 id="approval-heading">AI drafts.<br />Humans decide.</h2><p>Let AI do the first pass. Keep the final say with the people who know your community, your context, and your brand.</p></div><div className="ril-home-approval-roles"><section><h3>AI prepares the work</h3><ul><li>Generate, summarise, and repurpose</li><li>Recommend, analyse, and classify</li><li>Suggest, draft, and detect</li><li>Score leads and flag trends</li></ul></section><section><h3>Your team owns the decision</h3><ul><li>Review public communications</li><li>Approve sensitive announcements</li><li>Confirm important emails and strategy</li><li>Choose what gets published</li></ul></section></div></div></section>;
 }
 
-
-const learnings = [
-  "Which topics move each audience segment",
-  "Which formats drive registrations, not just impressions",
-  "Which channels bring the highest-quality leads",
-  "Which hooks and CTAs actually get action",
-] as const;
+const learnings = ["Which topics move each audience segment", "Which formats lead to registrations", "Which channels bring qualified leads", "Which hooks and calls to action get a response"];
+const loop = ["Audience data", "Behaviour analysis", "Insight", "Recommendation", "Distribution", "Engagement", "Conversion", "New learning"];
 
 export function Learning() {
-  return (
-    <section
-      aria-labelledby="learning-heading"
-      id="learning"
-      className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-16 sm:px-8 sm:py-24"
-    >
-      <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
-        <div className="lg:col-span-5">
-          <Reveal>
-            <h2
-              id="learning-heading"
-              className="text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl"
-            >
-              Every campaign teaches the next one.
-            </h2>
-          </Reveal>
-          <Reveal delay={100}>
-            <p className="mt-4 text-base leading-7 text-muted-foreground">
-              Engagement, registration, and conversion data flow back into
-              recommendations. The system then suggests what to say, to whom,
-              where, and why, before the next campaign starts.
-            </p>
-          </Reveal>
-        </div>
-        <div className="lg:col-span-7">
-          <Reveal delay={120}>
-            <p className="text-sm font-semibold leading-7 text-foreground">
-              Audience data → Behaviour analysis → Insight → Recommendation →
-              Distribution → Engagement → Conversion → New learning
-            </p>
-          </Reveal>
-          <ul className="ledger mt-6 border-t border-border">
-            {learnings.map((item, i) => (
-              <Reveal key={item} delay={i * 60} as="li">
-                <p className="flex items-start gap-3 py-4 text-sm font-medium leading-6 text-foreground">
-                  <span aria-hidden className="mt-2 size-1.5 shrink-0 bg-primary" />
-                  {item}
-                </p>
-              </Reveal>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </section>
-  );
+  return <section id="learning" className="ril-home-learning" aria-labelledby="learning-heading"><div className="ril-home-section-heading"><h2 id="learning-heading">The next campaign<br />starts with what you learn.</h2><p>Recorded engagement, registration, and conversion signals inform the next recommendation. Your team reviews the insight before it shapes new work.</p></div><div className="ril-home-learning-body"><ol aria-label="Audience learning cycle">{loop.map((step,index) => <li key={step}><span>{step}</span>{index < loop.length - 1 ? <ArrowRight aria-hidden="true" /> : null}</li>)}</ol><ul>{learnings.map(item => <li key={item}>{item}</li>)}</ul></div></section>;
 }
