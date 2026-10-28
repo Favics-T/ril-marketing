@@ -9,6 +9,8 @@ import type { ActivityAttachment } from "@/lib/content/attachments";
 import { Button } from "@/components/ui/button";
 import { isPreviewableImage } from "@/lib/content/activity-display";
 import { ImageAnalysisSummary, isMarketingAnalysis } from "@/components/content/image-analysis-summary";
+import { resolveImageConflict } from "@/actions/image-conflicts";
+import { conflictFieldLabel, isUnclear, recordUpdateFor, type ImageConflict } from "@/lib/ai/image-conflicts";
 
 const accept = [
   "image/jpeg", "image/png", "image/webp", "image/avif", "image/heic",
@@ -66,6 +68,27 @@ function ImageAnalysisControl({ file, activityId }: { file: ActivityAttachment; 
     });
   }
 
+  function resolve(conflict: ImageConflict, choice: "image" | "update_record") {
+    if (pending) return;
+    if (choice === "update_record" && !window.confirm(`Change the activity record's ${conflictFieldLabel(conflict.field).toLowerCase()} from “${conflict.activityRecord}” to “${conflict.onImage}”? The caption drafts are then created from it.`)) return;
+    setMessage(""); setError(false);
+    startTransition(async () => {
+      const result = await resolveImageConflict(file.id, activityId, conflict.field, choice);
+      if (!result.ok) { setError(true); setMessage(result.error ?? "Could not resolve the conflict."); return; }
+      setMessage(result.message ?? "Caption drafts saved to the Content Library for review.");
+      router.refresh();
+    });
+  }
+
+  const conflictActions = (conflict: ImageConflict) => !conflict.onImage.trim() || isUnclear(conflict.onImage)
+    ? <span>The image&rsquo;s text isn&rsquo;t clear enough to use. Correct the activity record, then analyse again.</span>
+    : (
+      <>
+        <Button type="button" variant="outline" size="sm" disabled={pending} onClick={() => resolve(conflict, "image")}><span className="max-w-[28ch] truncate">Use &ldquo;{conflict.onImage}&rdquo;</span></Button>
+        {recordUpdateFor(conflict) ? <Button type="button" variant="outline" size="sm" disabled={pending} onClick={() => resolve(conflict, "update_record")}>Update activity record</Button> : null}
+      </>
+    );
+
   if (!supported) return null;
   return (
     <div className="mt-2 space-y-2">
@@ -75,7 +98,7 @@ function ImageAnalysisControl({ file, activityId }: { file: ActivityAttachment; 
       {pending ? <p role="status" className="max-w-[48ch] text-xs text-muted-foreground">Reading the image and drafting captions. This can take up to a minute and a half.</p> : null}
       {message ? <p role={error ? "alert" : "status"} className={error ? "max-w-[48ch] text-xs text-destructive" : "max-w-[48ch] text-xs text-muted-foreground"}>{message}</p> : null}
       {analysis?.status === "completed" && isMarketingAnalysis(analysis.analysis) && !pending ? (
-        <ImageAnalysisSummary analysis={analysis.analysis} model={analysis.model} />
+        <ImageAnalysisSummary analysis={analysis.analysis} model={analysis.model} conflictActions={conflictActions} />
       ) : analysis?.status === "completed" && details && !pending ? (
         <div className="max-w-[60ch] border-l-2 border-border pl-3 text-xs text-muted-foreground">
           <p><span className="font-medium text-foreground">Image notes:</span> {details.sceneSummary}</p>

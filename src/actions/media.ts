@@ -15,6 +15,7 @@ import {
   buildImageAnalysisPrompt, eventTiming, imageBrandQuery, parseImageAnalysisV2, readSavedImageAnalysis,
   IMAGE_ANALYSIS_SYSTEM, type ImageAnalysisV2, type ImagePromptContext,
 } from "@/lib/ai/image-analysis-v2";
+import { activityRecordKey, openConflicts, pinnedResolutions, type ConflictResolution } from "@/lib/ai/image-conflicts";
 import { zonedDayKey } from "@/lib/time";
 
 export interface ImageAnalysisResult {
@@ -58,6 +59,7 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
   let organizationId = "";
   let analysisId = "";
   let failedResponse: string | null = null;
+  let pins: ConflictResolution[] = [];
   try {
     organizationId = await requireOrganizationId();
     const ids = z.object({ attachmentId: z.string().uuid(), activityId: z.string().uuid() }).safeParse({ attachmentId, activityId });
@@ -77,9 +79,11 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
       return { ok: false, error: "Image analysis is already in progress. Refresh this page in a moment." };
     }
     const rerun = existing?.status === "completed";
+    // Conflict choices stay pinned across runs while the activity record is unchanged.
+    pins = pinnedResolutions(existing?.analysis?.resolutions, activityRecordKey(activity));
     if (existing) {
       // Analysing again starts a fresh run; the earlier drafts stay listed in generated_asset_ids.
-      const { data: claimed, error } = await supabase.from("activity_media_analyses").update({ status: "processing", error: null, ...(rerun ? { analysis: {} } : {}) }).eq("organization_id", organizationId).eq("id", existing.id).eq("updated_at", existing.updated_at).select("id").maybeSingle();
+      const { data: claimed, error } = await supabase.from("activity_media_analyses").update({ status: "processing", error: null, ...(rerun ? { analysis: pins.length ? { resolutions: pins } : {} } : {}) }).eq("organization_id", organizationId).eq("id", existing.id).eq("updated_at", existing.updated_at).select("id").maybeSingle();
       if (error || !claimed) return { ok: false, error: "Another analysis request is handling this image. Refresh and try again." };
       analysisId = existing.id;
     } else {
@@ -111,6 +115,7 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
       brandGuidance: [],
       timing: eventTiming(activity.event_date, now),
       today: zonedDayKey(now),
+      confirmed: pins,
     };
 
     let analysis = rerun ? null : readSavedImageAnalysis(existing?.analysis);
@@ -127,7 +132,7 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
       });
       if (!completion) throw new Error("Connect a vision-capable OpenAI, Claude or Gemini model in AI & Integrations to analyze images.");
       let parsed: ImageAnalysisV2;
-      try { parsed = parseImageAnalysisV2(completion.text, { timing: context.timing, today: context.today, runId: randomUUID(), platforms: context.platforms }); }
+      try { parsed = parseImageAnalysisV2(completion.text, { timing: context.timing, today: context.today, runId: randomUUID(), platforms: context.platforms, resolutions: pins, record: { eventDate: activity.event_date, registrationUrl: activity.registration_url } }); }
       catch (error) {
         // The provider was paid for this response, so record the failed run and
         // keep a redacted copy of what the model said for diagnosis.
@@ -141,6 +146,8 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
       if (saveAnalysisError) throw new Error(`Could not save image analysis: ${saveAnalysisError.message}`);
     }
     if (!model) model = "workspace-model";
+    // The image and the record disagree: no drafts until the user chooses.
+    const open = analysis.version === 2 ? openConflicts(analysis.data).length : 0;
 
     // Drafts this run already saved (a resumed run may have saved some before failing).
     const admin = createAdminClient();
@@ -152,14 +159,14 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
     if (runAssetsError) throw new Error(runAssetsError.message);
     const savedPlatforms = new Set((runAssets ?? []).map((item) => item.platform).filter(Boolean));
     let generationId = (runAssets ?? []).find((item) => item.generation_id)?.generation_id ?? null;
-    if (!generationId && analysis.data.captions.some((caption) => !savedPlatforms.has(caption.platform))) {
+    if (!open && !generationId && analysis.data.captions.some((caption) => !savedPlatforms.has(caption.platform))) {
       const { data: generation, error: generationError } = await admin.from("ai_generations").insert({ organization_id: organizationId, activity_id: activityId, kind: "image_analysis_captioning", model }).select("id").single<{id:string}>();
       if (generationError || !generation) throw new Error(generationError?.message ?? "Could not record AI generation provenance.");
       generationId = generation.id;
     }
     const base: DraftBase = { organization_id: organizationId, activity, analysisId, attachmentId, generationId };
     const saved = analysis;
-    const rows: ImageDraftRow[] = saved.version === 2
+    const rows: ImageDraftRow[] = open ? [] : saved.version === 2
       ? saved.data.captions.filter((caption) => !savedPlatforms.has(caption.platform)).map((caption) => imageDraftRowV2(base, saved.data, caption))
       : saved.data.captions.filter((caption) => !savedPlatforms.has(caption.platform)).map((caption) => imageDraftRowV1(base, saved.data, caption));
     let createdIds: string[] = [];
@@ -174,9 +181,10 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
     if (finishError) throw new Error(`Drafts were saved, but the analysis record could not be completed: ${finishError.message}`);
     revalidatePath(`/activities/${activityId}`);
     revalidatePath("/library");
-    return { ok: true, id: analysisId, message: rerun
-      ? `${rows.length} new image caption draft(s) are in the Content Library for review. Earlier drafts are unchanged.`
-      : `${rows.length || runIds.length} image caption draft(s) are in the Content Library for review.` };
+    const drafts = (count: number) => `${count} ${rerun ? "new " : ""}image caption ${count === 1 ? "draft is" : "drafts are"} in the Content Library for review.`;
+    return { ok: true, id: analysisId, message: open
+      ? `Caption drafts are on hold: the image and the activity record disagree on ${open === 1 ? "one detail" : `${open} details`}. Choose which to use below.`
+      : rerun ? `${drafts(rows.length)} Earlier drafts are unchanged.` : drafts(rows.length || runIds.length) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Image analysis failed.";
     if (organizationId && analysisId) {
@@ -184,7 +192,7 @@ export async function analyzeActivityImage(attachmentId: string, activityId: str
         const supabase = await createClient();
         // Only a response that failed parsing replaces the analysis; any later
         // failure keeps the validated analysis saved for resuming.
-        await supabase.from("activity_media_analyses").update({ status: "failed", error: message.slice(0, 1200), ...(failedResponse === null ? {} : { analysis: { failedResponse } }) }).eq("organization_id", organizationId).eq("id", analysisId).eq("status", "processing");
+        await supabase.from("activity_media_analyses").update({ status: "failed", error: message.slice(0, 1200), ...(failedResponse === null ? {} : { analysis: { failedResponse, ...(pins.length ? { resolutions: pins } : {}) } }) }).eq("organization_id", organizationId).eq("id", analysisId).eq("status", "processing");
       } catch { /* leave the original failure visible in the action result */ }
     }
     return { ok: false, error: message };

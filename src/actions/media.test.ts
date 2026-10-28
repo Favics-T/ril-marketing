@@ -192,6 +192,24 @@ describe("v2 drafts", () => {
     expect(completedUpdate(db)).toMatchObject({ status: "completed", generated_asset_ids: ["new-asset-1", "new-asset-2"], analysis: { version: 2 } });
   });
 
+  it("holds the drafts when the image and the activity record disagree", async () => {
+    const db = setup();
+    respond(JSON.stringify(v2Reply({ onImageText: { ...v2Reply().onImageText, conflicts: [{ field: "eventName", onImage: BANNER, activityRecord: "Pitch Day" }] } })));
+
+    const result = await analyzeActivityImage(ATTACHMENT_ID, ACTIVITY_ID);
+
+    expect(result).toMatchObject({ ok: true, message: "Caption drafts are on hold: the image and the activity record disagree on one detail. Choose which to use below." });
+    expect(draftInserts(db)).toEqual([]);
+    expect(generationKinds(db)).toEqual([]);
+    expect(completedUpdate(db)).toMatchObject({ status: "completed", generated_asset_ids: [], analysis: { onImageText: { conflicts: [{ field: "eventName" }] } } });
+  });
+
+  it("says draft, not drafts, for one caption", async () => {
+    setup();
+    respond(JSON.stringify(v2Reply({ captions: [caption("linkedin")] })));
+    expect((await analyzeActivityImage(ATTACHMENT_ID, ACTIVITY_ID)).message).toBe("1 image caption draft is in the Content Library for review.");
+  });
+
   it("records a purpose repaired against the event date", async () => {
     const db = setup({ activity: { event_date: "2020-01-01" } });
     respond(JSON.stringify(v2Reply({ purpose: { primary: "drive_registrations", rationale: "Sign up." } })));
@@ -227,7 +245,7 @@ describe("analysing again", () => {
 
     const result = await analyzeActivityImage(ATTACHMENT_ID, ACTIVITY_ID);
 
-    expect(result).toMatchObject({ ok: true, message: "2 new image caption draft(s) are in the Content Library for review. Earlier drafts are unchanged." });
+    expect(result).toMatchObject({ ok: true, message: "2 new image caption drafts are in the Content Library for review. Earlier drafts are unchanged." });
     expect(mocks.analyzeImage).toHaveBeenCalledTimes(1);
     // The claim starts a fresh run.
     expect(analysisUpdates(db)[0]).toEqual({ status: "processing", error: null, analysis: {} });
