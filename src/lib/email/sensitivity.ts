@@ -64,14 +64,27 @@ export function seniorSignoffMessage(settings: SensitivitySettings): string {
   return `Awaiting senior sign-off from ${describeRoles(settings.sensitiveApproverRoles)}. A sensitive campaign can't be queued or sent until then.`;
 }
 
-/** Why this person can't flag or unflag the campaign, or null if they can. */
+/**
+ * Why this person can't flag the campaign (or, when it is already flagged,
+ * clear the flag), or null if they can. Flagging only adds restrictions, so the
+ * author and submitter may flag. Clearing removes the senior step, so it takes a senior
+ * sign-off role and someone outside the campaign's own approval chain.
+ */
 export function flagRefusal(campaign: SignoffCampaign, actor: SignoffActor, settings: SensitivitySettings): string | null {
   if (!actor.id) return "Sign in again to change this email campaign.";
-  if (!actor.role || !settings.canFlagSensitive.includes(actor.role)) {
-    return `Only ${describeRoles(settings.canFlagSensitive)} roles can flag or unflag sensitive campaigns.`;
-  }
-  if (actor.id === campaign.created_by || actor.id === submitterOf(campaign)) return "The campaign's author or submitter can't flag or unflag it.";
   if (campaign.status === "sent") return "A sent campaign can't be flagged or unflagged.";
+  if (campaign.is_sensitive) {
+    if (!actor.role || !settings.sensitiveApproverRoles.includes(actor.role)) {
+      return `Only ${describeRoles(settings.sensitiveApproverRoles)} roles can clear the sensitive flag.`;
+    }
+    if ([campaign.created_by, submitterOf(campaign), campaign.approved_by].includes(actor.id)) {
+      return "The campaign's author, submitter and first approver can't clear the sensitive flag.";
+    }
+    return null;
+  }
+  if (!actor.role || !settings.canFlagSensitive.includes(actor.role)) {
+    return `Only ${describeRoles(settings.canFlagSensitive)} roles can flag sensitive campaigns.`;
+  }
   return null;
 }
 

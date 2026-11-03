@@ -120,6 +120,8 @@ function revalidateSignoff(id: string) {
  * Flags or unflags a campaign as sensitive. Runs as the signed-in user, so the
  * database trigger sees auth.uid() and enforces the same rules; it records who
  * flagged it, clears any senior sign-off and pauses a campaign that was sending.
+ * Unflagging takes a senior sign-off role and someone other than the author,
+ * submitter and first approver (see flagRefusal).
  */
 export async function setEmailSensitivity(_previous: EmailActionResult | null, formData: FormData): Promise<EmailActionResult> {
   try {

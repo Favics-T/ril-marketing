@@ -216,10 +216,10 @@ describe("sensitive campaigns (REN-414)", () => {
       ["author", { created_by: "reviewer" }],
       ["submitter", { submitted_by: "reviewer" }],
       ["submitter recorded in legacy metadata", { submitted_by: null, metadata: { submitted_by: "reviewer" } }],
-    ])("refuses the %s", async (_who, override) => {
+    ])("lets the %s flag their own campaign", async (_who, override) => {
       const { db } = setup({ ...inReview, ...override });
-      expect(await flag(true)).toEqual({ ok: false, error: "The campaign's author or submitter can't flag or unflag it." });
-      expect(campaignUpdate(db)).toBeUndefined();
+      expect(await flag(true)).toEqual({ ok: true });
+      expect(campaignUpdate(db)?.payload).toEqual({ is_sensitive: true });
     });
     it("refuses a role outside the workspace's flagging roles", async () => {
       mocks.role.mockResolvedValue("member");
@@ -245,17 +245,32 @@ describe("sensitive campaigns (REN-414)", () => {
       expect(campaignUpdate(db)?.payload).toEqual({ is_sensitive: true });
       expect(admin.queries[0]).toMatchObject({ table: "email_campaign_deliveries", operation: "update", payload: { error: "Campaign flagged sensitive; awaiting senior sign-off." } });
     });
-    it("needs the same permission to clear the flag", async () => {
-      const { db } = setup({ ...awaiting, created_by: "reviewer" });
-      expect((await flag(false)).ok).toBe(false);
+    it.each(["marketing_manager", "leadership", "member"])("refuses to clear the flag for a %s, who isn't a senior sign-off role", async (role) => {
+      mocks.role.mockResolvedValue(role);
+      const { db } = setup(awaiting);
+      expect(await flag(false)).toEqual({ ok: false, error: "Only owner or admin roles can clear the sensitive flag." });
       expect(campaignUpdate(db)).toBeUndefined();
-      mocks.role.mockResolvedValue("member");
-      setup(awaiting);
-      expect((await flag(false)).ok).toBe(false);
-      mocks.role.mockResolvedValue("leadership");
-      const allowed = setup(awaiting);
+    });
+    it.each([
+      ["author", { created_by: "reviewer" }],
+      ["submitter", { submitted_by: "reviewer" }],
+      ["first approver", { approved_by: "reviewer" }],
+    ])("refuses to clear the flag for the %s, even as an owner", async (_who, override) => {
+      mocks.role.mockResolvedValue("owner");
+      const { db } = setup({ ...signedOff, ...override });
+      expect(await flag(false)).toEqual({ ok: false, error: "The campaign's author, submitter and first approver can't clear the sensitive flag." });
+      expect(campaignUpdate(db)).toBeUndefined();
+    });
+    it("lets a senior sign-off role outside the approval chain clear the flag", async () => {
+      mocks.role.mockResolvedValue("owner");
+      const { db } = setup(signedOff);
       expect(await flag(false)).toEqual({ ok: true });
-      expect(campaignUpdate(allowed.db)?.payload).toEqual({ is_sensitive: false });
+      expect(campaignUpdate(db)?.payload).toEqual({ is_sensitive: false });
+    });
+    it("follows a change to the senior sign-off roles when clearing the flag", async () => {
+      mocks.role.mockResolvedValue("leadership");
+      setup(awaiting, { settings: { can_flag_sensitive: ["owner"], sensitive_approver_roles: ["leadership"] } });
+      expect(await flag(false)).toEqual({ ok: true });
     });
     it("refuses to flag twice", async () => {
       setup(awaiting);

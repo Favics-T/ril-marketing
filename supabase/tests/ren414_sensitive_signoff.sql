@@ -1,6 +1,7 @@
 -- REN-414: prove the database enforces sensitive-campaign sign-off, whoever
 -- writes the row. Checks a database where
--- 20261021000000_email_sensitive_signoff.sql is already applied.
+-- 20261021000000_email_sensitive_signoff.sql and its follow-up
+-- 20261028000000_email_signoff_content_and_unflag.sql are already applied.
 --
 -- Run the whole file in the Supabase SQL editor (as postgres). Everything
 -- happens inside one transaction that ends in ROLLBACK, so nothing is kept.
@@ -12,10 +13,10 @@
 --   ...01 author     marketing_manager   ...c1 the sensitive campaign under test
 --   ...02 submitter  marketing_manager   ...c2 never flagged (regression)
 --   ...03 approver   marketing_manager   ...c3 already sent
---   ...04 senior     owner
---   ...05 flagger    marketing_manager
---   ...06 member     member
---   ...07 lead       leadership
+--   ...04 senior     owner               ...c4 flagged by its own author
+--   ...05 flagger    marketing_manager   ...c5 content edited after sign-off
+--   ...06 member     member              ...c6 flagged by its own submitter
+--   ...07 lead       leadership          Segment ...a1
 
 BEGIN;
 
@@ -37,6 +38,10 @@ DO $$ BEGIN
   END IF;
   IF has_table_privilege('authenticated', 'public.email_campaign_signoff_events', 'INSERT, UPDATE, DELETE') THEN
     RAISE EXCEPTION 'FAIL 3: authenticated can write the sign-off history';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'
+      AND table_name = 'email_campaign_signoff_events' AND column_name = 'reason') THEN
+    RAISE EXCEPTION 'FAIL 34: email_campaign_signoff_events.reason is missing; apply 20261028000000_email_signoff_content_and_unflag.sql';
   END IF;
 END $$;
 
@@ -61,7 +66,12 @@ INSERT INTO organization_members (organization_id, user_id, role) VALUES
 INSERT INTO email_campaigns (id, organization_id, name, subject, body, status, created_by) VALUES
   ('41400000-0000-4000-8000-0000000000c1', '41400000-0000-4000-8000-0000000000f0', 'REN-414 sensitive', 'Subject', 'Body copy for the test.', 'draft', '41400000-0000-4000-8000-000000000001'),
   ('41400000-0000-4000-8000-0000000000c2', '41400000-0000-4000-8000-0000000000f0', 'REN-414 ordinary', 'Subject', 'Body copy for the test.', 'draft', '41400000-0000-4000-8000-000000000001'),
-  ('41400000-0000-4000-8000-0000000000c3', '41400000-0000-4000-8000-0000000000f0', 'REN-414 sent', 'Subject', 'Body copy for the test.', 'sent', '41400000-0000-4000-8000-000000000001');
+  ('41400000-0000-4000-8000-0000000000c3', '41400000-0000-4000-8000-0000000000f0', 'REN-414 sent', 'Subject', 'Body copy for the test.', 'sent', '41400000-0000-4000-8000-000000000001'),
+  ('41400000-0000-4000-8000-0000000000c4', '41400000-0000-4000-8000-0000000000f0', 'REN-414 author flag', 'Subject', 'Body copy for the test.', 'draft', '41400000-0000-4000-8000-000000000001'),
+  ('41400000-0000-4000-8000-0000000000c5', '41400000-0000-4000-8000-0000000000f0', 'REN-414 content', 'Subject', 'Body copy for the test.', 'draft', '41400000-0000-4000-8000-000000000001'),
+  ('41400000-0000-4000-8000-0000000000c6', '41400000-0000-4000-8000-0000000000f0', 'REN-414 submitter flag', 'Subject', 'Body copy for the test.', 'draft', '41400000-0000-4000-8000-000000000001');
+INSERT INTO audience_segments (id, organization_id, name)
+  VALUES ('41400000-0000-4000-8000-0000000000a1', '41400000-0000-4000-8000-0000000000f0', 'REN-414 segment');
 
 DO $$ BEGIN
   INSERT INTO email_campaigns (organization_id, name, subject, body, is_sensitive)
@@ -88,17 +98,25 @@ DO $$ BEGIN
 END $$;
 
 -- ============ FLAGGING PERMISSIONS ============
+-- Flagging only adds restrictions, so the submitter may flag what they submitted.
 DO $$ BEGIN
-  UPDATE email_campaigns SET is_sensitive = true WHERE id = '41400000-0000-4000-8000-0000000000c1';
-  RAISE EXCEPTION 'FAIL 6: the submitter could flag the campaign';
-EXCEPTION WHEN insufficient_privilege THEN NULL;
+  UPDATE email_campaigns SET status = 'review' WHERE id = '41400000-0000-4000-8000-0000000000c6';
+  UPDATE email_campaigns SET is_sensitive = true WHERE id = '41400000-0000-4000-8000-0000000000c6';
+  IF NOT EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c6'
+      AND is_sensitive AND submitted_by = '41400000-0000-4000-8000-000000000002'
+      AND sensitive_flagged_by = '41400000-0000-4000-8000-000000000002') THEN
+    RAISE EXCEPTION 'FAIL 6: the submitter could not flag the campaign they submitted';
+  END IF;
 END $$;
 
+-- ...and so may the author.
 RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000001'); SET LOCAL ROLE authenticated;
 DO $$ BEGIN
-  UPDATE email_campaigns SET is_sensitive = true WHERE id = '41400000-0000-4000-8000-0000000000c1';
-  RAISE EXCEPTION 'FAIL 7: the author could flag the campaign';
-EXCEPTION WHEN insufficient_privilege THEN NULL;
+  UPDATE email_campaigns SET is_sensitive = true WHERE id = '41400000-0000-4000-8000-0000000000c4';
+  IF NOT EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c4'
+      AND is_sensitive AND sensitive_flagged_by = '41400000-0000-4000-8000-000000000001') THEN
+    RAISE EXCEPTION 'FAIL 7: the author could not flag their own campaign';
+  END IF;
 END $$;
 
 RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000006'); SET LOCAL ROLE authenticated;
@@ -226,6 +244,32 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN NULL;
 END $$;
 
+-- Clearing the flag takes a senior sign-off role (marketing_manager here), and
+-- never the submitter or first approver, though both hold that role now.
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000007'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE email_campaigns SET is_sensitive = false WHERE id = '41400000-0000-4000-8000-0000000000c1';
+  RAISE EXCEPTION 'FAIL 35: a flagging role that is not a senior sign-off role cleared the sensitive flag';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000002'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE email_campaigns SET is_sensitive = false WHERE id = '41400000-0000-4000-8000-0000000000c1';
+  RAISE EXCEPTION 'FAIL 36: the submitter cleared the sensitive flag';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000003'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE email_campaigns SET is_sensitive = false WHERE id = '41400000-0000-4000-8000-0000000000c1';
+  RAISE EXCEPTION 'FAIL 37: the first approver cleared the sensitive flag';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+
+-- The owner adds leadership to the senior roles; the lead can now clear it.
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000004'); SET LOCAL ROLE authenticated;
+UPDATE workspace_settings SET sensitive_approver_roles = ARRAY['marketing_manager', 'leadership']
+  WHERE organization_id = '41400000-0000-4000-8000-0000000000f0';
+
 RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000007'); SET LOCAL ROLE authenticated;
 DO $$ BEGIN
   UPDATE email_campaigns SET is_sensitive = false WHERE id = '41400000-0000-4000-8000-0000000000c1';
@@ -282,6 +326,105 @@ RESET ROLE; SELECT pg_temp.act_as(NULL);
 UPDATE email_campaigns SET delivery_authorized_at = now() WHERE id = '41400000-0000-4000-8000-0000000000c2';
 UPDATE email_campaigns SET status = 'sent' WHERE id = '41400000-0000-4000-8000-0000000000c2';
 
+-- ============ CONTENT CHANGED AFTER THE SENIOR SIGN-OFF ============
+-- c5: submitted by 02, flagged by its author 01, approved by 03, signed off by
+-- 07 (leadership is a senior role since the owner's change above). Edits come
+-- from 06, a plain member, writing directly as RLS still allows.
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000002'); SET LOCAL ROLE authenticated;
+UPDATE email_campaigns SET status = 'review' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000001'); SET LOCAL ROLE authenticated;
+UPDATE email_campaigns SET is_sensitive = true WHERE id = '41400000-0000-4000-8000-0000000000c5';
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000003'); SET LOCAL ROLE authenticated;
+UPDATE email_campaigns SET status = 'approved', approved_by = '41400000-0000-4000-8000-000000000003' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000007'); SET LOCAL ROLE authenticated;
+UPDATE email_campaigns SET sensitive_approved_by = '41400000-0000-4000-8000-000000000007' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000006'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c5' AND sensitive_approved_by IS NOT NULL AND sensitive_approved_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'SETUP: c5 should hold a senior sign-off before the content checks';
+  END IF;
+  -- Writing the same values, or a field outside the content, keeps it.
+  UPDATE email_campaigns SET name = 'REN-414 content renamed', body = body, subject = subject WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  IF NOT EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c5' AND sensitive_approved_by IS NOT NULL AND sensitive_approved_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'FAIL 38: a change outside body, subject, preview text and audience cleared the senior sign-off';
+  END IF;
+  UPDATE email_campaigns SET body = 'Different body copy after the sign-off.' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  IF EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c5' AND sensitive_approved_by IS NOT NULL AND sensitive_approved_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'FAIL 39: changing the body kept the senior sign-off';
+  END IF;
+END $$;
+
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000007'); SET LOCAL ROLE authenticated;
+UPDATE email_campaigns SET sensitive_approved_by = '41400000-0000-4000-8000-000000000007' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000006'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE email_campaigns SET subject = 'A different subject' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  IF EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c5' AND sensitive_approved_by IS NOT NULL AND sensitive_approved_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'FAIL 40: changing the subject kept the senior sign-off';
+  END IF;
+END $$;
+
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000007'); SET LOCAL ROLE authenticated;
+UPDATE email_campaigns SET sensitive_approved_by = '41400000-0000-4000-8000-000000000007' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000006'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE email_campaigns SET preview_text = 'A different inbox preview' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  IF EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c5' AND sensitive_approved_by IS NOT NULL AND sensitive_approved_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'FAIL 41: changing the preview text kept the senior sign-off';
+  END IF;
+END $$;
+
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000007'); SET LOCAL ROLE authenticated;
+UPDATE email_campaigns SET sensitive_approved_by = '41400000-0000-4000-8000-000000000007' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000006'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE email_campaigns SET audience_segment_id = '41400000-0000-4000-8000-0000000000a1' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  IF EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c5' AND sensitive_approved_by IS NOT NULL AND sensitive_approved_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'FAIL 42: changing the audience kept the senior sign-off';
+  END IF;
+END $$;
+
+-- Signed off and sending, then edited: the sign-off goes, the campaign pauses,
+-- and it can't resume, be authorized or finish until a senior signs off again.
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000007'); SET LOCAL ROLE authenticated;
+UPDATE email_campaigns SET sensitive_approved_by = '41400000-0000-4000-8000-000000000007' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+UPDATE email_campaigns SET status = 'scheduled' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000006'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE email_campaigns SET subject = 'Edited while sending' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  IF NOT EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c5'
+      AND status = 'paused' AND metadata->>'paused_from' = 'scheduled' AND sensitive_approved_by IS NULL AND sensitive_approved_at IS NULL) THEN
+    RAISE EXCEPTION 'FAIL 43: editing a sending campaign did not clear its senior sign-off and pause it';
+  END IF;
+END $$;
+RESET ROLE; SELECT pg_temp.act_as(NULL);
+DO $$ BEGIN
+  UPDATE email_campaigns SET status = 'scheduled' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  RAISE EXCEPTION 'FAIL 44: a campaign paused by an edit resumed without a fresh senior sign-off';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+DO $$ BEGIN
+  UPDATE email_campaigns SET delivery_authorized_at = now() WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  RAISE EXCEPTION 'FAIL 44: a campaign paused by an edit could be authorized for delivery';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+DO $$ BEGIN
+  UPDATE email_campaigns SET status = 'sent' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  RAISE EXCEPTION 'FAIL 45: a campaign paused by an edit could be marked sent';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+
+-- Paused, it takes a fresh senior sign-off and can then resume.
+RESET ROLE; SELECT pg_temp.act_as('41400000-0000-4000-8000-000000000007'); SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE email_campaigns SET sensitive_approved_by = '41400000-0000-4000-8000-000000000007' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  UPDATE email_campaigns SET status = 'scheduled' WHERE id = '41400000-0000-4000-8000-0000000000c5';
+  IF NOT EXISTS (SELECT 1 FROM email_campaigns WHERE id = '41400000-0000-4000-8000-0000000000c5' AND status = 'scheduled' AND sensitive_approved_by IS NOT NULL) THEN
+    RAISE EXCEPTION 'FAIL 48: a campaign paused by an edit could not be signed off again and resumed';
+  END IF;
+END $$;
+
 -- ============ HISTORY (as postgres) ============
 DO $$
 DECLARE got text[];
@@ -295,6 +438,21 @@ BEGIN
   IF NOT (got @> ARRAY['submitted:02', 'flagged:05', 'approved:03', 'senior_approved:05', 'senior_approval_cleared:07', 'unflagged:07', 'flagged:07']
       AND cardinality(got) = 7) THEN
     RAISE EXCEPTION 'FAIL 33: unexpected sign-off history %', got;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM email_campaign_signoff_events WHERE campaign_id = '41400000-0000-4000-8000-0000000000c1'
+      AND event = 'senior_approval_cleared' AND reason = 'sensitive flag changed') THEN
+    RAISE EXCEPTION 'FAIL 47: unflagging did not record why the senior sign-off was cleared';
+  END IF;
+  got := ARRAY(SELECT reason || ':' || right(COALESCE(actor_id::text, '-'), 2) FROM email_campaign_signoff_events
+    WHERE campaign_id = '41400000-0000-4000-8000-0000000000c5' AND event = 'senior_approval_cleared' ORDER BY created_at, id);
+  IF NOT (got @> ARRAY['content changed: body:06', 'content changed: subject:06', 'content changed: preview_text:06', 'content changed: audience_segment_id:06']
+      AND cardinality(got) = 5) THEN
+    RAISE EXCEPTION 'FAIL 46: unexpected content-change history %', got;
+  END IF;
+  got := ARRAY(SELECT reason || ':' || right(COALESCE(actor_id::text, '-'), 2) FROM email_campaign_signoff_events
+    WHERE campaign_id = '41400000-0000-4000-8000-0000000000c5' AND event = 'delivery_paused');
+  IF got IS DISTINCT FROM ARRAY['content changed after senior sign-off:06'] THEN
+    RAISE EXCEPTION 'FAIL 46: the pause after a mid-send edit was not recorded once, by the editor (%)', got;
   END IF;
 END $$;
 

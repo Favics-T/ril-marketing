@@ -42,19 +42,40 @@ describe("labels", () => {
 });
 
 describe("who may flag", () => {
-  it("allows a flagging role who neither wrote nor submitted the campaign", () => {
-    expect(flagRefusal(campaign, { id: "approver", role: "marketing_manager" }, defaults)).toBeNull();
+  const unflagged: SignoffCampaign = { ...campaign, is_sensitive: false };
+  it("allows a flagging role who didn't submit the campaign", () => {
+    expect(flagRefusal(unflagged, { id: "approver", role: "marketing_manager" }, defaults)).toBeNull();
   });
-  it.each([["author"], ["submitter"]])("refuses the %s whatever their role", (id) => {
-    expect(flagRefusal(campaign, { id, role: "owner" }, defaults)).toMatch(/author or submitter/);
+  it.each(["author", "submitter"])("allows the %s to flag their own campaign", (id) => {
+    expect(flagRefusal(unflagged, { id, role: "marketing_manager" }, defaults)).toBeNull();
   });
   it("refuses roles outside the setting, and a signed-out caller", () => {
-    expect(flagRefusal(campaign, { id: "x", role: "member" }, defaults)).toMatch(/^Only owner, admin/);
-    expect(flagRefusal(campaign, { id: "x", role: null }, defaults)).toMatch(/^Only/);
-    expect(flagRefusal(campaign, { id: null, role: "owner" }, defaults)).toMatch(/Sign in/);
+    expect(flagRefusal(unflagged, { id: "x", role: "member" }, defaults)).toMatch(/^Only owner, admin, marketing manager or leadership roles can flag/);
+    expect(flagRefusal(unflagged, { id: "x", role: null }, defaults)).toMatch(/^Only/);
+    expect(flagRefusal(unflagged, { id: null, role: "owner" }, defaults)).toMatch(/Sign in/);
   });
   it("refuses a sent campaign", () => {
-    expect(flagRefusal({ ...campaign, status: "sent" }, { id: "x", role: "owner" }, defaults)).toMatch(/sent campaign/);
+    expect(flagRefusal({ ...unflagged, status: "sent" }, { id: "x", role: "owner" }, defaults)).toMatch(/sent campaign/);
+  });
+});
+
+describe("who may clear the flag", () => {
+  it("allows a senior sign-off role outside the approval chain", () => {
+    expect(flagRefusal(campaign, { id: "senior", role: "admin" }, defaults)).toBeNull();
+  });
+  it("refuses a flagging role that isn't a senior sign-off role", () => {
+    expect(flagRefusal(campaign, { id: "senior", role: "marketing_manager" }, defaults)).toBe("Only owner or admin roles can clear the sensitive flag.");
+    expect(flagRefusal(campaign, { id: "senior", role: "leadership" }, defaults)).toMatch(/^Only owner or admin/);
+  });
+  it.each(["author", "submitter", "approver"])("refuses the %s, even with a senior role", (id) => {
+    expect(flagRefusal(campaign, { id, role: "owner" }, defaults)).toBe("The campaign's author, submitter and first approver can't clear the sensitive flag.");
+  });
+  it("follows the workspace's senior sign-off roles", () => {
+    expect(flagRefusal(campaign, { id: "senior", role: "leadership" }, { ...defaults, sensitiveApproverRoles: ["leadership"] })).toBeNull();
+    expect(flagRefusal(campaign, { id: "senior", role: "owner" }, { ...defaults, sensitiveApproverRoles: ["leadership"] })).toMatch(/^Only leadership/);
+  });
+  it("refuses a sent campaign", () => {
+    expect(flagRefusal({ ...campaign, status: "sent" }, { id: "senior", role: "owner" }, defaults)).toMatch(/sent campaign/);
   });
 });
 
