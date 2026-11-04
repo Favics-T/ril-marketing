@@ -3,6 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import type { PublicationRow } from "@/lib/content/publications";
 import { CALENDAR_STATUSES, calendarAt } from "@/lib/content/calendar";
 import { reminderState, type ReminderState } from "@/lib/content/reminders";
+import {
+  FAILED_PUBLICATION_STATUSES,
+  selectNeedsAttention,
+  type AttentionAsset,
+  type FailedPublicationRow,
+  type NeedsAttention,
+  type PublishedPublicationRow,
+} from "@/lib/content/attention";
 
 export interface ContentAssetRow {
   id: string;
@@ -178,4 +186,54 @@ export async function listSocialReminders(
     const state = reminderState(asset, now);
     return state ? [{ asset, state }] : [];
   });
+}
+
+const ATTENTION_ASSET_COLUMNS = "id,organization_id,title,channel,platform,format,status,scheduled_for,published_at";
+
+/** Failed publishes and overdue posts for the Command Centre (see attention.ts). */
+export async function listNeedsAttention(
+  organizationId: string,
+  now: Date = new Date()
+): Promise<NeedsAttention> {
+  const supabase = await createClient();
+  const [failuresResult, overdueResult] = await Promise.all([
+    supabase
+      .from("publications")
+      .select(`id,organization_id,content_asset_id,channel,status,error,created_at,asset:content_assets(${ATTENTION_ASSET_COLUMNS})`)
+      .eq("organization_id", organizationId)
+      .in("status", [...FAILED_PUBLICATION_STATUSES])
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("content_assets")
+      .select(ATTENTION_ASSET_COLUMNS, { count: "exact" })
+      .eq("organization_id", organizationId)
+      .in("status", ["approved", "scheduled"])
+      .lt("scheduled_for", now.toISOString())
+      .order("scheduled_for")
+      .limit(500),
+  ]);
+  if (failuresResult.error) throw new Error(`Failed to load failed publishes: ${failuresResult.error.message}`);
+  if (overdueResult.error) throw new Error(`Failed to load overdue posts: ${overdueResult.error.message}`);
+  const failures = (failuresResult.data ?? []) as unknown as FailedPublicationRow[];
+
+  // Successful publishes on the same assets, to clear failures a later retry fixed.
+  const assetIds = [...new Set(failures.map((row) => row.content_asset_id))];
+  let published: PublishedPublicationRow[] = [];
+  if (assetIds.length) {
+    const { data, error } = await supabase
+      .from("publications")
+      .select("organization_id,content_asset_id,channel,created_at")
+      .eq("organization_id", organizationId)
+      .eq("status", "published")
+      .in("content_asset_id", assetIds)
+      .limit(2000);
+    if (error) throw new Error(`Failed to load publish history: ${error.message}`);
+    published = (data ?? []) as PublishedPublicationRow[];
+  }
+
+  return selectNeedsAttention(
+    { failures, published, overdue: (overdueResult.data ?? []) as AttentionAsset[], overdueCount: overdueResult.count },
+    { organizationId, now }
+  );
 }
