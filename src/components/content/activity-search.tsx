@@ -1,4 +1,7 @@
 "use client";
+import { FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { Button as ShadcnButton } from "@/components/ui/button";
+
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Form from "next/form";
@@ -52,7 +55,7 @@ export function ActivitySearch({ initialQuery }: { initialQuery: string }) {
 
 	return (
 		<Form action="/activities" role="search" className="relative w-full sm:max-w-md">
-			<label>
+			<ShadcnField asChild><ShadcnFieldLabel>
 				<span className="sr-only">Search activities</span>
 				{pending ? (
 					<Loader2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden="true" />
@@ -67,18 +70,18 @@ export function ActivitySearch({ initialQuery }: { initialQuery: string }) {
 					maxLength={100}
 					autoComplete="off"
 					placeholder="Search name, description, outcomes…"
-					className="h-10 pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
+					className="pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
 				/>
-			</label>
+			</ShadcnFieldLabel></ShadcnField>
 			{value ? (
-				<button
+				<ShadcnButton variant="ghost"
 					type="button"
 					onClick={clear}
 					aria-label="Clear search"
-					className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center"
 				>
 					<X className="size-4" aria-hidden="true" />
-				</button>
+				</ShadcnButton>
 			) : null}
 		</Form>
 	);

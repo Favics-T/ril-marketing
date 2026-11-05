@@ -40,8 +40,7 @@ export type SidebarNavGroup = {
 
 /**
  * RIL Audience Intelligence — the real product navigation.
- * Every item points at a live route; groups follow the operating ritual
- * (capture → intelligence → growth → setup). No dead anchors.
+ * Groups follow content preparation, distribution, audiences, and measurement.
  */
 export const navGroups: SidebarNavGroup[] = [
 	{
@@ -55,36 +54,41 @@ export const navGroups: SidebarNavGroup[] = [
 		],
 	},
 	{
-		label: "Create & publish",
+		label: "Content",
 		items: [
 			{ title: "Activities", path: "/activities", icon: <NotebookPenIcon /> },
 			{ title: "Content Library", path: "/library", icon: <LibraryIcon /> },
 			{ title: "Repurpose content", path: "/repurpose", icon: <CopyIcon /> },
 			{ title: "SEO Workspace", path: "/seo", icon: <FileSearchIcon /> },
-			{ title: "Calendar", path: "/calendar", icon: <CalendarIcon /> },
-			{ title: "Social publishing", path: "/publishing", icon: <SendIcon /> },
 		],
 	},
 	{
-		label: "Audience & strategy",
+		label: "Distribution",
+		items: [
+			{ title: "Calendar", path: "/calendar", icon: <CalendarIcon /> },
+			{ title: "Social publishing", path: "/publishing", icon: <SendIcon /> },
+			{ title: "Email", path: "/email", icon: <MailIcon /> },
+			{ title: "Landing Pages", path: "/audience/landing-pages", icon: <PanelsTopLeftIcon /> },
+		],
+	},
+	{
+		label: "Audience",
 		items: [
 			{ title: "Segments", path: "/audience/segments", icon: <UsersIcon /> },
 			{ title: "Insights", path: "/audience/insights", icon: <LightbulbIcon /> },
 			{ title: "Campaigns", path: "/audience/campaigns", icon: <MegaphoneIcon /> },
-			{ title: "Assistant", path: "/assistant", icon: <BotIcon /> },
-			{ title: "Trends", path: "/trends", icon: <TrendingUpIcon /> },
+			{ title: "Leads", path: "/leads", icon: <UserPlusIcon /> },
+			{ title: "Nurture", path: "/nurture", icon: <SproutIcon /> },
+			{ title: "Community Inbox", path: "/community", icon: <MessageCircleMoreIcon /> },
 		],
 	},
 	{
-		label: "Reach & grow",
+		label: "Intelligence",
 		items: [
-			{ title: "Leads", path: "/leads", icon: <UserPlusIcon /> },
-			{ title: "Email", path: "/email", icon: <MailIcon /> },
-			{ title: "Nurture", path: "/nurture", icon: <SproutIcon /> },
 			{ title: "Reports", path: "/reports", icon: <FileChartColumnIncreasingIcon /> },
 			{ title: "Analytics", path: "/analytics", icon: <ChartNoAxesCombinedIcon /> },
-			{ title: "Community Inbox", path: "/community", icon: <MessageCircleMoreIcon /> },
-			{ title: "Landing Pages", path: "/audience/landing-pages", icon: <PanelsTopLeftIcon /> },
+			{ title: "Assistant", path: "/assistant", icon: <BotIcon /> },
+			{ title: "Trends", path: "/trends", icon: <TrendingUpIcon /> },
 		],
 	},
 	{

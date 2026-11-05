@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -148,7 +152,7 @@ function Toolbar({ editor }: { editor: Editor }) {
       </div>
       {linkOpen ? (
         <div className="flex flex-wrap items-center gap-2 border-t border-border p-2">
-          <input
+          <Input
             type="url"
             autoFocus
             value={href}
@@ -160,10 +164,10 @@ function Toolbar({ editor }: { editor: Editor }) {
             }}
             placeholder="https://…"
             aria-label="Link address"
-            className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+            className="min-w-0 flex-1"
           />
-          <button type="button" onClick={applyLink} className="h-8 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground">Apply</button>
-          <button type="button" onClick={() => setLinkOpen(false)} className="h-8 rounded-md px-3 text-xs font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+          <Button type="button" onClick={applyLink}>Apply</Button>
+          <Button type="button" variant="ghost" onClick={() => setLinkOpen(false)}>Cancel</Button>
         </div>
       ) : null}
     </div>
@@ -172,21 +176,21 @@ function Toolbar({ editor }: { editor: Editor }) {
 
 function Tool({ label, pressed, disabled, onClick, children }: { label: string; pressed?: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button
+    <Toggle
       type="button"
       title={label}
       aria-label={label}
-      aria-pressed={pressed}
+      pressed={pressed ?? false}
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm [&_svg]:size-4"
+
     >
       {children}
-    </button>
+    </Toggle>
   );
 }
 
 function Divider() {
-  return <span aria-hidden className="mx-1 h-5 w-px bg-border" />;
+  return <Separator orientation="vertical" className="mx-1 h-6" />;
 }

@@ -1,3 +1,7 @@
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
@@ -51,13 +55,9 @@ export default async function SeoWorkspacePage() {
   const appliedCount = assets.filter((asset) => Boolean(asset.appliedAt)).length;
 
   return <div className="workspace-page flex flex-col gap-5 md:gap-7">
-    <header>
-      <p className="dateline">{todayDateline()} · content discoverability</p>
-      <h1>SEO Workspace</h1>
-      <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">Improve RIL blog and website drafts with topic-grounded search suggestions. People review every recommendation; readiness checks describe the page, not its likely rank.</p>
-    </header>
+    <WorkspacePageHeader title={<>SEO Workspace</>} eyebrow={<>{todayDateline()} · content discoverability</>} description={<>Improve RIL blog and website drafts with topic-grounded search suggestions. People review every recommendation; readiness checks describe the page, not its likely rank.</>} />
 
-    {error ? <p role="alert" className="slip border-destructive p-5 text-sm text-destructive">SEO drafts could not be loaded. Refresh the page or check the database connection.</p> : null}
+    {error ? <ShadcnAlert asChild variant="destructive"><ShadcnCard asChild><p role="alert" className="slip p-5">SEO drafts could not be loaded. Refresh the page or check the database connection.</p></ShadcnCard></ShadcnAlert> : null}
 
     <dl className="workspace-stat-strip">
       {[{ label: "Website drafts", value: assets.length }, { label: "Analysed", value: analysisCount }, { label: "Metadata applied", value: appliedCount }].map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{error ? "Unavailable" : item.value}</dd></div>)}
@@ -68,9 +68,9 @@ export default async function SeoWorkspacePage() {
       {!assets.length ? <EmptyState title="No website drafts to review" description="Create a blog draft with body copy. Editable website articles appear here for search checks before review." action={{ label: "Create a blog draft", href: "/library/new?channel=website&format=blog" }} /> : <ul className="flex flex-col gap-3">{assets.map((asset) => <SeoAssetWorkflow key={asset.id} asset={{ id: asset.id, title: asset.title, body: asset.body, status: asset.status, topic: asset.topic, channel: asset.channel, seo: asset.audit, seoAppliedAt: asset.appliedAt }} />)}</ul>}
     </section>
 
-    <section className="slip p-5">
+    <ShadcnCard asChild><section className="slip p-5">
       <h2 className="text-[13px] font-bold tracking-[-0.01em]">Evidence boundary</h2>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">This workspace reviews copy, metadata, structure and links to published RIL landing pages. It does not measure keyword volume, search rankings, crawl errors, backlinks, or page-speed scores. Connect verified Search Console and web analytics data before interpreting organic performance.</p>
-    </section>
+    </section></ShadcnCard>
   </div>;
 }

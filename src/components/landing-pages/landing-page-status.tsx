@@ -1,4 +1,6 @@
 "use client";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -19,7 +21,7 @@ export function LandingPageStatus({ pageId, status, updatedAt, disabled = false 
   const [error, setError] = useState("");
   return (
     <div className="flex flex-col gap-2">
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{error}</p></ShadcnAlert> : null}
       <div className="flex flex-wrap gap-2">
         {(actions[status] ?? []).map((item) => <Button key={item.status} type="button" size="sm" variant={item.status === "published" ? "default" : "outline"} disabled={busy || disabled} onClick={() => {
           setError("");

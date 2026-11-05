@@ -1,4 +1,7 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState } from "react";
 import { transitionEmailCampaign, type EmailActionResult } from "@/actions/email";
@@ -6,9 +9,9 @@ import { Button } from "@/components/ui/button";
 
 export function EmailTransitionButton({ emailId, to, label }: { emailId: string; to: "review" | "approved" | "paused" | "scheduled"; label: string }) {
   const [state, action, pending] = useActionState<EmailActionResult | null, FormData>(transitionEmailCampaign, null);
-  return <form action={action} className="flex flex-col gap-1">
+  return <ShadcnFieldGroup asChild><form action={action} className="flex flex-col gap-1">
     <input type="hidden" name="id" value={emailId} /><input type="hidden" name="to" value={to} />
     <Button type="submit" size="sm" variant="outline" disabled={pending}>{label}</Button>
-    {state?.error ? <p role="alert" className="max-w-[40ch] text-xs text-destructive">{state.error}</p> : null}
-  </form>;
+    {state?.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="max-w-[40ch] text-xs text-destructive">{state.error}</p></ShadcnAlert> : null}
+  </form></ShadcnFieldGroup>;
 }

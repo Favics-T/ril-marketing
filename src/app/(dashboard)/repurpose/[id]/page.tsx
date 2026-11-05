@@ -1,3 +1,7 @@
+
+import { Disclosure } from "@/components/ui/disclosure";
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -53,7 +57,7 @@ export default async function SourcePage({
       <div className="grid items-start gap-6 xl:grid-cols-2">
         <div className="flex flex-col gap-6">
           <SourceRunControls key={source.updated_at} source={source} />
-          <section className="slip flex flex-col gap-3 p-5 sm:p-6">
+          <ShadcnCard asChild><section className="slip flex flex-col gap-3 p-5 sm:p-6">
             <h2 className="text-base font-semibold">Generated drafts</h2>
             {outputs?.length ? (
               <ul className="flex flex-col gap-3">
@@ -96,9 +100,9 @@ export default async function SourcePage({
                 ))}
               </ul>
             ) : null}
-          </section>
+          </section></ShadcnCard>
         </div>
-        <section className="slip flex flex-col gap-4 p-5 sm:p-6">
+        <ShadcnCard asChild><section className="slip flex flex-col gap-4 p-5 sm:p-6">
           <h2 className="text-base font-semibold">Source evidence</h2>
           {source.options.sourceAssetId ? <><Link href={`/library/${source.options.sourceAssetId}${source.options.sourceFileId ? "#content-files" : ""}`} className="text-sm font-semibold text-primary underline">Original Content Library item{source.options.sourceFileId ? " & source file" : ""}</Link><p className="text-xs text-muted-foreground">{source.options.sourceFileId ? "This source reads the attached private file. Uploaded files are not overwritten; extracted evidence is saved before drafting." : "This source uses the copy saved when it was created. Later edits to the original do not change this revision."}</p></> : null}
           {source.source_url ? (
@@ -146,20 +150,20 @@ export default async function SourcePage({
             },
           )}
           {source.analysis.transcript ? (
-            <details>
-              <summary className="cursor-pointer text-sm font-semibold">
+            <Disclosure  title={<>
                 Transcript / extracted text
-              </summary>
+              </>} summaryClassName="cursor-pointer text-sm font-semibold">
+              
               <p className="mt-3 max-h-96 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6">
                 {source.analysis.transcript}
               </p>
-            </details>
+            </Disclosure>
           ) : source.manual_summary || source.input_text ? (
             <p className="whitespace-pre-wrap break-words text-sm leading-6">
               {source.manual_summary || source.input_text}
             </p>
           ) : null}
-        </section>
+        </section></ShadcnCard>
       </div>
     </div>
   );

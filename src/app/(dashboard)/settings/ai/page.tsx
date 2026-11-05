@@ -1,3 +1,7 @@
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
 import { SettingsNavigation } from "@/components/settings/settings-navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -206,38 +210,33 @@ export default async function AiSettingsPage({
 
   return (
     <div className="workspace-page settings-page">
-      <header>
-        <h1>AI &amp; integrations</h1>
-        <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-          Connect the tools you use to write, publish, and track your marketing.
-          Start with AI, then add only the services you need.
-        </p>
-      </header>
-      <SettingsNavigation />
+      <WorkspacePageHeader title={<>AI &amp; integrations</>} description={<>Connect the tools you use to write, publish, and track your marketing.
+          Start with AI, then add only the services you need.</>} />
+      <div className="settings-workbench"><SettingsNavigation /><div className="settings-content">
 
       <ConnectionHealthPanel canManage={canManageConnectors} />
 
       {search.connect_error ? (
-        <p
+        <ShadcnAlert asChild variant="destructive"><ShadcnCard asChild><p
           role="alert"
-          className="slip flex items-start gap-3 rounded-lg border-destructive/40 px-5 py-4 text-sm leading-6 text-destructive sm:px-6"
+          className="slip flex items-start gap-3 px-5 py-4 leading-6 sm:px-6"
         >
           <TriangleAlert className="mt-1 size-4 shrink-0" aria-hidden="true" />
           <span className="min-w-0">{search.connect_error}</span>
-        </p>
+        </p></ShadcnCard></ShadcnAlert>
       ) : null}
       {search.connected ? (
-        <p
+        <ShadcnAlert asChild role="status"><ShadcnCard asChild><p
           role="status"
-          className="slip flex items-start gap-3 px-5 py-4 text-sm font-semibold leading-6 text-emerald-700 dark:text-emerald-400 sm:px-6"
+          className="slip flex items-start gap-3 px-5 py-4 leading-6 sm:px-6"
         >
           <CheckCircle2 className="mt-1 size-4 shrink-0" aria-hidden="true" />
           Connected. Your channels are ready to use.
-        </p>
+        </p></ShadcnCard></ShadcnAlert>
       ) : null}
 
       <nav aria-label="Integration sections" className="flex flex-wrap gap-2"><a href="#ai-provider" className="inline-flex min-h-11 items-center rounded-md border bg-card px-4 text-sm font-medium hover:bg-muted">AI writing</a><a href="#connectors" className="inline-flex min-h-11 items-center rounded-md border bg-card px-4 text-sm font-medium hover:bg-muted">Saved apps · {connectedCount}</a></nav>
-      <section
+      <ShadcnCard asChild><section
         id="ai-provider"
         aria-labelledby="ai-provider-heading"
         className="slip scroll-mt-20 px-5 py-5 sm:px-6"
@@ -249,7 +248,7 @@ export default async function AiSettingsPage({
               className={cn(
                 "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border [&_svg]:size-4",
                 aiConnected
-                  ? "border-emerald-600/20 bg-emerald-600/5 text-emerald-700 dark:text-emerald-400"
+                  ? "border-emerald-600/20 bg-emerald-600/5 text-emerald-700 "
                   : "border-border bg-muted/40 text-muted-foreground"
               )}
             >
@@ -294,7 +293,7 @@ export default async function AiSettingsPage({
             </>
           )}
         </div>
-      </section>
+      </section></ShadcnCard>
 
       {/* ── Connectors ────────────────────────────────────────────────── */}
       <section id="connectors" aria-labelledby="connectors-heading" className="scroll-mt-20">
@@ -370,7 +369,7 @@ export default async function AiSettingsPage({
       </section>
 
       {otherIntegrations.length > 0 ? (
-        <section
+        <ShadcnCard asChild><section
           aria-labelledby="other-connections-heading"
           className="slip px-5 py-5 sm:px-6"
         >
@@ -380,7 +379,7 @@ export default async function AiSettingsPage({
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
             Workspace services that don&apos;t need setup here.
           </p>
-          <ul className="ledger mt-3 border-t border-border/80">
+          <ShadcnCardContent asChild className="p-0"><ul className="ledger mt-3 border-t border-border/80">
             {otherIntegrations.map((row) => (
               <li
                 key={row.key}
@@ -401,9 +400,9 @@ export default async function AiSettingsPage({
                 </StatusStamp>
               </li>
             ))}
-          </ul>
-        </section>
+          </ul></ShadcnCardContent>
+        </section></ShadcnCard>
       ) : null}
-    </div>
+    </div></div></div>
   );
 }

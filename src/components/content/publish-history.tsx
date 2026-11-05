@@ -1,3 +1,5 @@
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { ChannelIdentity } from "@/components/channel-identity";
 import { socialChannelKey } from "@/components/settings/channel-icons";
@@ -21,7 +23,7 @@ export function PublishHistory({
 	assetStatus: string;
 }) {
 	return (
-		<section className="slip flex h-fit flex-col p-5 sm:p-6">
+		<ShadcnCard asChild><section className="slip flex h-fit flex-col p-5 sm:p-6">
 			<p className="dateline">Publish history</p>
 			{publications.length ? (
 				<ol className="ledger mt-2 flex flex-col">
@@ -60,6 +62,6 @@ export function PublishHistory({
 						: "Not published to any channel yet."}
 				</p>
 			)}
-		</section>
+		</section></ShadcnCard>
 	);
 }

@@ -1,5 +1,11 @@
 "use client";
 
+import { Disclosure } from "@/components/ui/disclosure";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { FieldGroup as ShadcnFieldGroup, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+
+
 import { useActionState, useEffect, useState } from "react";
 import { CircleCheck, CircleMinus, CircleX, FileTextIcon, TriangleAlert } from "lucide-react";
 import { disconnectWordPress, saveWordPressConnection, testWordPressConnection, type ConnectionTestResult } from "@/actions/wordpress";
@@ -21,8 +27,8 @@ const YOAST_SNIPPET = `add_action('init', function () {
 });`;
 
 const CHECK_ICONS = {
-  pass: { Icon: CircleCheck, className: "text-emerald-700 dark:text-emerald-400", label: "Passed" },
-  warn: { Icon: TriangleAlert, className: "text-amber-700 dark:text-amber-400", label: "Warning" },
+  pass: { Icon: CircleCheck, className: "text-emerald-700 ", label: "Passed" },
+  warn: { Icon: TriangleAlert, className: "text-amber-700 ", label: "Warning" },
   fail: { Icon: CircleX, className: "text-destructive", label: "Failed" },
   skip: { Icon: CircleMinus, className: "text-muted-foreground", label: "Not checked" },
 } as const;
@@ -30,10 +36,10 @@ const CHECK_ICONS = {
 /** Result of "Test connection": one row per check, in the order they ran. */
 function ConnectionChecklist({ result }: { result: ConnectionTestResult }) {
   if (result.error) {
-    return <p role="alert" className="mt-2 text-sm text-destructive">{result.error}</p>;
+    return <ShadcnAlert asChild variant="destructive"><p role="alert" className="mt-2 text-sm text-destructive">{result.error}</p></ShadcnAlert>;
   }
   return (
-    <div role="status" className="mt-3 rounded-lg border border-border px-3 py-2">
+    <ShadcnAlert asChild role="status"><div role="status" className="mt-3 rounded-lg border border-border px-3 py-2">
       <p className="text-sm font-semibold tracking-[-0.01em]">
         {result.ok ? "Connection test passed. Nothing was saved." : "Connection test found a problem. Nothing was saved."}
       </p>
@@ -51,7 +57,7 @@ function ConnectionChecklist({ result }: { result: ConnectionTestResult }) {
           );
         })}
       </ul>
-    </div>
+    </div></ShadcnAlert>
   );
 }
 
@@ -105,8 +111,8 @@ export function WordPressSettingsForm({
       }
     >
       {open ? (
-        <form action={saveAction} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
+        <ShadcnFieldGroup asChild><form action={saveAction} className="flex flex-col gap-3">
+          <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
             Your WordPress address
             <Input
               name="siteUrl"
@@ -115,26 +121,26 @@ export function WordPressSettingsForm({
               autoComplete="url"
               placeholder="https://example.org"
               defaultValue={initial.siteUrl}
-              className="h-10 rounded-lg font-normal"
+              
             />
-          </label>
+          </ShadcnFieldLabel></ShadcnField>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
+            <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
               WordPress username
               <Input
                 name="username"
                 required
                 autoComplete="username"
                 defaultValue={initial.username}
-                className="h-10 rounded-lg font-normal"
+                
               />
               <span className="text-[13px] font-normal leading-5 text-muted-foreground">
                 The account that will publish the posts.
               </span>
-            </label>
-            <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
+            </ShadcnFieldLabel></ShadcnField>
+            <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
               Application password
-              <input
+              <Input
                 name="applicationPassword"
                 type="password"
                 autoComplete="new-password"
@@ -157,34 +163,34 @@ export function WordPressSettingsForm({
                 </a>
                 . Not your account password.
               </span>
-            </label>
+            </ShadcnFieldLabel></ShadcnField>
           </div>
-          <label className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
+          <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
             SEO plugin
-            <select
+            <ShadcnNativeSelect
               name="seoPlugin"
               value={seoPlugin}
               onChange={(event) => setSeoPlugin(event.target.value)}
-              className={`${fieldClass} font-normal sm:max-w-xs`}
+              className={`${fieldClass} sm:max-w-xs`}
             >
-              <option value="none">None</option>
-              <option value="yoast">Yoast SEO</option>
-              <option value="rankmath">Rank Math</option>
-            </select>
+              <ShadcnNativeSelectOption value="none">None</ShadcnNativeSelectOption>
+              <ShadcnNativeSelectOption value="yoast">Yoast SEO</ShadcnNativeSelectOption>
+              <ShadcnNativeSelectOption value="rankmath">Rank Math</ShadcnNativeSelectOption>
+            </ShadcnNativeSelect>
             <span className="text-[13px] font-normal leading-5 text-muted-foreground">
               Sends each article&apos;s SEO title and meta description to this plugin. The meta description is always used as the post excerpt.
             </span>
-          </label>
+          </ShadcnFieldLabel></ShadcnField>
           {seoPlugin === "yoast" ? (
-            <details className="rounded-lg border border-border px-3 py-2 text-[13px] leading-5 text-muted-foreground">
-              <summary className="cursor-pointer font-semibold text-foreground">
+            <Disclosure className="rounded-lg border border-border px-3 py-2 text-[13px] leading-5 text-muted-foreground" title={<>
                 Yoast needs one snippet on your site
-              </summary>
+              </>} summaryClassName="cursor-pointer font-semibold text-foreground">
+              
               <p className="mt-2">
                 Yoast does not let the API write its SEO fields by default. Ask whoever manages the site to add this to the theme&apos;s functions.php or a code-snippets plugin:
               </p>
               <pre className="mt-2 overflow-x-auto rounded-md bg-muted p-2 font-mono text-xs text-foreground">{YOAST_SNIPPET}</pre>
-            </details>
+            </Disclosure>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="sm" disabled={saving || disconnecting || testing}>
@@ -208,14 +214,14 @@ export function WordPressSettingsForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground"
+                
                 onClick={() => setOpen(false)}
                 disabled={saving}
               >
                 Cancel
               </Button>
           </div>
-        </form>
+        </form></ShadcnFieldGroup>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           {connected ? (
@@ -229,14 +235,14 @@ export function WordPressSettingsForm({
             </Button>
           ) : null}
           {connected ? (
-            <form action={testAction}>
+            <ShadcnFieldGroup asChild><form action={testAction}>
               <input type="hidden" name="siteUrl" value={initial.siteUrl} />
               <input type="hidden" name="username" value={initial.username} />
               <input type="hidden" name="seoPlugin" value={initial.seoPlugin || "none"} />
               <Button type="submit" variant="outline" size="sm" disabled={testing}>
                 {testing ? "Testing…" : "Test connection"}
               </Button>
-            </form>
+            </form></ShadcnFieldGroup>
           ) : (
             <Button
               type="button"
@@ -248,17 +254,17 @@ export function WordPressSettingsForm({
             </Button>
           )}
           {connected ? (
-            <form action={disconnectAction}>
+            <ShadcnFieldGroup asChild><form action={disconnectAction}>
               <Button
                 type="submit"
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground"
+                
                 disabled={disconnecting}
               >
                 {disconnecting ? "Disconnecting…" : "Disconnect"}
               </Button>
-            </form>
+            </form></ShadcnFieldGroup>
           ) : null}
         </div>
       )}
@@ -268,27 +274,27 @@ export function WordPressSettingsForm({
       </p>
       {test ? <ConnectionChecklist result={test} /> : null}
       {save?.message ? (
-        <p
+        <ShadcnAlert asChild role="status"><p
           role="status"
-          className="mt-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400"
+          className="mt-2 text-sm font-semibold text-emerald-700 "
         >
           {save.message}
-        </p>
+        </p></ShadcnAlert>
       ) : null}
       {save?.error ? (
-        <p role="alert" className="mt-2 text-sm text-destructive">
+        <ShadcnAlert asChild variant="destructive"><p role="alert" className="mt-2 text-sm text-destructive">
           {save.error}
-        </p>
+        </p></ShadcnAlert>
       ) : null}
       {disconnect?.message ? (
-        <p role="status" className="mt-2 text-sm text-muted-foreground">
+        <ShadcnAlert asChild role="status"><p role="status" className="mt-2 text-sm text-muted-foreground">
           {disconnect.message}
-        </p>
+        </p></ShadcnAlert>
       ) : null}
       {disconnect?.error ? (
-        <p role="alert" className="mt-2 text-sm text-destructive">
+        <ShadcnAlert asChild variant="destructive"><p role="alert" className="mt-2 text-sm text-destructive">
           {disconnect.error}
-        </p>
+        </p></ShadcnAlert>
       ) : null}
     </ConnectorCard>
   );

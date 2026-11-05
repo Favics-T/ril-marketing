@@ -1,3 +1,5 @@
+
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
 import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -73,10 +75,10 @@ export default async function LeadDetailPage({
 				</div>
 			</header>
 
-			<div className="record-layout grid gap-6 lg:grid-cols-3">
-				<section className="slip flex flex-col lg:col-span-2">
+			<div className="record-layout lead-record-layout grid gap-6 lg:grid-cols-3">
+				<ShadcnCard asChild><section className="slip flex flex-col lg:col-span-2">
 					<div className="ril-record-heading"><h2>Contact &amp; context</h2><p>Use the recorded interest and consent to guide the next conversation.</p></div>
-					<dl className="ril-lead-facts">
+					<ShadcnCardContent asChild className="p-0"><dl className="ril-lead-facts">
 						{facts.map((f) => (
 							<div
 								key={f.label}
@@ -88,7 +90,7 @@ export default async function LeadDetailPage({
 								</dd>
 							</div>
 						))}
-					</dl>
+					</dl></ShadcnCardContent>
 					{lead.score_reason ? (
 						<div className="border-t border-border/80 px-5 py-4 sm:px-6">
 							<p className="dateline">Why this score</p>
@@ -97,12 +99,12 @@ export default async function LeadDetailPage({
 							</p>
 						</div>
 					) : null}
-				</section>
+				</section></ShadcnCard>
 
-				<section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
+				<ShadcnCard asChild><section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
 					<div>
 						<p className="dateline">Follow-up</p>
-						<h2 className="mt-1 text-base font-bold">Work this lead</h2>
+						<h2 className="mt-1 text-base font-bold">Plan the next step</h2>
 					</div>
 					<LeadActions
 						leadId={lead.id}
@@ -111,7 +113,7 @@ export default async function LeadDetailPage({
 						notes={lead.notes}
 						hasOwner={Boolean(lead.owner_id)}
 					/>
-				</section>
+				</section></ShadcnCard>
 			</div>
 			<LeadFollowUps leadId={lead.id} items={followUps ?? []} />
 			<LeadNurture leadId={lead.id} hasConsent={hasConsent} sequences={activeSequences} enrollments={enrollments} />

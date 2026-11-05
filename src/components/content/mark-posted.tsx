@@ -1,4 +1,7 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState } from "react";
 import { transitionAsset, type ActionResult } from "@/actions/content";
@@ -11,17 +14,17 @@ export function MarkPosted({ assetId }: { assetId: string }) {
 		null
 	);
 	return (
-		<form action={action} className="flex flex-col gap-2">
+		<ShadcnFieldGroup asChild><form action={action} className="flex flex-col gap-2">
 			<input type="hidden" name="to" value="published" />
 			<input type="hidden" name="note" value="Marked as posted from reminder." />
 			{state?.ok === false ? (
-				<p role="alert" className="text-sm text-destructive">
+				<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 					{state.error}
-				</p>
+				</p></ShadcnAlert>
 			) : null}
 			<Button type="submit" size="sm" className="w-fit" disabled={pending}>
 				{pending ? "Saving…" : "Mark as posted"}
 			</Button>
-		</form>
+		</form></ShadcnFieldGroup>
 	);
 }

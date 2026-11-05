@@ -1,3 +1,6 @@
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireOrganizationId } from "@/lib/supabase/organization";
@@ -53,15 +56,10 @@ export default async function RepurposingPage({
   const initialFile = params.file ?? (chosenAsset && !chosenAsset.body?.trim() ? libraryFileOptions.find(file => file.assetId === chosenAsset.id)?.id : undefined);
   return (
     <div className="workspace-page flex flex-col gap-6">
-      <header>
-        <h1>Repurpose content</h1>
-        <p className="mt-2 max-w-[70ch] text-sm leading-6 text-muted-foreground">
-          Turn a recording, document, image, URL or activity into source-linked
+      <WorkspacePageHeader title={<>Repurpose content</>} description={<>Turn a recording, document, image, URL or activity into source-linked
           drafts. AI interpretation stays separate from source evidence. Your
-          team approves every public step.
-        </p>
-      </header>
-      <div className="grid items-start gap-6 xl:grid-cols-2">
+          team approves every public step.</>} />
+      <div className="repurpose-workbench">
         <SourceCreateForm
           activities={activities.data || []}
           files={files.data || []}
@@ -72,7 +70,7 @@ export default async function RepurposingPage({
           initialFile={initialFile}
           initialAsset={chosenAsset?.id}
         />
-        <section className="slip flex flex-col gap-4 p-5 sm:p-6">
+        <ShadcnCard asChild><section className="slip flex flex-col gap-4 p-5 sm:p-6">
           <h2 className="text-lg font-semibold">Recent sources</h2>
           {sources.data?.length ? (
             <ul className="divide-y divide-border">
@@ -107,7 +105,7 @@ export default async function RepurposingPage({
               want to reuse.
             </p>
           )}
-        </section>
+        </section></ShadcnCard>
       </div>
     </div>
   );

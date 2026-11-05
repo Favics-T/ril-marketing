@@ -1,3 +1,5 @@
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -60,14 +62,14 @@ export default async function InsightDetailPage({
 
 			<div className="record-layout grid gap-6 lg:grid-cols-3">
 				<div className="flex flex-col gap-4 lg:col-span-2 lg:gap-6">
-					<section className="slip p-5 sm:p-6">
+					<ShadcnCard asChild><section className="slip p-5 sm:p-6">
 						<p className="dateline">Recommendation</p>
 						<p className="mt-1.5 text-sm leading-6 text-foreground">
 							{insight.recommendation}
 						</p>
-					</section>
+					</section></ShadcnCard>
 
-					<section className="slip flex flex-col">
+					<ShadcnCard asChild><section className="slip flex flex-col">
 						<div className="ledger flex flex-col">
 							<div className="flex items-baseline justify-between gap-4 px-5 py-3.5 sm:px-6">
 								<span className="dateline">Confidence</span>
@@ -107,39 +109,39 @@ export default async function InsightDetailPage({
 								</div>
 							))}
 						</div>
-					</section>
+					</section></ShadcnCard>
 
 					{insight.status === "SUPPRESSED" && insight.suppression_reason ? (
-						<section className="slip p-5 sm:p-6">
+						<ShadcnCard asChild><section className="slip p-5 sm:p-6">
 							<p className="dateline">Suppression reason</p>
 							<p className="mt-1.5 text-sm leading-6 text-foreground">
 								{insight.suppression_reason}
 							</p>
-						</section>
+						</section></ShadcnCard>
 					) : null}
 				</div>
 
 				<div className="flex flex-col gap-4 lg:gap-6">
 					{insight.status === "PENDING_REVIEW" ? (
-						<section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
+						<ShadcnCard asChild><section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
 							<div>
 								<p className="dateline">Decision</p>
 								<h2 className="mt-1 text-base font-bold">AI recommends. You decide.</h2>
 							</div>
 							<InsightActions insightId={insight.id} />
-						</section>
+						</section></ShadcnCard>
 					) : (
-						<section className="slip flex h-fit flex-col p-5 sm:p-6">
+						<ShadcnCard asChild><section className="slip flex h-fit flex-col p-5 sm:p-6">
 							<p className="dateline">Reviewed</p>
 							<p className="mt-1 text-sm text-muted-foreground">
 								{insight.reviewed_at ? formatDay(insight.reviewed_at) : "—"}
 							</p>
-						</section>
+						</section></ShadcnCard>
 					)}
 
-					<section className="slip flex h-fit flex-col p-5 sm:p-6">
+					<ShadcnCard asChild><section className="slip flex h-fit flex-col p-5 sm:p-6">
 						<InsightAnnotate insightId={insight.id} note={insight.review_note} />
-					</section>
+					</section></ShadcnCard>
 				</div>
 			</div>
 		</div>

@@ -1,3 +1,6 @@
+
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
@@ -36,11 +39,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return <div className="workspace-page approval-workspace">
     <header><p className="dateline">Review & release</p><h1>Approval inbox</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Review the oldest requests first. Open an item to check its sources, edit the copy, and record your decision.</p></header>
     <div className="workspace-inline-note ril-approval-note"><ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary"/><p>AI drafts need a human review before approval. Check the content and its sources before recording your decision. Approval does not automatically publish or send.</p></div>
-    {failures.length>0&&<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">Could not load {failures.join(", ")}. Refresh to retry; the counts below may be incomplete.</p>}
+    {failures.length>0&&<ShadcnAlert asChild variant="destructive"><p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">Could not load {failures.join(", ")}. Refresh to retry; the counts below may be incomplete.</p></ShadcnAlert>}
     <nav aria-label="Filter by approval type">{categories.map(category=><Link key={category} href={category==="all"?"/approvals":`/approvals?type=${category}`} aria-current={filter===category?"page":undefined}>{category==="pages"?"Landing pages":category} <span className="ml-1 tabular-nums text-muted-foreground">{category==="all"?total:counts[category]}</span></Link>)}</nav>
-    <section className="workspace-panel overflow-hidden" aria-label="Items awaiting approval"><div className="workspace-panel-heading"><div><h2>{visible.length?"Awaiting a decision":"Review queue"}</h2><p>{visible.length} items shown · up to 100 per type</p></div></div>
-      <ul>{visible.map(item=><li key={`${item.category}-${item.id}`}><Link href={item.href} className="workspace-row"><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center gap-2"><StatusStamp status={item.status}/>{item.second_reviewer_id ? <span className="text-xs font-semibold text-primary">Second approval needed</span> : null}<span className="text-xs capitalize text-muted-foreground">{item.category==="pages"?"Landing page":item.category}</span></div><p className="workspace-row-title line-clamp-2">{item.title}</p><p className="workspace-row-meta">Waiting since {formatDay(item.created_at)}</p></div><ArrowRight className="size-4 shrink-0 text-muted-foreground"/></Link></li>)}</ul>
+    <ShadcnCard asChild><section className="workspace-panel overflow-hidden" aria-label="Items awaiting approval"><div className="workspace-panel-heading"><div><h2>{visible.length?"Awaiting a decision":"Review queue"}</h2><p>{visible.length} items shown · up to 100 per type</p></div></div>
+      <ShadcnCardContent asChild className="p-0"><ul>{visible.map(item=><li key={`${item.category}-${item.id}`}><Link href={item.href} className="workspace-row"><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center gap-2"><StatusStamp status={item.status}/>{item.second_reviewer_id ? <span className="text-xs font-semibold text-primary">Second approval needed</span> : null}<span className="text-xs capitalize text-muted-foreground">{item.category==="pages"?"Landing page":item.category}</span></div><p className="workspace-row-title line-clamp-2">{item.title}</p><p className="workspace-row-meta">Waiting since {formatDay(item.created_at)}</p></div><ArrowRight className="size-4 shrink-0 text-muted-foreground"/></Link></li>)}</ul></ShadcnCardContent>
       {!visible.length&&<div className="workspace-empty"><p className="font-semibold text-foreground">{failures.length?"Some queues are unavailable":"Nothing waiting in this queue"}</p><p className="mt-1">{failures.length?"Refresh before treating this inbox as clear.":"Submit a draft for review from its content, email, or landing-page workspace."}</p></div>}
-    </section>
+    </section></ShadcnCard>
   </div>;
 }

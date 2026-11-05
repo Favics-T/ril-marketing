@@ -1,4 +1,10 @@
 "use client";
+import { Checkbox as ShadcnCheckbox } from "@/components/ui/checkbox";
+
+import { FieldGroup as ShadcnFieldGroup, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState } from "react";
 import {
@@ -57,37 +63,37 @@ export function LeadActions({
 
 	return (
 		<div className="flex flex-col gap-5">
-			<form action={stageAction} className="flex flex-col gap-2">
-				<label htmlFor="lead-stage" className="dateline">
+			<ShadcnFieldGroup asChild><form action={stageAction} className="flex flex-col gap-2">
+				<ShadcnField asChild><ShadcnFieldLabel htmlFor="lead-stage" className="dateline">
 					Funnel stage
-				</label>
-				<select
+				</ShadcnFieldLabel></ShadcnField>
+				<ShadcnNativeSelect
 					id="lead-stage"
 					name="stage"
 					defaultValue={stage}
 					className={fieldClass}
 				>
 					{STAGES.map((s) => (
-						<option key={s} value={s}>
+						<ShadcnNativeSelectOption key={s} value={s}>
 							{label(s)}
-						</option>
+						</ShadcnNativeSelectOption>
 					))}
-				</select>
+				</ShadcnNativeSelect>
 				<Button type="submit" size="sm" className="w-fit" disabled={stagePending}>
 					{stagePending ? "Saving…" : "Update stage"}
 				</Button>
 				{err(stageState) ? (
-					<p role="alert" className="text-sm text-destructive">
+					<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 						{err(stageState)}
-					</p>
+					</p></ShadcnAlert>
 				) : ok(stageState) ? (
-					<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+					<p className="text-sm font-semibold text-emerald-700 ">
 						Stage updated · score recalculated.
 					</p>
 				) : null}
-			</form>
+			</form></ShadcnFieldGroup>
 
-			<form action={qualAction} className="flex flex-col gap-2 border-t border-border pt-4">
+			<ShadcnFieldGroup asChild><form action={qualAction} className="flex flex-col gap-2 border-t border-border pt-4">
 				<span className="dateline">Qualification</span>
 				<Button
 					type="submit"
@@ -103,16 +109,16 @@ export function LeadActions({
 							: "Mark qualified"}
 				</Button>
 				{err(qualState) ? (
-					<p role="alert" className="text-sm text-destructive">
+					<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 						{err(qualState)}
-					</p>
+					</p></ShadcnAlert>
 				) : null}
-			</form>
+			</form></ShadcnFieldGroup>
 
-			<form action={notesAction} className="flex flex-col gap-2 border-t border-border pt-4">
-				<label htmlFor="lead-notes" className="dateline">
+			<ShadcnFieldGroup asChild><form action={notesAction} className="flex flex-col gap-2 border-t border-border pt-4">
+				<ShadcnField asChild><ShadcnFieldLabel htmlFor="lead-notes" className="dateline">
 					Follow-up notes
-				</label>
+				</ShadcnFieldLabel></ShadcnField>
 				<Textarea
 					id="lead-notes"
 					name="notes"
@@ -122,28 +128,28 @@ export function LeadActions({
 					placeholder="Who reached out, what was said, next step…"
 				/>
 				{hasOwner ? (
-					<label className="flex items-center gap-2 text-sm text-muted-foreground">
-						<input
-							type="checkbox"
+					<ShadcnField asChild orientation="horizontal"><ShadcnFieldLabel className="flex items-center gap-2 text-sm text-muted-foreground">
+						<ShadcnCheckbox
+							
 							name="owner_cleared"
 							className="size-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						/>
 						Release ownership on save
-					</label>
+					</ShadcnFieldLabel></ShadcnField>
 				) : null}
 				<Button type="submit" size="sm" variant="outline" className="w-fit" disabled={notesPending}>
 					{notesPending ? "Saving…" : "Save notes"}
 				</Button>
 				{err(notesState) ? (
-					<p role="alert" className="text-sm text-destructive">
+					<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 						{err(notesState)}
-					</p>
+					</p></ShadcnAlert>
 				) : ok(notesState) ? (
-					<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+					<p className="text-sm font-semibold text-emerald-700 ">
 						Notes saved.
 					</p>
 				) : null}
-			</form>
+			</form></ShadcnFieldGroup>
 		</div>
 	);
 }

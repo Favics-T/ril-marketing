@@ -1,4 +1,8 @@
 "use client";
+import { Checkbox as ShadcnCheckbox } from "@/components/ui/checkbox";
+
+import { FieldGroup as ShadcnFieldGroup, FieldSet as ShadcnFieldSet, FieldLegend as ShadcnFieldLegend, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+
 
 import { useState, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
@@ -81,14 +85,14 @@ export function LeadCaptureForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
-      <fieldset disabled={preview || busy} className="flex min-w-0 flex-col gap-3">
-      <legend className="sr-only">Register your interest</legend>
-      <label className="flex flex-col gap-1.5">
+    <ShadcnFieldGroup asChild><form onSubmit={submit} className="flex flex-col gap-3">
+      <ShadcnFieldSet disabled={preview || busy} className="flex min-w-0 flex-col gap-3">
+      <ShadcnFieldLegend className="sr-only">Register your interest</ShadcnFieldLegend>
+      <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Name</span>
         <Input name="name" maxLength={200} autoComplete="name" />
-      </label>
-      <label className="flex flex-col gap-1.5">
+      </ShadcnFieldLabel></ShadcnField>
+      <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Email</span>
         <Input
           name="email"
@@ -97,30 +101,30 @@ export function LeadCaptureForm({
           maxLength={320}
           autoComplete="email"
         />
-      </label>
-      <label className="flex flex-col gap-1.5">
+      </ShadcnFieldLabel></ShadcnField>
+      <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Phone</span>
         <Input name="phone" type="tel" maxLength={40} autoComplete="tel" />
-      </label>
-      <label className="flex flex-col gap-1.5">
+      </ShadcnFieldLabel></ShadcnField>
+      <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Organisation</span>
         <Input
           name="organisation"
           maxLength={200}
           autoComplete="organization"
         />
-      </label>
-      <label className="flex flex-col gap-1.5">
+      </ShadcnFieldLabel></ShadcnField>
+      <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">What are you interested in?</span>
         <Input name="interest" maxLength={500} />
-      </label>
-      <label className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
-        <input name="marketing_consent" type="checkbox" className="mt-1" />
+      </ShadcnFieldLabel></ShadcnField>
+      <ShadcnField asChild orientation="horizontal"><ShadcnFieldLabel className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+        <ShadcnCheckbox name="marketing_consent"  className="mt-1" />
         <span>
           Send me occasional updates about RIL programmes and events. This is
           optional and separate from this enquiry.
         </span>
-      </label>
+      </ShadcnFieldLabel></ShadcnField>
       <p className="text-xs leading-5 text-muted-foreground">
         RIL will use your details to respond to this enquiry. Contact details
         are not sent to the AI content assistant.
@@ -131,7 +135,7 @@ export function LeadCaptureForm({
           className={
             error
               ? "text-sm text-destructive"
-              : "text-sm text-emerald-700 dark:text-emerald-400"
+              : "text-sm text-emerald-700 "
           }
         >
           {message}
@@ -151,7 +155,7 @@ export function LeadCaptureForm({
       <Button type="submit" disabled={busy || preview}>
         {busy ? "Sending…" : page.cta_label}
       </Button>
-      </fieldset>
-    </form>
+      </ShadcnFieldSet>
+    </form></ShadcnFieldGroup>
   );
 }

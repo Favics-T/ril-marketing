@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
+import { Separator } from "@/components/ui/separator";
 
 /**
  * Renders landing page copy, stored as Markdown. Raw HTML is dropped and
@@ -26,11 +27,11 @@ const components: Components = {
   h5: Subheading,
   h6: Subheading,
   p: ({ children }) => <p className="mt-5 first:mt-0">{children}</p>,
-  ul: ({ children }) => <ul className="mt-5 list-disc space-y-2 pl-6 first:mt-0">{children}</ul>,
-  ol: ({ children }) => <ol className="mt-5 list-decimal space-y-2 pl-6 first:mt-0">{children}</ol>,
+  ul: ({ children }) => <ul className="mt-5 list-disc flex flex-col gap-2 pl-6 first:mt-0">{children}</ul>,
+  ol: ({ children }) => <ol className="mt-5 list-decimal flex flex-col gap-2 pl-6 first:mt-0">{children}</ol>,
   blockquote: ({ children }) => <blockquote className="mt-6 border-l-4 border-primary/60 pl-5 italic text-foreground first:mt-0">{children}</blockquote>,
   strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-  hr: () => <hr className="my-8 border-border" />,
+  hr: () => <Separator className="my-8" />,
   // A link whose protocol was stripped as unsafe arrives with no href; show its text only.
   a: ({ href, children }) =>
     href ? (

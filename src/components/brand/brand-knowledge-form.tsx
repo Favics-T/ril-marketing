@@ -1,4 +1,9 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -46,7 +51,7 @@ export function BrandKnowledgeForm({
   }, [entry, router, state]);
 
   return (
-    <form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+    <ShadcnFieldGroup asChild><ShadcnCard asChild><form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="brand-title">Entry name</Label>
@@ -62,18 +67,18 @@ export function BrandKnowledgeForm({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="brand-category">Category</Label>
-          <select
+          <ShadcnNativeSelect
             id="brand-category"
             name="category"
             defaultValue={entry?.category ?? "brand_voice"}
-            className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full"
           >
             {BRAND_KNOWLEDGE_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
+              <ShadcnNativeSelectOption key={category} value={category}>
                 {categoryLabels[category]}
-              </option>
+              </ShadcnNativeSelectOption>
             ))}
-          </select>
+          </ShadcnNativeSelect>
         </div>
       </div>
       <div className="flex flex-col gap-2">
@@ -104,16 +109,16 @@ export function BrandKnowledgeForm({
         />
       </div>
       {state?.ok === false ? (
-        <p role="alert" className="text-sm text-destructive">{state.error}</p>
+        <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{state.error}</p></ShadcnAlert>
       ) : null}
       {entry && state?.ok ? (
-        <p role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+        <ShadcnAlert asChild role="status"><p role="status" className="text-sm font-medium text-emerald-700 ">
           Entry saved.
-        </p>
+        </p></ShadcnAlert>
       ) : null}
       <Button type="submit" className="w-fit" disabled={pending}>
         {pending ? "Saving…" : entry ? "Save entry" : "Add to knowledge base"}
       </Button>
-    </form>
+    </form></ShadcnCard></ShadcnFieldGroup>
   );
 }

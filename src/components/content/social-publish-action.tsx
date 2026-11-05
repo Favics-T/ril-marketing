@@ -1,4 +1,8 @@
 "use client";
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { ChannelMark } from "@/components/settings/channel-icons";
 import Link from "next/link";
@@ -47,10 +51,10 @@ export function SocialPublishAction({ assetId, connected, channels: initialChann
       setScheduledIso(at); setReviewOpen(true);
     } catch (error) { setTimeError(error instanceof Error ? error.message : "Choose a valid publishing time."); }
   }
-  return <section className="slip flex flex-col gap-4 p-5 sm:p-6" aria-labelledby="buffer-publish-heading">
+  return <ShadcnCard asChild><section className="slip flex flex-col gap-4 p-5 sm:p-6" aria-labelledby="buffer-publish-heading">
     <div><p className="dateline">Social publishing</p><h2 id="buffer-publish-heading" className="mt-1 text-base font-bold">Send through Buffer</h2></div>
     {!connected ? <><p className="text-sm leading-6 text-muted-foreground">Connect Buffer to publish approved text or schedule its delivery. Manual posting is available now.</p><Link href="/settings/ai#connection-buffer" className="text-sm font-semibold text-primary underline underline-offset-4">Connect Buffer</Link></> : <>
-      <form action={refresh}><Button type="submit" variant="outline" size="sm" disabled={refreshing || pending}><RefreshCw data-icon="inline-start" aria-hidden="true" />{refreshing ? "Loading channels…" : "Refresh channels"}</Button></form>
+      <ShadcnFieldGroup asChild><form action={refresh}><Button type="submit" variant="outline" size="sm" disabled={refreshing || pending}><RefreshCw data-icon="inline-start" aria-hidden="true" />{refreshing ? "Loading channels…" : "Refresh channels"}</Button></form></ShadcnFieldGroup>
       {matching.length ? <>
         <div className="flex flex-col gap-2"><Label htmlFor="buffer-channel">Destination</Label><Select value={channelId} onValueChange={setChannelId} disabled={pending || refreshing}><SelectTrigger id="buffer-channel"><SelectValue placeholder="Choose an account" /></SelectTrigger><SelectContent>{matching.map(channel => {
           const issue = bufferPostProblem(copy, channel);
@@ -60,20 +64,20 @@ export function SocialPublishAction({ assetId, connected, channels: initialChann
         <div className="flex flex-col gap-2"><Label htmlFor="buffer-delivery">Delivery</Label><Select value={mode} disabled={pending} onValueChange={setMode}><SelectTrigger id="buffer-delivery"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="now">Publish now</SelectItem><SelectItem value="schedule">Schedule a post</SelectItem><SelectItem value="queue">Next Buffer queue slot</SelectItem></SelectContent></Select></div>
         {mode === "schedule" ? <div className="flex flex-col gap-2"><Label htmlFor="buffer-time">Publishing time (WAT)</Label><Input id="buffer-time" type="datetime-local" value={time} onChange={event => setTime(event.target.value)} required disabled={pending} /></div> : null}
         <p className="text-xs leading-5 text-muted-foreground">{length.length}{length.limit ? ` / ${length.limit}` : ""} characters. Approved media is included. Separate X thread parts still need their own approved posts.</p>
-        {problem || timeError ? <p role="alert" className="text-sm text-destructive">{problem || timeError}</p> : null}
+        {problem || timeError ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{problem || timeError}</p></ShadcnAlert> : null}
         <Button type="button" onClick={review} disabled={pending || refreshing || !selected || Boolean(problem)}>Review {mode === "schedule" ? "scheduled post" : "post"}</Button>
       </> : <p className="text-sm leading-6 text-muted-foreground">No saved Buffer accounts match this post’s platform. Connect the matching account in Buffer, then refresh channels here.</p>}
       <p className="text-xs leading-5 text-muted-foreground">Buffer acceptance is recorded separately from confirmed publication.</p>
     </>}
-    {refreshState?.error || state?.error ? <p role="alert" className="text-sm text-destructive">{state?.error || refreshState?.error}</p> : null}
-    {state?.message ? <p role="status" className="text-sm">{state.message}</p> : null}
+    {refreshState?.error || state?.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{state?.error || refreshState?.error}</p></ShadcnAlert> : null}
+    {state?.message ? <ShadcnAlert asChild role="status"><p role="status" className="text-sm">{state.message}</p></ShadcnAlert> : null}
     <Dialog open={reviewOpen} onOpenChange={open => { if (!pending) setReviewOpen(open); }}><DialogContent onEscapeKeyDown={event => { if (pending) event.preventDefault(); }} onPointerDownOutside={event => { if (pending) event.preventDefault(); }}>
       <DialogTitle>{mode === "schedule" ? "Confirm scheduled post" : "Confirm publication"}</DialogTitle>
       <DialogDescription>{selected?.displayName || selected?.name} · {scheduledIso ? formatDayTime(scheduledIso) : mode === "queue" ? "Uses the next available slot in this account’s Buffer queue." : "Publishes as soon as Buffer processes it."} Approval, media and account availability are checked again when you confirm.</DialogDescription>
       <div className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/30 p-4 text-sm leading-6" aria-label="Approved post preview">{copy.body}</div>
-      {media.media.length ? <div className="max-h-40 overflow-y-auto text-sm"><p className="font-semibold">Approved media ({media.media.length}){media.videoTitle ? ` · ${media.videoTitle}` : ""}</p><ul className="mt-2 space-y-2">{media.media.map((file,index)=><li key={`${file.url}-${index}`} className="break-all"><a href={file.url} target="_blank" rel="noreferrer" className="text-primary underline">{file.type} {index+1}: {file.alt || file.url}</a></li>)}</ul></div> : null}
-      {state?.error ? <p role="alert" className="text-sm text-destructive">{state.error}</p> : null}
-      <form action={action}><DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={() => setReviewOpen(false)}>Back</Button><Button type="submit" disabled={pending || Boolean(state?.publicationId)}><Send data-icon="inline-start" aria-hidden="true" />{pending ? "Submitting…" : scheduledIso ? "Confirm schedule" : mode === "queue" ? "Add to Buffer queue" : "Publish now"}</Button></DialogFooter></form>
+      {media.media.length ? <div className="max-h-40 overflow-y-auto text-sm"><p className="font-semibold">Approved media ({media.media.length}){media.videoTitle ? ` · ${media.videoTitle}` : ""}</p><ul className="mt-2 flex flex-col gap-2">{media.media.map((file,index)=><li key={`${file.url}-${index}`} className="break-all"><a href={file.url} target="_blank" rel="noreferrer" className="text-primary underline">{file.type} {index+1}: {file.alt || file.url}</a></li>)}</ul></div> : null}
+      {state?.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{state.error}</p></ShadcnAlert> : null}
+      <ShadcnFieldGroup asChild><form action={action}><DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={() => setReviewOpen(false)}>Back</Button><Button type="submit" disabled={pending || Boolean(state?.publicationId)}><Send data-icon="inline-start" aria-hidden="true" />{pending ? "Submitting…" : scheduledIso ? "Confirm schedule" : mode === "queue" ? "Add to Buffer queue" : "Publish now"}</Button></DialogFooter></form></ShadcnFieldGroup>
     </DialogContent></Dialog>
-  </section>;
+  </section></ShadcnCard>;
 }

@@ -1,8 +1,9 @@
+import { Disclosure } from "@/components/ui/disclosure";
+import { Button } from "@/components/ui/button";
 import { ChannelMark } from "@/components/settings/channel-icons";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
-import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 import { Reveal } from "./reveal";
 import { BrandShapes } from "./brand-shapes";
 
@@ -13,15 +14,15 @@ const faqs = [
   },
   {
     q: "Which channels can we publish to?",
-    a: "Approved blog posts can publish directly to WordPress. LinkedIn, Instagram, X, and YouTube use Buffer when connected. Paid media and platform comment sync are not yet live.",
+    a: "Approved articles can publish through a configured WordPress or Strapi connection. Social copy uses linked Buffer channels, approved videos can upload directly to YouTube, and manual posts can be recorded with their live link. Each connection needs to be set up first.",
   },
   {
     q: "Do we need our own AI key?",
     a: "No. Template mode works without one. Bring your own OpenAI, Anthropic, or Gemini key to unlock full generation.",
   },
   {
-    q: "Is our data used to train AI models?",
-    a: "No. Your leads, partner details, and internal data are used only for the current request, never for third-party model training.",
+    q: "What information does the AI use?",
+    a: "Drafting uses the source material you select, approved audience insights, and relevant brand guidance. The assistant uses limited workspace signals and does not send lead contact details. Review your AI provider’s data handling before connecting it.",
   },
   {
     q: "Who sees our workspace data?",
@@ -46,21 +47,14 @@ export function Faq() {
             id="faq-heading"
             className="text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl lg:sticky lg:top-24"
           >
-            Asked before you ask.
+            A few useful answers.
           </h2>
         </Reveal>
         <div className="lg:col-span-8">
           <div className="border-t border-border">
             {faqs.map((item, i) => (
               <Reveal key={item.q} delay={i * 40}>
-                <details className="group border-b border-border py-5">
-                  <DisclosureSummary className="cursor-pointer text-base font-bold leading-snug text-foreground">
-                    {item.q}
-                  </DisclosureSummary>
-                  <p className="mt-3 max-w-[64ch] text-sm leading-7 text-muted-foreground">
-                    {item.a}
-                  </p>
-                </details>
+                <Disclosure className="ril-home-faq-item" title={item.q}><p className="max-w-[64ch] text-base leading-7 text-muted-foreground">{item.a}</p></Disclosure>
               </Reveal>
             ))}
           </div>
@@ -97,33 +91,27 @@ export function CloseCta() {
             id="close-heading"
             className="max-w-[18ch] text-3xl font-bold leading-tight tracking-tight sm:text-5xl"
           >
-            Make the next event the campaign.
+            Start with your next activity.
           </h2>
         </Reveal>
         <Reveal delay={100}>
           <p className="mt-4 max-w-[52ch] text-base leading-7 text-primary-foreground/85">
-            Log what happened this week. Walk into Monday with drafts waiting,
-            links tracked, and nothing published without your say.
+            Bring the source material. Create with context. Keep the decision
+            with the people who know your audience.
           </p>
         </Reveal>
         <Reveal delay={180}>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/sign-up"
-              className="group inline-flex h-12 items-center gap-2 rounded-md bg-white px-7 text-base font-semibold text-[var(--ril-blue-deep)] transition-colors duration-200 hover:bg-white/90"
-            >
+            <Button asChild size="lg"><Link href="/sign-up">
               Create your workspace
               <ArrowRight
                 aria-hidden
                 className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
               />
-            </Link>
-            <Link
-              href="/sign-in"
-              className="inline-flex h-12 items-center rounded-md border border-white/40 px-7 text-base font-semibold text-white transition-colors duration-200 hover:border-white/70 hover:bg-white/10"
-            >
+            </Link></Button>
+            <Button asChild variant="outline" size="lg"><Link href="/sign-in">
               Sign in
-            </Link>
+            </Link></Button>
           </div>
         </Reveal>
       </div>
@@ -149,14 +137,12 @@ export function SiteFooter() {
               <Image
                 src="/logo/blackLogo.svg"
                 alt="Renaissance Innovation Labs"
-                width={120}
-                height={28}
+                width={100} height={45}
                 className="h-auto w-[120px] max-w-none"
-                style={{ height: "28px", width: "auto" }}
               />
             </Link>
             <p className="mt-5 text-lg font-bold tracking-tight text-foreground">
-              One event in. A whole campaign out.
+              Useful work deserves a useful story.
             </p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Built in Port Harcourt, Nigeria, in the open lab spirit:

@@ -1,3 +1,9 @@
+
+import { Disclosure } from "@/components/ui/disclosure";
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
 import { WorkflowGuide } from "@/components/workflow-guide";
 import { Button } from "@/components/ui/button";
 import { publicAppOrigin } from "@/lib/integrations/public-app-origin";
@@ -7,7 +13,6 @@ import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { applyActiveConsentFilter } from "@/lib/email/consent";
 import { listSegments } from "@/lib/audience/segments";
 import { listCampaignRollups } from "@/lib/audience/campaigns";
-import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { todayDateline } from "@/lib/format";
@@ -72,25 +77,24 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
   }
 
   return <div className="workspace-page workflow-page email-workspace">
-    <header><p className="dateline">{todayDateline()} · audience-led delivery</p><h1>Email Marketing</h1><p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">Write campaign emails for a defined audience. Only opted-in, unsuppressed contacts are eligible; each send checks consent again before delivery.{campaignFilter ? " Showing this campaign’s email drafts." : ""}</p></header>
-    <WorkflowGuide label="Email workflow" steps={[{ title: "Draft", description: "Choose the message and audience." }, { title: "Review", description: "A different reviewer approves." }, { title: "Queue", description: "Consent is checked before delivery." }, { title: "Send", description: "Confirm the batch and track results." }]} />
-    <p className="text-sm leading-6 text-muted-foreground">Write a draft → ask another reviewer to approve it → choose when to send. {resend?.webhookSecret ? "Your sender setup is saved." : <a href="#sender-settings" className="font-semibold text-primary underline underline-offset-4">Set up a sender before delivery.</a>}</p>
-    <details className="slip p-5 sm:p-6" open={emails.length === 0}><DisclosureSummary>Create an email draft</DisclosureSummary><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create an email draft</h2><p className="mt-1 text-sm text-muted-foreground">Drafts need a second reviewer before they can be marked approved.</p></div>
+<WorkspacePageHeader title={<>Email Marketing</>} eyebrow={<>{todayDateline()} · audience-led delivery</>} description={<>Write campaign emails for a defined audience. Only opted-in, unsuppressed contacts are eligible; each send checks consent again before delivery.{campaignFilter ? " Showing this campaign’s email drafts." : ""}</>} />
+<div className="operations-workbench glass-operations"><div className="operations-main"><p className="text-sm leading-6 text-muted-foreground">Write a draft → ask another reviewer to approve it → choose when to send. {resend?.webhookSecret ? "Your sender setup is saved." : <a href="#sender-settings" className="font-semibold text-primary underline underline-offset-4">Set up a sender before delivery.</a>}</p>
+<ShadcnCard asChild><Disclosure className="slip p-5 sm:p-6" initiallyOpen={emails.length === 0} title={<>Create an email draft</>}><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create an email draft</h2><p className="mt-1 text-sm text-muted-foreground">Drafts need a second reviewer before they can be marked approved.</p></div>
       <EmailCreateForm campaignFilter={campaignFilter ?? ""} campaigns={campaignRollups.map(campaign => ({ id: campaign.id, name: campaign.name }))} segments={segments.map(segment => ({ id: segment.id, name: segment.name, count: countBySegment.get(segment.id) ?? 0 }))} allContactsCount={leadCount.count ?? 0} senderReady={Boolean(resend?.webhookSecret)} />
-    </div></details>
-    <section className="flex flex-col gap-3"><div><p className="dateline">Workflow · {emails.length} drafts</p><h2 className="mt-1 text-lg font-bold">Email campaigns</h2></div>
+    </div></Disclosure></ShadcnCard>
+<section className="flex flex-col gap-3"><div><p className="dateline">Workflow · {emails.length} drafts</p><h2 className="mt-1 text-lg font-bold">Email campaigns</h2></div>
       {reviewFilter ? <Link href="/email" className="text-sm font-semibold text-primary underline">View all emails</Link> : null}
       {emails.length === 0 ? <EmptyState title={reviewFilter ? "Email not found" : "No email drafts yet"} description={reviewFilter ? "This email may have been removed or is outside this workspace. Return to all emails to choose another." : "Create an audience-specific email above. You can write a draft before connecting a sender."} action={reviewFilter ? { label: "View all emails", href: "/email" } : undefined} /> : <ul className="flex flex-col gap-3">{emails.map(email => {
         const stats = deliveryStats.get(email.id);
         const canApprove = isReviewerRole(role) && Boolean(user?.id && email.created_by !== user.id && email.metadata?.submitted_by !== user.id);
         const problem = email.status === "paused" ? readDeliveryProblem(email.metadata) : null;
-        return <li key={email.id} id={`email-${email.id}`} className="slip flex scroll-mt-6 flex-col gap-3 p-5">
+        return <ShadcnCard asChild key={email.id}><li key={email.id} id={`email-${email.id}`} className="slip flex scroll-mt-6 flex-col gap-3 p-5">
           <div className="flex flex-wrap items-center gap-2"><StatusStamp status={email.status} /><span className="dateline">{eligible(email.audience_segment_id)} opted-in recipients</span><span className="ml-auto text-[13px] leading-5 text-muted-foreground">{email.campaign_id ? campaignNames.get(email.campaign_id) ?? "Campaign" : "No campaign linked"}</span></div>
           <div><h3 className="font-bold"><Link href={`/email/${email.id}`} className="underline-offset-2 hover:underline">{email.name}</Link></h3>{typeof email.metadata?.source_content_asset_id === "string" ? <p className="dateline">From newsletter · <Link href={`/library/${email.metadata.source_content_asset_id}`} className="text-primary underline">Open source newsletter</Link></p> : null}<p className="mt-0.5 text-sm text-foreground">Subject: {email.subject}</p>{email.preview_text ? <p className="text-[13px] leading-5 text-muted-foreground">Inbox preview: {email.preview_text}</p> : null}
-            <details open={email.status === "review" || Boolean(reviewFilter)} className="mt-3 border-y py-3"><DisclosureSummary>Read full email</DisclosureSummary><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{email.body}</p></details>
+            <Disclosure initiallyOpen={email.status === "review" || Boolean(reviewFilter)} className="mt-3 border-y py-3" title={<>Read full email</>}><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{email.body}</p></Disclosure>
             <p className="mt-2 dateline">Audience · {email.audience_segment_id ? segmentNames.get(email.audience_segment_id) ?? "Segment" : "All opted-in contacts"}</p>
           </div>
-          {problem ? <p role="alert" className="text-sm leading-6 text-destructive">{describeDeliveryProblem(problem)}</p> : null}
+          {problem ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm leading-6 text-destructive">{describeDeliveryProblem(problem)}</p></ShadcnAlert> : null}
           {stats ? <p className="dateline">Delivery · {stats.queued} queued · {stats.sent} sent · {stats.delivered} delivered · {stats.opened} opens · {stats.clicked} clicks · {stats.bounced} bounced · {stats.complained} complaints · {stats.failed} failed</p> : null}
           {email.status === "review" ? <p className="text-sm text-muted-foreground">{canApprove ? "Check the full message and audience before approving. Approval does not send this email." : "Waiting for a different eligible reviewer. Authors cannot approve their own email."}</p> : null}
           {email.status === "approved" && eligible(email.audience_segment_id) === 0 ? <p className="text-sm text-muted-foreground">No eligible recipients yet. <Link href="/leads" className="text-primary underline">Check your contacts and their consent</Link> before sending.</p> : null}
@@ -101,9 +105,9 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
             {email.status === "scheduled" ? <><EmailDeliveryActions campaignId={email.id} status={email.status} hasRecipients={true} /><EmailTransitionButton emailId={email.id} to="paused" label="Pause sending" /></> : null}
             {email.status === "paused" ? <EmailTransitionButton emailId={email.id} to="scheduled" label="Resume delivery" /> : null}
           </div>
-        </li>;
+        </li></ShadcnCard>;
       })}</ul>}
-    </section>
-    <details id="sender-settings" className="slip scroll-mt-6 p-5"><DisclosureSummary>Sender settings · {resend && resend.webhookSecret ? "connection saved" : "setup required before sending"}</DisclosureSummary><ResendSettings connected={Boolean(resend)} fromEmail={resend?.fromEmail ?? ""} fromName={resend?.fromName ?? "Renaissance Innovation Labs"} replyTo={resend?.replyTo ?? ""} hasWebhook={Boolean(resend?.webhookSecret)} webhookUrl={webhookUrl} canManage={canManageProvider} /></details>
-  </div>;
+    </section></div><aside className="operations-reference" aria-label="Email setup and workflow"><Disclosure className="workflow-reference" title={<>Publishing guide</>}><WorkflowGuide label="Email workflow" steps={[{ title: "Draft", description: "Choose the message and audience." }, { title: "Review", description: "A different reviewer approves." }, { title: "Queue", description: "Consent is checked before delivery." }, { title: "Send", description: "Confirm the batch and track results." }]} /></Disclosure>
+<ShadcnCard asChild><Disclosure id="sender-settings" className="slip scroll-mt-6 p-5" title={<>Sender settings · {resend && resend.webhookSecret ? "connection saved" : "setup required before sending"}</>}><ResendSettings connected={Boolean(resend)} fromEmail={resend?.fromEmail ?? ""} fromName={resend?.fromName ?? "Renaissance Innovation Labs"} replyTo={resend?.replyTo ?? ""} hasWebhook={Boolean(resend?.webhookSecret)} webhookUrl={webhookUrl} canManage={canManageProvider} /></Disclosure></ShadcnCard></aside></div>
+</div>;
 }

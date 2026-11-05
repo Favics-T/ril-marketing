@@ -1,8 +1,10 @@
 "use client";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 import { Button } from "@/components/ui/button";
 export default function ErrorPage({ retry }: { retry: () => void }) {
   return (
-    <section
+    <ShadcnAlert asChild variant="destructive"><section
       className="workspace-page flex flex-col items-start gap-4"
       role="alert"
     >
@@ -12,6 +14,6 @@ export default function ErrorPage({ retry }: { retry: () => void }) {
         not been removed.
       </p>
       <Button onClick={retry}>Try again</Button>
-    </section>
+    </section></ShadcnAlert>
   );
 }

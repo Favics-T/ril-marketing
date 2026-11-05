@@ -1,4 +1,10 @@
 "use client";
+
+import { Disclosure } from "@/components/ui/disclosure";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { Input as ShadcnInput } from "@/components/ui/input";
+
 import Link from "next/link";
 
 import { useRef, useState, useTransition } from "react";
@@ -8,7 +14,6 @@ import { registerActivityAttachment, deleteActivityAttachment } from "@/actions/
 import { analyzeActivityAudioVideo, analyzeActivityImage, repurposeActivityDocument, type ImageAnalysisResult } from "@/actions/media";
 import type { ActivityAttachment } from "@/lib/content/attachments";
 import { Button } from "@/components/ui/button";
-import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 import { isPreviewableImage } from "@/lib/content/activity-display";
 
 const accept = [
@@ -67,7 +72,7 @@ function ImageAnalysisControl({ file, activityId }: { file: ActivityAttachment; 
 
   if (!supported) return null;
   return (
-    <div className="mt-2 space-y-2">
+    <div className="mt-2 flex flex-col gap-2">
       <Button type="button" variant="outline" size="sm" disabled={busy || analysis?.status === "processing"} onClick={analyze}>
         {busy || analysis?.status === "processing" ? "Analysing…" : analysis?.status === "completed" ? "Analyse again" : analysis?.status === "failed" ? "Retry analysis" : "Analyse image & draft captions"}
       </Button>
@@ -80,7 +85,7 @@ function ImageAnalysisControl({ file, activityId }: { file: ActivityAttachment; 
           <p className="mt-1">Caption drafts are in the Content Library · {analysis.model}</p>
         </div>
       ) : null}
-      {analysis?.status === "failed" && !message && analysis.error ? <p role="alert" className="max-w-[48ch] text-xs text-destructive">{analysis.error}</p> : null}
+      {analysis?.status === "failed" && !message && analysis.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="max-w-[48ch] text-xs text-destructive">{analysis.error}</p></ShadcnAlert> : null}
     </div>
   );
 }
@@ -101,7 +106,7 @@ function DocumentRepurposeControl({ file, activityId }: { file: ActivityAttachme
     });
   }
   if (!supported) return null;
-  return <div className="mt-2 space-y-2"><Button type="button" variant="outline" size="sm" disabled={busy} onClick={repurpose}>{busy ? "Reading & drafting…" : "Repurpose document into drafts"}</Button>{message ? <p role={error ? "alert" : "status"} className={error ? "max-w-[48ch] text-xs text-destructive" : "max-w-[48ch] text-xs text-muted-foreground"}>{message}</p> : null}</div>;
+  return <div className="mt-2 flex flex-col gap-2"><Button type="button" variant="outline" size="sm" disabled={busy} onClick={repurpose}>{busy ? "Reading & drafting…" : "Repurpose document into drafts"}</Button>{message ? <p role={error ? "alert" : "status"} className={error ? "max-w-[48ch] text-xs text-destructive" : "max-w-[48ch] text-xs text-muted-foreground"}>{message}</p> : null}</div>;
 }
 
 function AudioVideoAnalysisControl({ file, activityId }: { file: ActivityAttachment; activityId: string }) {
@@ -129,22 +134,22 @@ function AudioVideoAnalysisControl({ file, activityId }: { file: ActivityAttachm
 
   if (!supported) return null;
   return (
-    <div className="mt-2 space-y-2">
+    <div className="mt-2 flex flex-col gap-2">
       <Button type="button" variant="outline" size="sm" disabled={busy || analysis?.status === "processing"} onClick={analyze}>
         {busy || analysis?.status === "processing" ? "Analysing…" : analysis?.status === "completed" ? "Check repurposing drafts" : analysis?.status === "failed" ? "Retry analysis" : "Transcribe & create drafts"}
       </Button>
       {message ? <p role={error ? "alert" : "status"} className={error ? "max-w-[48ch] text-xs text-destructive" : "max-w-[48ch] text-xs text-muted-foreground"}>{message}</p> : null}
       {analysis?.status === "completed" && details ? (
-        <div className="max-w-[60ch] space-y-1 border-l-2 border-border pl-3 text-xs text-muted-foreground">
+        <div className="max-w-[60ch] flex flex-col gap-1 border-l-2 border-border pl-3 text-xs text-muted-foreground">
           {details.summary ? <p><span className="font-medium text-foreground">Summary:</span> {details.summary}</p> : null}
           {details.language ? <p><span className="font-medium text-foreground">Language:</span> {details.language}</p> : null}
-          {details.transcript ? <details><DisclosureSummary className="cursor-pointer font-medium text-foreground">Transcript</DisclosureSummary><p className="mt-1 whitespace-pre-wrap">{details.transcript}</p></details> : <p>No speech transcript was returned.</p>}
+          {details.transcript ? <Disclosure  title={<>Transcript</>} summaryClassName="cursor-pointer font-medium text-foreground"><p className="mt-1 whitespace-pre-wrap">{details.transcript}</p></Disclosure> : <p>No speech transcript was returned.</p>}
           {details.keyMoments?.length ? <p><span className="font-medium text-foreground">Highlights:</span> {details.keyMoments.map((moment) => `${moment.time} ${moment.note}`).join(" · ")}</p> : null}
           {details.suggestedClips?.length ? <div><p className="font-medium text-foreground">Suggested clips</p><ul className="list-inside list-disc">{details.suggestedClips.map((clip, index) => <li key={`${clip.start}-${index}`}>{clip.start}–{clip.end}: {clip.title} — {clip.reason}</li>)}</ul></div> : null}
           <p>Clip ranges are editorial suggestions; no media has been edited. Blog, newsletter, social copy and short-form scripts are saved as drafts for review in the Content Library · {analysis.model}</p>
         </div>
       ) : null}
-      {analysis?.status === "failed" && !message && analysis.error ? <p role="alert" className="max-w-[48ch] text-xs text-destructive">{analysis.error}</p> : null}
+      {analysis?.status === "failed" && !message && analysis.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="max-w-[48ch] text-xs text-destructive">{analysis.error}</p></ShadcnAlert> : null}
     </div>
   );
 }
@@ -216,11 +221,11 @@ export function ActivityAttachments({
   }
 
   return (
-    <section className="slip flex flex-col gap-4 p-5 sm:p-6">
+    <ShadcnCard asChild><section className="slip flex flex-col gap-4 p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><p className="dateline">Source material</p><h2 className="mt-1 text-base font-bold">Activity files</h2><p className="mt-1 max-w-[55ch] text-sm text-muted-foreground">Private files stay attached to this activity. Analyse JPEG, PNG and WebP images up to 8 MB for captions; transcribe audio/video up to 14 MB with Gemini; or turn PDF, Word, text and Markdown sources up to 8 MB into reviewable content drafts.</p></div>
         <div>
-          <input ref={inputRef} type="file" accept={accept} className="sr-only" aria-label="Choose activity file" disabled={busy} onChange={(event) => void upload(event.target.files?.[0])} />
+          <ShadcnInput ref={inputRef} type="file" accept={accept} className="sr-only" aria-label="Choose activity file" disabled={busy} onChange={(event) => void upload(event.target.files?.[0])} />
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? "Working…" : "Attach file"}</Button>
         </div>
       </div>
@@ -242,6 +247,6 @@ export function ActivityAttachments({
           ))}
         </ul>
       ) : <p className="text-sm text-muted-foreground">No source files attached yet.</p>}
-    </section>
+    </section></ShadcnCard>
   );
 }

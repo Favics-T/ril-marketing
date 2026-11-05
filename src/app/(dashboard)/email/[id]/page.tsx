@@ -1,3 +1,6 @@
+
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -48,10 +51,10 @@ export default async function EmailCampaignPage({ params }: { params: Promise<{ 
     <header>
       <Link href="/email" className="group inline-flex min-h-9 items-center gap-1.5 rounded-md text-[13px] font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"><span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> Email campaigns</Link>
       <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4"><h1>{email.name}</h1><StatusStamp status={email.status} /></div>
-      {problem ? <p role="alert" className="mt-2 text-sm leading-5 text-destructive">{describeDeliveryProblem(problem)}</p> : null}
+      {problem ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="mt-2 text-sm leading-5 text-destructive">{describeDeliveryProblem(problem)}</p></ShadcnAlert> : null}
       {sourceId ? <p className="mt-2 text-sm text-muted-foreground">From newsletter · {source.data ? <Link href={`/library/${source.data.id}`} className="font-medium text-primary underline underline-offset-2">{source.data.title}</Link> : "no longer available"}</p> : null}
     </header>
-    <section className="slip flex flex-col gap-4 p-5 sm:p-6">
+    <ShadcnCard asChild><section className="slip flex flex-col gap-4 p-5 sm:p-6">
       {editable
         ? <><p className="text-sm leading-6 text-muted-foreground">Choose the subject line and audience, and check the copy. When it&apos;s ready, submit it for review from Email campaigns. A different reviewer approves it before anyone can queue or send it.</p>
           <EmailDraftForm emailId={email.id} subject={email.subject} subjectOptions={subjectOptions} previewText={email.preview_text} body={email.body} audienceSegmentId={email.audience_segment_id} allContactsCount={allContacts.count ?? 0} segments={segmentCounts} /></>
@@ -62,6 +65,6 @@ export default async function EmailCampaignPage({ params }: { params: Promise<{ 
           <div><p className="dateline">Audience</p><p className="mt-1 text-sm">{segmentName}</p></div>
           <div><p className="dateline">Email copy</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{email.body}</p></div>
         </>}
-    </section>
+    </section></ShadcnCard>
   </div>;
 }

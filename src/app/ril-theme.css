@@ -1,0 +1,142 @@
+/* Brand identity and interface roles. HSL channels remain compatible with Tailwind. */
+:root.ril-light-theme {
+  color-scheme: light;
+  --app-canvas: #f6f7f9;
+  --app-panel: #ffffff;
+  --app-raised: #f8f9fb;
+  --app-hover: #f0f2f5;
+  --app-fg: #212120;
+  --app-body: #41464f;
+  --app-muted: #656b75;
+  --app-meta: #6c727c;
+  --app-line: #e4e7ec;
+  --app-line-soft: #edf0f3;
+  --app-input-line: #8b919c;
+  --app-link: #175fc1;
+  --app-primary: #1466d7;
+  --app-primary-hover: #1056bb;
+  --app-on-primary: #ffffff;
+  --app-success: #23704b;
+  --app-warning: #8a5b12;
+  --app-danger: #b2353c;
+  --app-success-bg: #edf7f1;
+  --app-warning-bg: #fff7e8;
+  --app-danger-bg: #fdf0f1;
+  --app-info-bg: #edf4ff;
+  --app-chart-1: #1466d7;
+  --app-chart-2: #a6bddc;
+  --app-chart-3: #515e73;
+  --app-chart-label-1: #ffffff;
+  --app-chart-label-2: #212120;
+  --app-chart-label-3: #ffffff;
+  --app-overlay: rgb(20 26 38 / 36%);
+  --background: 220 27% 98%;
+  --foreground: 60 2% 13%;
+  --card: 0 0% 100%;
+  --card-foreground: 60 2% 13%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 60 2% 13%;
+  --primary: 215 83% 46%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 20% 96%;
+  --secondary-foreground: 220 12% 26%;
+  --muted: 220 23% 97%;
+  --muted-foreground: 219 7% 43%;
+  --accent: 217 100% 96%;
+  --accent-foreground: 215 79% 42%;
+  --destructive: 357 54% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 218 17% 91%;
+  --input: 219 8% 58%;
+  --ring: 215 83% 46%;
+  --flag: 215 83% 46%;
+  --flag-foreground: 0 0% 100%;
+  --radius: .625rem;
+  --ril-ink: #212120;
+  --ril-blue: #177ae5;
+  --ril-blue-accessible: var(--app-primary);
+  --ril-blue-deep: var(--app-link);
+  --ril-blue-pale: var(--app-info-bg);
+  --ril-blue-soft: var(--app-info-bg);
+  --ril-grey-pale: var(--app-raised);
+  --ril-grey-light: var(--app-hover);
+  --ril-grey-mid: var(--app-meta);
+  --ril-line: var(--app-line);
+  --ril-copy-muted: var(--app-muted);
+  --ril-inverse-muted: var(--app-body);
+  --ril-control-radius: 7px;
+  --ril-radius: 7px;
+  --ril-panel-radius: 12px;
+  --ril-large-radius: 20px;
+  --work-canvas: var(--app-canvas);
+  --work-white: var(--app-panel);
+  --work-ink: var(--app-fg);
+  --work-text: var(--app-body);
+  --work-muted: var(--app-muted);
+  --work-blue: var(--app-link);
+  --work-blue-hover: var(--app-primary-hover);
+  --work-tint: var(--app-info-bg);
+  --work-line: var(--app-line);
+  --work-field-line: var(--app-input-line);
+  --work-navy: var(--app-panel);
+  --work-navy-muted: var(--app-muted);
+  --work-radius-control: 7px;
+  --work-radius-panel: 12px;
+  --work-radius-large: 20px;
+  --work-shadow: 0 1px 2px rgb(20 26 38 / 3%);
+  --work-dialog-shadow: 0 24px 80px rgb(20 26 38 / 16%), 0 4px 16px rgb(20 26 38 / 6%);
+  --surface-strong: var(--app-panel);
+  --surface-strong-border: var(--app-line);
+  --surface-strong-hover: var(--app-hover);
+  --surface-strong-selected: var(--app-info-bg);
+  --surface-strong-action-hover: var(--app-info-bg);
+  --surface-strong-action-border: var(--app-line);
+  --surface-strong-search-border: var(--app-line);
+  --surface-strong-gate-border: var(--app-line);
+  --surface-strong-foreground: var(--app-fg);
+  --surface-strong-muted: var(--app-muted);
+  --surface-strong-icon: var(--app-muted);
+  --surface-strong-selected-icon: var(--app-link);
+  --status-info-background: var(--app-info-bg);
+  --status-info-foreground: var(--app-link);
+  --status-info-border: #d8e7fc;
+  --status-success-background: var(--app-success-bg);
+  --status-success-foreground: var(--app-success);
+  --status-success-border: #d6eadf;
+  --status-danger-background: var(--app-danger-bg);
+  --status-danger-foreground: var(--app-danger);
+  --status-danger-border: #f2dadd;
+  --chart-1: var(--app-chart-1);
+  --chart-2: var(--app-chart-2);
+  --chart-3: var(--app-chart-3);
+  --chart-4: #7a9bcb;
+  --chart-5: #41464f;
+  --sidebar: #f8f9fb;
+  --sidebar-foreground: #4e5561;
+  --sidebar-primary: var(--app-primary);
+  --sidebar-primary-foreground: var(--app-on-primary);
+  --sidebar-accent: #eaf1fc;
+  --sidebar-accent-foreground: var(--app-link);
+  --sidebar-border: var(--app-line);
+  --sidebar-ring: var(--app-primary);
+  --panel-elevation: var(--work-shadow);
+  --panel-rim: 1px solid var(--app-line);
+  --glass-fill: var(--app-panel);
+  --glass-rim: var(--app-line);
+  --glass-edge: var(--app-line);
+  --glass-blur: 0px;
+  --glass-shadow: none;
+  --glass-backdrop: var(--app-canvas);
+  --glass-solid: var(--app-panel);
+  --glass-control-fill: var(--app-panel);
+}
+body.ril-light { color-scheme: light; background: var(--app-canvas); color: var(--app-fg); }
+body.ril-light :is(.text-primary,.ril-inline-action,.directory-record-secondary,.decision-open,.rich-text a) { color: var(--app-link); }
+body.ril-light .text-destructive { color: var(--app-danger); }
+body.ril-light :is(.text-emerald-700,.text-green-700) { color: var(--app-success); }
+body.ril-light :is(.text-amber-700,.text-amber-800) { color: var(--app-warning); }
+body.ril-light :is(.dialog-content,[data-slot="popover-content"],[data-workspace-portal],.toast-item) { background: var(--app-panel); color: var(--app-fg); border-color: var(--app-line); }
+body.ril-light .dialog-overlay { background: var(--app-overlay); }
+body.ril-light :is(input,textarea)::placeholder { color: var(--app-meta); opacity: 1; }
+body.ril-light .rdp-root { --rdp-accent-color: var(--app-primary); --rdp-accent-background-color: var(--app-info-bg); }
+body.ril-light .rdp-selected .rdp-day_button { background: var(--app-primary); color: var(--app-on-primary); border-color: var(--app-primary); }

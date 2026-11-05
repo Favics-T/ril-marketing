@@ -1,4 +1,7 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState, useState } from "react";
 import { MegaphoneIcon } from "lucide-react";
@@ -94,7 +97,7 @@ export function BufferConnector({
           )}
 
           {needsAttention.length > 0 ? (
-            <ul className="flex flex-col gap-1.5 text-[13px] leading-5 text-amber-700 dark:text-amber-400">
+            <ul className="flex flex-col gap-1.5 text-[13px] leading-5 text-amber-700 ">
               {needsAttention.map((channel) => (
                 <li key={channel.id} className="flex items-start gap-1.5">
                   <ChannelMark
@@ -116,50 +119,50 @@ export function BufferConnector({
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2">
-            <form action={refreshAction}><Button
+            <ShadcnFieldGroup asChild><form action={refreshAction}><Button
               type="submit"
               variant="outline"
               size="sm"
               disabled={refreshing || disconnecting}
             >
               {refreshing ? "Refreshing…" : "Refresh channels"}
-            </Button></form>
-            <form action={disconnectAction}>
+            </Button></form></ShadcnFieldGroup>
+            <ShadcnFieldGroup asChild><form action={disconnectAction}>
               <Button
                 type="submit"
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground"
+                
                 disabled={refreshing || disconnecting}
               >
                 {disconnecting ? "Disconnecting…" : "Disconnect"}
               </Button>
-            </form>
+            </form></ShadcnFieldGroup>
           </div>
         </div>
       ) : open ? (
         <div className="flex flex-col gap-3">
           <p className="max-w-[60ch] text-[13px] leading-5 text-muted-foreground"><a href="https://publish.buffer.com/settings/api" target="_blank" rel="noreferrer noopener" className="font-semibold text-primary underline underline-offset-4">Get a Buffer API key</a> with publishing access, then paste it below. If someone manages Buffer for your team, ask them for this key.</p>
-          <form action={connectAction} className="flex max-w-lg flex-col gap-2">
-            <label className="flex flex-col gap-1.5 text-sm">Your Buffer connection key<Input name="api_key" type="password" autoComplete="off" required minLength={8} maxLength={2000} disabled={connecting} placeholder="Paste your key here" /></label>
+          <ShadcnFieldGroup asChild><form action={connectAction} className="flex max-w-lg flex-col gap-2">
+            <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5 text-sm">Your Buffer connection key<Input name="api_key" type="password" autoComplete="off" required minLength={8} maxLength={2000} disabled={connecting} placeholder="Paste your key here" /></ShadcnFieldLabel></ShadcnField>
             <div className="flex gap-2"><Button type="submit" size="sm" className="w-fit" disabled={connecting}>{connecting ? "Checking connection…" : "Connect Buffer"}</Button><Button type="button" variant="ghost" size="sm" disabled={connecting} onClick={() => setOpen(false)}>Cancel</Button></div>
-          </form>
+          </form></ShadcnFieldGroup>
           {envConfigured ? <Button asChild variant="outline" size="sm" className="w-fit"><a href="/api/integrations/buffer/connect">Sign in with Buffer instead</a></Button> : null}
         </div>
       ) : <Button type="button" variant="outline" className="w-fit" onClick={() => setOpen(true)}>Connect Buffer</Button>}
 
-      {connection?.error ? <p role="alert" className="mt-2 text-sm text-destructive">{connection.error}</p> : null}
-      {connection?.message ? <p role="status" className="mt-2 text-sm">{connection.message}</p> : null}
+      {connection?.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="mt-2 text-sm text-destructive">{connection.error}</p></ShadcnAlert> : null}
+      {connection?.message ? <ShadcnAlert asChild role="status"><p role="status" className="mt-2 text-sm">{connection.message}</p></ShadcnAlert> : null}
 
       {refresh?.error ? (
-        <p role="alert" className="mt-2 text-sm text-destructive">
+        <ShadcnAlert asChild variant="destructive"><p role="alert" className="mt-2 text-sm text-destructive">
           {refresh.error}
-        </p>
+        </p></ShadcnAlert>
       ) : null}
       {disconnect?.error ? (
-        <p role="alert" className="mt-2 text-sm text-destructive">
+        <ShadcnAlert asChild variant="destructive"><p role="alert" className="mt-2 text-sm text-destructive">
           {disconnect.error}
-        </p>
+        </p></ShadcnAlert>
       ) : null}
     </ConnectorCard>
   );

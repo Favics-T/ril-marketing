@@ -1,3 +1,6 @@
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
 import { SettingsNavigation } from "@/components/settings/settings-navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -19,21 +22,10 @@ export default async function BrandKnowledgePage() {
 
   return (
     <div className="workspace-page settings-page flex flex-col gap-4 md:gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <div>
-          <p className="dateline">{todayDateline()} · {entries.length} entries</p>
-          <h1>
-            Brand Knowledge
-          </h1>
-          <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-            Keep approved voice, program facts, audience guidance, and terminology in one place. AI uses relevant entries when it drafts; your team still reviews every asset.
-          </p>
-        </div>
-        <Button asChild className="min-h-10 rounded-lg px-4 text-[13px] font-semibold">
+      <WorkspacePageHeader title={<>Brand Knowledge</>} eyebrow={<>{todayDateline()} · {entries.length} entries</>} description={<>Keep approved voice, program facts, audience guidance, and terminology in one place. AI uses relevant entries when it drafts; your team still reviews every asset.</>} actions={<> <Button asChild className="px-4">
           <Link href="/settings/brand/new">Add an entry</Link>
-        </Button>
-      </header>
-      <SettingsNavigation />
+        </Button> </>} />
+      <div className="settings-workbench"><SettingsNavigation /><div className="settings-content">
 
       {entries.length === 0 ? (
         <EmptyState
@@ -42,7 +34,7 @@ export default async function BrandKnowledgePage() {
           action={{ label: "Add an entry", href: "/settings/brand/new" }}
         />
       ) : (
-        <section className="slip overflow-hidden" aria-label="Brand guidance entries"><div className="workspace-list-heading"><span>Guidance and source</span><span>Manage entry</span></div><ul className="divide-y divide-border/80">
+        <ShadcnCard asChild><section className="slip overflow-hidden" aria-label="Brand guidance entries"><div className="workspace-list-heading"><span>Guidance and source</span><span>Manage entry</span></div><ShadcnCardContent asChild className="p-0"><ul className="divide-y divide-border/80">
           {entries.map((entry) => (
             <li key={entry.id} className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6">
               <Link href={`/settings/brand/${entry.id}`} className="group min-w-0 flex-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
@@ -59,8 +51,8 @@ export default async function BrandKnowledgePage() {
               </div>
             </li>
           ))}
-        </ul></section>
+        </ul></ShadcnCardContent></section></ShadcnCard>
       )}
-    </div>
+    </div></div></div>
   );
 }

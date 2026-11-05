@@ -1,5 +1,11 @@
 "use client";
 
+import { Disclosure } from "@/components/ui/disclosure";
+import { FieldGroup as ShadcnFieldGroup, FieldSet as ShadcnFieldSet, FieldLegend as ShadcnFieldLegend, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+
+
 import { useActionState, useState } from "react";
 import {
   connectAiProvider,
@@ -21,7 +27,6 @@ import {
   type ProviderKey,
 } from "@/lib/ai/providers";
 import { cn } from "@/lib/utils";
-import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 
 const KEY_URL_LABEL = "Get a connection key";
 
@@ -126,43 +131,43 @@ export function AiSettingsForm({
               type="button"
               variant="outline"
               size="sm"
-              className="min-h-9 rounded-lg font-semibold"
+              
               disabled={!canManage || busy}
               onClick={() => { setProvider(savedProvider); setModel(saved.model); setTest(null); setEditing(true); }}
             >
               Manage connection
             </Button>
-            <form action={disconnectAction}>
+            <ShadcnFieldGroup asChild><form action={disconnectAction}>
               <Button
                 type="submit"
                 variant="ghost"
                 size="sm"
-                className="min-h-9 rounded-lg font-semibold text-muted-foreground"
+                
                 disabled={!canManage || busy}
               >
                 {disconnecting ? "Disconnecting…" : "Disconnect"}
               </Button>
-            </form>
+            </form></ShadcnFieldGroup>
           </div>
         </div>
-        <form action={testAction}>
+        <ShadcnFieldGroup asChild><form action={testAction}>
           <input type="hidden" name="provider" value={saved.provider} />
           <input type="hidden" name="model" value={saved.model} />
           <Button type="submit" variant="outline" disabled={!canManage || busy}>{testing ? "Testing…" : "Test connection"}</Button>
-        </form>
+        </form></ShadcnFieldGroup>
         {test ? <p role={test.ok ? "status" : "alert"} className={test.ok ? "text-sm text-emerald-700" : "text-sm text-destructive"}>{test.ok ? "Connection works. Keep your AI account funded to create drafts." : test.error}</p> : null}
         {justConnected ? (
-          <p
+          <ShadcnAlert asChild role="status"><p
             role="status"
-            className="text-sm font-semibold text-emerald-700 dark:text-emerald-400"
+            className="text-sm font-semibold text-emerald-700 "
           >
             Connected. New drafts use {summaryModel} straight away.
-          </p>
+          </p></ShadcnAlert>
         ) : null}
         {disconnect?.error ? (
-          <p role="alert" className="text-sm text-destructive">
+          <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
             {disconnect.error}
-          </p>
+          </p></ShadcnAlert>
         ) : null}
       </div>
     );
@@ -170,15 +175,15 @@ export function AiSettingsForm({
 
   /* ── Not connected: pick, paste, connect. ── */
   return (
-    <form action={connectAction} onReset={event => event.preventDefault()} className="flex flex-col gap-4">
-      <fieldset disabled={!canManage || busy}>
-        <legend className="text-sm font-semibold tracking-[-0.01em]">Which AI service do you use?</legend>
+    <ShadcnFieldGroup asChild><form action={connectAction} onReset={event => event.preventDefault()} className="flex flex-col gap-4">
+      <ShadcnFieldSet disabled={!canManage || busy}>
+        <ShadcnFieldLegend className="text-sm font-semibold tracking-[-0.01em]">Which AI service do you use?</ShadcnFieldLegend>
         <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
           {PROVIDER_KEYS.map((key) => {
             const option = PROVIDERS[key];
             const isSelected = provider === key;
             return (
-              <label
+              <ShadcnField asChild orientation="horizontal" key={key}><ShadcnFieldLabel
                 key={key}
                 className={cn(
                   "cursor-pointer rounded-lg border p-4 outline-none transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring",
@@ -205,13 +210,13 @@ export function AiSettingsForm({
                 <span className="mt-1.5 block text-[13px] leading-5 text-muted-foreground">
                   {key === "openai" ? "From the makers of ChatGPT" : key === "anthropic" ? "From Anthropic" : "From Google"}
                 </span>
-              </label>
+              </ShadcnFieldLabel></ShadcnField>
             );
           })}
         </div>
-      </fieldset>
+      </ShadcnFieldSet>
 
-      <label htmlFor="ai-api-key" className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
+      <ShadcnField asChild><ShadcnFieldLabel htmlFor="ai-api-key" className="flex flex-col gap-1.5 text-sm font-semibold tracking-[-0.01em]">
         {saved.hasKey && provider === saved.provider ? "Replace your connection key (optional)" : `Your ${def.label} connection key`}
         <Input
           id="ai-api-key"
@@ -224,48 +229,48 @@ export function AiSettingsForm({
           value={apiKey}
           onChange={event => { setApiKey(event.target.value); setTest(null); }}
           placeholder={saved.hasKey && provider === saved.provider ? "Leave blank to keep your saved key" : "Paste your key here"}
-          className="h-11 rounded-lg font-normal"
+          
         />
         <span className="text-[13px] font-normal leading-5 text-muted-foreground">
           A key lets this workspace use your AI account. It is separate from your password.
         </span>
-      </label>
-      <details className="text-sm">
-        <DisclosureSummary className="min-h-11 cursor-pointer rounded-md py-2 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Need help finding your key?</DisclosureSummary>
-        <ol className="list-decimal space-y-2 pb-3 pl-5 text-muted-foreground">
+      </ShadcnFieldLabel></ShadcnField>
+      <Disclosure className="text-sm" title={<>Need help finding your key?</>} summaryClassName="min-h-11 cursor-pointer rounded-md py-2 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        
+        <ol className="list-decimal flex flex-col gap-2 pb-3 pl-5 text-muted-foreground">
           <li><a href={def.keyUrl} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-4">{KEY_URL_LABEL} from {def.label}</a> and sign in.</li>
           <li>Create a new API key, copy it, and paste it above.</li>
           <li>Click Connect. We check the key before saving it.</li>
         </ol>
         <p className="pb-3 text-[13px] text-muted-foreground">Your AI service may charge for usage separately from any chat subscription.</p>
-      </details>
-      <details className="border-t pt-2">
-        <DisclosureSummary className="min-h-11 cursor-pointer rounded-md py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Advanced options · {selected.label}</DisclosureSummary>
-      <label htmlFor="ai-model-select" className="flex flex-col gap-1.5 pb-3 text-sm font-semibold tracking-[-0.01em]">
+      </Disclosure>
+      <Disclosure className="border-t pt-2" title={<>Advanced options · {selected.label}</>} summaryClassName="min-h-11 cursor-pointer rounded-md py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        
+      <ShadcnField asChild><ShadcnFieldLabel htmlFor="ai-model-select" className="flex flex-col gap-1.5 pb-3 text-sm font-semibold tracking-[-0.01em]">
         AI model
-        <select
+        <ShadcnNativeSelect
           id="ai-model-select"
           name="model"
           value={model}
           onChange={(e) => { setTest(null); setModel(e.target.value); }}
           disabled={!canManage || busy}
-          className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm font-normal shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full"
         >
           {def.models.map((option) => (
-            <option key={option.id} value={option.id}>
+            <ShadcnNativeSelectOption key={option.id} value={option.id}>
               {option.label}
-            </option>
+            </ShadcnNativeSelectOption>
           ))}
-        </select>
+        </ShadcnNativeSelect>
         <span className="text-[13px] font-normal leading-5 text-muted-foreground">
           {selected.hint}
         </span>
-      </label>
+      </ShadcnFieldLabel></ShadcnField>
 
-      </details>
+      </Disclosure>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={!canManage || busy} className="min-h-10 rounded-lg px-4 font-semibold">
+        <Button type="submit" disabled={!canManage || busy} className="px-4">
           {saved.hasKey
             ? connecting
               ? "Checking your key…"
@@ -278,7 +283,7 @@ export function AiSettingsForm({
           <Button
             type="button"
             variant="ghost"
-            className="text-muted-foreground"
+            
             onClick={() => { setProvider(savedProvider); setModel(saved.model); setApiKey(""); setTest(null); setEditing(false); }}
             disabled={busy}
           >
@@ -291,10 +296,10 @@ export function AiSettingsForm({
       <p className="text-xs leading-5 text-muted-foreground">Your key is stored securely. You can change or disconnect it at any time.</p>
 
       {connect?.error ? (
-        <p role="alert" className="text-sm text-destructive">
+        <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
           {connect.error}
-        </p>
+        </p></ShadcnAlert>
       ) : null}
-    </form>
+    </form></ShadcnFieldGroup>
   );
 }

@@ -4,21 +4,21 @@ import { ProductHome } from "@/components/landing/product-home";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.renaissancelabs.org"),
-  title: "RIL Marketing Workspace | One event in. A whole campaign out.",
+  title: "RIL Marketing Workspace | One activity. A connected campaign.",
   description:
-    "Bring activities, audience insights, drafts, reviews, and campaign follow-up together in the RIL Marketing Workspace. AI prepares; your team decides.",
+    "Turn programmes, events, and partnerships into content worth sharing. Keep sources, drafts, reviews, and follow-up together in the RIL Marketing Workspace.",
   robots: { index: true, follow: true },
   openGraph: {
     title: "RIL Marketing Workspace",
     description:
-      "One event in. A whole campaign out. AI drafts. Humans decide.",
+      "Connect source material, useful drafts, human review, and audience response in one RIL workspace.",
     type: "website",
     url: "https://www.renaissancelabs.org",
   },
   twitter: {
     card: "summary",
     title: "RIL Marketing Workspace",
-    description: "One event in. A whole campaign out. AI drafts. Humans decide.",
+    description: "Connect source material, useful drafts, human review, and audience response in one RIL workspace.",
   },
 };
 

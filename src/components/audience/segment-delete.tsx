@@ -1,4 +1,7 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -24,7 +27,7 @@ export function SegmentDelete({ segmentId }: { segmentId: string }) {
 				type="button"
 				size="sm"
 				variant="ghost"
-				className="text-destructive hover:text-destructive"
+				
 				onClick={() => setConfirming(true)}
 			>
 				Delete segment
@@ -33,7 +36,7 @@ export function SegmentDelete({ segmentId }: { segmentId: string }) {
 	}
 
 	return (
-		<form action={action} className="flex flex-col gap-2">
+		<ShadcnFieldGroup asChild><form action={action} className="flex flex-col gap-2">
 			<p className="text-sm text-muted-foreground">
 				Delete this segment? Insights and activities keep their history.
 			</p>
@@ -52,10 +55,10 @@ export function SegmentDelete({ segmentId }: { segmentId: string }) {
 				</Button>
 			</div>
 			{state?.ok === false ? (
-				<p role="alert" className="text-sm text-destructive">
+				<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 					{state.error}
-				</p>
+				</p></ShadcnAlert>
 			) : null}
-		</form>
+		</form></ShadcnFieldGroup>
 	);
 }

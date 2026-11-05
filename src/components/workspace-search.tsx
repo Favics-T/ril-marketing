@@ -1,4 +1,6 @@
 "use client";
+import { Button as ShadcnButton } from "@/components/ui/button";
+
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -40,15 +42,15 @@ export function WorkspaceSearch() {
 
   return <Popover open={open} onOpenChange={changeOpen}>
     <PopoverTrigger asChild>
-      <button type="button" aria-label="Search workspace pages" aria-keyshortcuts="f Control+k Meta+k" className="workspace-command-trigger" onPointerDown={() => setOpeningMethod("pointer")} onKeyDown={() => setOpeningMethod("keyboard")}>
+      <ShadcnButton variant="ghost" type="button" aria-label="Search workspace pages" aria-keyshortcuts="f Control+k Meta+k" className="workspace-command-trigger" onPointerDown={() => setOpeningMethod("pointer")} onKeyDown={() => setOpeningMethod("keyboard")}>
         <Search aria-hidden="true" /><span>Find a page</span><kbd aria-hidden="true">F</kbd>
-      </button>
+      </ShadcnButton>
     </PopoverTrigger>
     <PopoverContent data-workspace-portal="" data-opening-method={openingMethod} align="end" side="bottom" sideOffset={-44} collisionPadding={16} aria-label="Search workspace pages" className="workspace-command-popover p-0" onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }}>
       <Command label="Workspace navigation" loop>
         <div className="workspace-command-input-row">
           <CommandInput ref={inputRef} aria-label="Search pages" aria-describedby={instructionsId} value={query} onValueChange={setQuery} placeholder="Find a page…" className="workspace-search-input pr-12" />
-          <button type="button" aria-label="Close search" onClick={() => changeOpen(false)} className="workspace-command-close"><kbd>Esc</kbd></button>
+          <ShadcnButton variant="ghost" type="button" aria-label="Close search" onClick={() => changeOpen(false)} className="workspace-command-close"><kbd>Esc</kbd></ShadcnButton>
         </div>
         <CommandList aria-label="Page search results" className="workspace-command-list">
           <CommandEmpty>No pages found. Try content, email or settings.</CommandEmpty>

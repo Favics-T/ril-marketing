@@ -1,5 +1,13 @@
 "use client";
 
+import { Disclosure } from "@/components/ui/disclosure";
+import { Checkbox as ShadcnCheckbox } from "@/components/ui/checkbox";
+
+import { FieldGroup as ShadcnFieldGroup, FieldSet as ShadcnFieldSet, FieldLegend as ShadcnFieldLegend, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
+
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -11,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 
 type ProgramOption = { id: string; name: string };
 
@@ -50,9 +57,9 @@ export function SegmentForm({
 	}, [editing, state, router]);
 
 	return (
-		<form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+		<ShadcnFieldGroup asChild><ShadcnCard asChild><form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
 			<p className="text-sm leading-6 text-muted-foreground">Name the group and describe who it includes. Add preferences when you know them; you can update them later.</p>
-			<div className="space-y-2">
+			<div className="flex flex-col gap-2">
 				<Label htmlFor="name">Segment name</Label>
 				<Input
 					id="name"
@@ -63,7 +70,7 @@ export function SegmentForm({
 					placeholder="e.g. First-time founders"
 				/>
 			</div>
-			<div className="space-y-2">
+			<div className="flex flex-col gap-2">
 				<Label htmlFor="description">Description</Label>
 				<Textarea
 					id="description"
@@ -72,8 +79,8 @@ export function SegmentForm({
 					defaultValue={segment?.description ?? ""}
 				/>
 			</div>
-			<details className="border-t pt-4"><DisclosureSummary>Audience preferences (optional)</DisclosureSummary><div className="mt-4 grid gap-5 sm:grid-cols-2">
-				<div className="space-y-2">
+			<Disclosure className="border-t pt-4" title={<>Audience preferences (optional)</>}><div className="mt-4 grid gap-5 sm:grid-cols-2">
+				<div className="flex flex-col gap-2">
 					<Label htmlFor="needs_motivations">Needs &amp; motivations (one per line)</Label>
 					<Textarea
 						id="needs_motivations"
@@ -82,7 +89,7 @@ export function SegmentForm({
 						defaultValue={(segment?.needs_motivations ?? []).join("\n")}
 					/>
 				</div>
-				<div className="space-y-2">
+				<div className="flex flex-col gap-2">
 					<Label htmlFor="preferred_hooks">Messages that resonate (one per line)</Label>
 					<Textarea
 						id="preferred_hooks"
@@ -91,7 +98,7 @@ export function SegmentForm({
 						defaultValue={(segment?.preferred_hooks ?? []).join("\n")}
 					/>
 				</div>
-				<div className="space-y-2">
+				<div className="flex flex-col gap-2">
 					<Label htmlFor="preferred_formats">Preferred formats (comma or line)</Label>
 					<Textarea
 						id="preferred_formats"
@@ -100,7 +107,7 @@ export function SegmentForm({
 						defaultValue={(segment?.preferred_formats ?? []).join(", ")}
 					/>
 				</div>
-				<div className="space-y-2">
+				<div className="flex flex-col gap-2">
 					<Label htmlFor="preferred_platforms">Preferred platforms (comma or line)</Label>
 					<Textarea
 						id="preferred_platforms"
@@ -109,36 +116,36 @@ export function SegmentForm({
 						defaultValue={(segment?.preferred_platforms ?? []).join(", ")}
 					/>
 				</div>
-			</div></details>
+			</div></Disclosure>
 			{programs.length ? (
-				<fieldset className="space-y-2">
-					<legend className="dateline">Linked programs</legend>
+				<ShadcnFieldSet className="flex flex-col gap-2">
+					<ShadcnFieldLegend className="dateline">Linked programs</ShadcnFieldLegend>
 					<div className="flex flex-wrap gap-x-6 gap-y-2">
 						{programs.map((p) => (
-							<label
+							<ShadcnField asChild orientation="horizontal" key={p.id}><ShadcnFieldLabel
 								key={p.id}
 								className="flex items-center gap-2 text-sm font-medium text-foreground"
 							>
-								<input
-									type="checkbox"
+								<ShadcnCheckbox
+									
 									name="program_ids"
 									value={p.id}
 									defaultChecked={segment?.programIds.includes(p.id)}
 									className="size-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 								/>
 								{p.name}
-							</label>
+							</ShadcnFieldLabel></ShadcnField>
 						))}
 					</div>
-				</fieldset>
+				</ShadcnFieldSet>
 			) : null}
 			{state?.ok === false ? (
-				<p role="alert" className="text-sm text-destructive">
+				<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 					{state.error}
-				</p>
+				</p></ShadcnAlert>
 			) : null}
 			{editing && state?.ok ? (
-				<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+				<p className="text-sm font-semibold text-emerald-700 ">
 					Segment saved.
 				</p>
 			) : null}
@@ -151,6 +158,6 @@ export function SegmentForm({
 							: "Create segment"}
 				</Button>
 			</div>
-		</form>
+		</form></ShadcnCard></ShadcnFieldGroup>
 	);
 }

@@ -1,7 +1,13 @@
+
+import { Disclosure } from "@/components/ui/disclosure";
+
+import { Checkbox as ShadcnCheckbox } from "@/components/ui/checkbox";
+
+import { FieldLabel as ShadcnFieldLabel, Field as ShadcnField, FieldSet as ShadcnFieldSet, FieldLegend as ShadcnFieldLegend } from "@/components/ui/field";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
 import { ChannelIdentity } from "@/components/channel-identity";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DisclosureSummary } from "@/components/ui/disclosure-summary";
 
 const channelOptions = [
   ["linkedin", "LinkedIn"], ["instagram", "Instagram"], ["facebook", "Facebook"],
@@ -31,17 +37,17 @@ export type CampaignFieldsValue = {
 
 export function CampaignFields({ segments, initial = {} }: { segments: Array<{id:string;name:string}>; initial?: CampaignFieldsValue }) {
   return <>
-    <label className={`${fieldClass} sm:col-span-2`}><span className={labelClass}>Campaign name</span><Input name="name" required minLength={3} maxLength={160} defaultValue={initial.name ?? ""} placeholder="e.g. September founders programme" /></label>
-    <label className={`${fieldClass} sm:col-span-2`}><span className={labelClass}>Objective</span><Textarea name="objective" rows={3} maxLength={4000} defaultValue={initial.objective ?? ""} placeholder="What should this campaign achieve? Add a measurable outcome where possible." /></label>
-    <label className={`${fieldClass} sm:col-span-2`}><span className={labelClass}>Target audience</span><Textarea name="target_audience" rows={2} maxLength={1000} defaultValue={initial.target_audience ?? ""} placeholder="Who should this campaign reach?" /></label>
-    <details className="border-t pt-3 sm:col-span-2 lg:col-span-4" open={Boolean(initial.name)}><DisclosureSummary>Plan, channels &amp; budget (optional)</DisclosureSummary><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-    <label className={fieldClass}><span className={labelClass}>Audience segment</span><select name="audience_segment_id" defaultValue={initial.audience_segment_id ?? ""} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="">No linked segment</option>{segments.map((segment)=><option key={segment.id} value={segment.id}>{segment.name}</option>)}</select></label>
-    <label className={fieldClass}><span className={labelClass}>Main focus</span><select name="funnel_stage" defaultValue={initial.funnel_stage ?? "awareness"} className="h-10 rounded-md border border-input bg-background px-3 text-sm">{funnelOptions.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-    <label className={fieldClass}><span className={labelClass}>Starts</span><Input name="starts_on" type="date" defaultValue={initial.starts_on ?? ""} /></label>
-    <label className={fieldClass}><span className={labelClass}>Ends</span><Input name="ends_on" type="date" defaultValue={initial.ends_on ?? ""} /></label>
-    <label className={fieldClass}><span className={labelClass}>Budget · optional</span><Input name="budget" type="number" min="0" step="0.01" defaultValue={initial.budget ?? ""} placeholder="No paid budget" /></label>
-    <label className={fieldClass}><span className={labelClass}>Budget currency</span><select name="budget_currency" defaultValue={initial.budget_currency ?? "NGN"} className="h-10 rounded-md border border-input bg-background px-3 text-sm">{currencies.map((currency)=><option key={currency} value={currency}>{currency}</option>)}</select></label>
-    <fieldset className="flex flex-col gap-2 sm:col-span-2"><legend className={labelClass}>Channels</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{channelOptions.map(([value])=><label key={value} className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm"><input type="checkbox" name="channels" value={value} defaultChecked={initial.channels?.includes(value)} className="size-4 accent-primary" /><ChannelIdentity channel={value} /></label>)}</div></fieldset>
-    </div></details>
+    <ShadcnField asChild><ShadcnFieldLabel className={`${fieldClass} sm:col-span-2`}><span >Campaign name</span><Input name="name" required minLength={3} maxLength={160} defaultValue={initial.name ?? ""} placeholder="e.g. September founders programme" /></ShadcnFieldLabel></ShadcnField>
+    <ShadcnField asChild><ShadcnFieldLabel className={`${fieldClass} sm:col-span-2`}><span >Objective</span><Textarea name="objective" rows={3} maxLength={4000} defaultValue={initial.objective ?? ""} placeholder="What should this campaign achieve? Add a measurable outcome where possible." /></ShadcnFieldLabel></ShadcnField>
+    <ShadcnField asChild><ShadcnFieldLabel className={`${fieldClass} sm:col-span-2`}><span >Target audience</span><Textarea name="target_audience" rows={2} maxLength={1000} defaultValue={initial.target_audience ?? ""} placeholder="Who should this campaign reach?" /></ShadcnFieldLabel></ShadcnField>
+    <Disclosure className="border-t pt-3 sm:col-span-2 lg:col-span-4" initiallyOpen={Boolean(initial.name)} title={<>Plan, channels &amp; budget (optional)</>}><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <ShadcnField asChild><ShadcnFieldLabel className={fieldClass}><span >Audience segment</span><ShadcnNativeSelect name="audience_segment_id" defaultValue={initial.audience_segment_id ?? ""} className=""><ShadcnNativeSelectOption value="">No linked segment</ShadcnNativeSelectOption>{segments.map((segment)=><ShadcnNativeSelectOption key={segment.id} value={segment.id}>{segment.name}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect></ShadcnFieldLabel></ShadcnField>
+    <ShadcnField asChild><ShadcnFieldLabel className={fieldClass}><span >Main focus</span><ShadcnNativeSelect name="funnel_stage" defaultValue={initial.funnel_stage ?? "awareness"} className="">{funnelOptions.map(([value,label])=><ShadcnNativeSelectOption key={value} value={value}>{label}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect></ShadcnFieldLabel></ShadcnField>
+    <ShadcnField asChild><ShadcnFieldLabel className={fieldClass}><span >Starts</span><Input name="starts_on" type="date" defaultValue={initial.starts_on ?? ""} /></ShadcnFieldLabel></ShadcnField>
+    <ShadcnField asChild><ShadcnFieldLabel className={fieldClass}><span >Ends</span><Input name="ends_on" type="date" defaultValue={initial.ends_on ?? ""} /></ShadcnFieldLabel></ShadcnField>
+    <ShadcnField asChild><ShadcnFieldLabel className={fieldClass}><span >Budget · optional</span><Input name="budget" type="number" min="0" step="0.01" defaultValue={initial.budget ?? ""} placeholder="No paid budget" /></ShadcnFieldLabel></ShadcnField>
+    <ShadcnField asChild><ShadcnFieldLabel className={fieldClass}><span >Budget currency</span><ShadcnNativeSelect name="budget_currency" defaultValue={initial.budget_currency ?? "NGN"} className="">{currencies.map((currency)=><ShadcnNativeSelectOption key={currency} value={currency}>{currency}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect></ShadcnFieldLabel></ShadcnField>
+    <ShadcnFieldSet className="flex flex-col gap-2 sm:col-span-2"><ShadcnFieldLegend className={labelClass}>Channels</ShadcnFieldLegend><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{channelOptions.map(([value])=><ShadcnField asChild orientation="horizontal" key={value}><ShadcnFieldLabel key={value} className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm"><ShadcnCheckbox  name="channels" value={value} defaultChecked={initial.channels?.includes(value)} className="size-4 accent-primary" /><ChannelIdentity channel={value} /></ShadcnFieldLabel></ShadcnField>)}</div></ShadcnFieldSet>
+    </div></Disclosure>
   </>;
 }

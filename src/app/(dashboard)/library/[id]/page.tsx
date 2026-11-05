@@ -1,8 +1,12 @@
+
+import { Disclosure } from "@/components/ui/disclosure";
+
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
 import { AssetWorkflow } from "@/components/content/asset-workflow";
 import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Copy, ChevronDown } from "lucide-react";
+import { ArrowLeft, Copy, } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getConnectedChannelOptions } from "@/lib/content/connected-channels";
 import { notFound } from "next/navigation";
@@ -128,8 +132,9 @@ export default async function AssetDetailPage({
             <AssetWorkflow status={asset.status} approvalsReady={releaseReady} />
 
 			<div className="record-layout grid gap-6 lg:grid-cols-3">
-				<section className="slip flex flex-col lg:col-span-2">
-					<details className="asset-saved-preview" open={!['idea', 'ai_generated', 'editing'].includes(asset.status)}><summary><span>Saved copy</span><ChevronDown aria-hidden="true" /></summary><div className="px-5 py-5 sm:px-6">
+				<ShadcnCard asChild><section className="slip asset-copy-zone flex flex-col" aria-label="Working copy">
+                    {["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor channels={channels} key={asset.updated_at} asset={asset} /> : null}
+					<Disclosure className="asset-saved-preview" initiallyOpen={!['idea', 'ai_generated', 'editing'].includes(asset.status)} title={<><span>Saved copy</span></>}><div className="px-5 py-5 sm:px-6">
 						{asset.body ? (
 							<RichText>{asset.body}</RichText>
 						) : (
@@ -137,8 +142,8 @@ export default async function AssetDetailPage({
 								This asset is still a brief. Add body copy before review.
 							</p>
 						)}
-					</div></details>
-					{meta.length ? (
+					</div></Disclosure>
+					<Disclosure className="asset-context-disclosure" title={<>Source, context, and content details</>}><div>{meta.length ? (
 						<div className="ledger flex flex-col border-t border-border/80">
 							{meta.map((m) => (
 								<div
@@ -154,11 +159,11 @@ export default async function AssetDetailPage({
 						</div>
 					) : null}
 					{seo && (seo.title || seo.description || seo.keywords?.length || seo.internalLinks?.length) ? <section className="border-t border-border/80 px-5 py-4 sm:px-6"><p className="dateline">SEO preparation</p>{seo.title ? <p className="mt-2 text-[13px] font-bold tracking-[-0.01em]">{seo.title}</p> : null}{seo.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{seo.description}</p> : null}{seo.keywords?.length ? <p className="mt-2 text-[13px] leading-5 text-muted-foreground">Target terms · {seo.keywords.join(", ")}</p> : null}{seo.internalLinks?.length ? <ul className="mt-2 flex flex-col gap-1 text-xs text-primary">{seo.internalLinks.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{url}</a></li>)}</ul> : null}<p className="mt-2 text-[13px] leading-5 text-muted-foreground">Editorial search metadata only. Search performance is not verified until analytics data is connected.</p></section> : null}
-					<GeneratedDetails metadata={asset.metadata} />
-					{["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor channels={channels} key={asset.updated_at} asset={asset} /> : null}
-					</section>
+					<GeneratedDetails metadata={asset.metadata} /></div></Disclosure>
+					
+					</section></ShadcnCard>
 
-				<div className="flex flex-col gap-4 lg:gap-6">
+				<div className="asset-review-zone flex flex-col gap-4 lg:gap-6"><header className="asset-review-heading"><h2>Review &amp; distribution</h2><p>Check the saved revision, record approval, then choose where it goes.</p></header>
 					{reminder && asset.scheduled_for ? (
 						<section
 							aria-labelledby="reminder-heading"
@@ -182,39 +187,39 @@ export default async function AssetDetailPage({
 						</section>
 					) : null}
 					{isCalendarProposal ? (
-						<section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
+						<ShadcnCard asChild><section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
 							<div><p className="dateline">Calendar proposal</p><h2 className="mt-1 text-base font-bold">Recommendation</h2></div>
 							{suggestedAt ? <p className="text-sm"><span className="text-muted-foreground">Suggested timing: </span>{formatDayTime(suggestedAt)}</p> : null}
 							{typeof asset.metadata?.objective === "string" ? <p className="text-sm"><span className="text-muted-foreground">Objective: </span>{asset.metadata.objective}</p> : null}
 							{typeof asset.metadata?.funnel_stage === "string" ? <p className="text-sm"><span className="text-muted-foreground">Funnel stage: </span>{asset.metadata.funnel_stage}</p> : null}
 							{recommendationReason ? <p className="text-sm leading-6 text-muted-foreground">{recommendationReason}</p> : null}
-						</section>
+						</section></ShadcnCard>
 					) : null}
-					<section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
+					<ShadcnCard asChild><section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
 						<div>
 							<p className="dateline">Approval pipeline</p>
 							<h2 className="mt-1 text-base font-bold">Content status</h2>
 						</div>
 						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below, or change the schedule in the calendar.</p> : <AssetTransition key={asset.updated_at} assetId={asset.id} status={asset.status} manualSocialPosting={socialAsset} scheduledFor={asset.scheduled_for} expectedUpdatedAt={asset.updated_at} category={asset.approval_category} sensitivity={asset.sensitivity} signoffs={(signoffs.data ?? []) as ContentSignoff[]} reviewers={(reviewers.data ?? []) as ContentReviewer[]} authorId={asset.created_by} secondReviewerId={asset.second_reviewer_id} />}
-					</section>
+					</section></ShadcnCard>
 					{socialAsset && (releaseReady || ["published", "analysing"].includes(asset.status)) && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
 					{buffer ? <SocialPublishAction assetId={asset.id} connected={buffer.connected} channels={buffer.channels} copy={asset} updatedAt={asset.updated_at} /> : null}
           {youtube ? <YouTubePublishAction key={asset.updated_at} assetId={asset.id} updatedAt={asset.updated_at} title={socialPost(asset.metadata).videoTitle || asset.title} connected={youtube.connected} accountName={youtube.accountName} files={files.filter(file => !file.removedAt && ["video/mp4", "video/quicktime", "video/webm"].includes(file.mime)).map(file => ({ id: file.id, name: file.name }))} /> : null}
-          {importUrl ? <section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Imported source</h2><a href={importUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline">Open original {imported?.provider === "notion" ? "Notion page" : "YouTube video"}</a><p className="text-sm leading-6 text-muted-foreground">This is an editable copy. Changes here do not change the original source.</p>{imported?.warning ? <p className="text-sm leading-6 text-muted-foreground">{imported.warning}</p> : null}</section> : null}
+          {importUrl ? <ShadcnCard asChild><section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Imported source</h2><a href={importUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline">Open original {imported?.provider === "notion" ? "Notion page" : "YouTube video"}</a><p className="text-sm leading-6 text-muted-foreground">This is an editable copy. Changes here do not change the original source.</p>{imported?.warning ? <p className="text-sm leading-6 text-muted-foreground">{imported.warning}</p> : null}</section></ShadcnCard> : null}
 					{socialAsset && asset.format !== "short-form video" ? <ContentDetails key={`media-${asset.updated_at}`} assetId={asset.id} updatedAt={asset.updated_at} metadata={asset.metadata} editable={["idea","ai_generated","editing"].includes(asset.status)} platform={asset.platform || asset.channel} /> : null}
 					{asset.metadata?.clip || asset.format === "short-form video" ? <ContentDetails key={`clip-${asset.updated_at}`} assetId={asset.id} updatedAt={asset.updated_at} metadata={asset.metadata} editable={["idea","ai_generated","editing"].includes(asset.status)} platform={asset.platform || asset.channel} clip /> : null}
 					{canPublish && socialAsset && ["approved","published","analysing"].includes(asset.status) ? <RecurringContent assetId={asset.id} /> : null}
-					{typeof asset.metadata?.repurposing_source_id === "string" ? <section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Source and interpretation</h2><Link className="text-sm text-primary underline" href={`/repurpose/${asset.metadata.repurposing_source_id}`}>Open original source and extraction</Link>{["interpretation_notes","missing_information"].map(key => Array.isArray(asset.metadata[key]) && (asset.metadata[key] as unknown[]).length ? <div key={key}><h3 className="text-sm font-semibold">{key === "interpretation_notes" ? "AI interpretation" : "Missing information"}</h3><ul className="list-disc pl-5 text-sm text-muted-foreground">{(asset.metadata[key] as unknown[]).filter((text):text is string=>typeof text==="string").map((text,index)=><li key={index}>{text}</li>)}</ul></div> : null)}</section> : null}
+					{typeof asset.metadata?.repurposing_source_id === "string" ? <ShadcnCard asChild><section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Source and interpretation</h2><Link className="text-sm text-primary underline" href={`/repurpose/${asset.metadata.repurposing_source_id}`}>Open original source and extraction</Link>{["interpretation_notes","missing_information"].map(key => Array.isArray(asset.metadata[key]) && (asset.metadata[key] as unknown[]).length ? <div key={key}><h3 className="text-sm font-semibold">{key === "interpretation_notes" ? "AI interpretation" : "Missing information"}</h3><ul className="list-disc pl-5 text-sm text-muted-foreground">{(asset.metadata[key] as unknown[]).filter((text):text is string=>typeof text==="string").map((text,index)=><li key={index}>{text}</li>)}</ul></div> : null)}</section></ShadcnCard> : null}
 					{publishing && asset.status === "scheduled" ? <PublicationStatus assetId={asset.id} provider={publishing.provider || "provider"} error={delivery?.data?.error} url={providerUrl} missingReceipt={!delivery?.data?.external_id && publishing.provider !== "youtube"} /> : null}
-					{providerUrl && asset.status === "published" ? <section className="slip p-5 sm:p-6"><p className="dateline">{socialAsset ? "Published post" : "Published article"}</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live {socialAsset ? "post" : "article"}</a></section> : null}
-					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
-					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
+					{providerUrl && asset.status === "published" ? <ShadcnCard asChild><section className="slip p-5 sm:p-6"><p className="dateline">{socialAsset ? "Published post" : "Published article"}</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live {socialAsset ? "post" : "article"}</a></section></ShadcnCard> : null}
+					{cmsEligible ? <ShadcnCard asChild><section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section></ShadcnCard> : null}
+					{cmsEligible ? <ShadcnCard asChild><section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section></ShadcnCard> : null}
 					<NewsletterEmailButton asset={asset} />
 
 					<Link href="/calendar" className="text-sm font-semibold text-primary underline underline-offset-4">Open calendar to change or recover a schedule</Link>
 					<PublishHistory publications={publications} assetStatus={asset.status} />
 
-					<section className="slip flex h-fit flex-col p-5 sm:p-6">
+					<ShadcnCard asChild><section className="slip flex h-fit flex-col p-5 sm:p-6">
 						<p className="dateline">History</p>
 						{approvals.length ? (
 							<ol className="ledger mt-2 flex flex-col">
@@ -237,11 +242,11 @@ export default async function AssetDetailPage({
 								No transitions recorded yet.
 							</p>
 						)}
-					</section>
+					</section></ShadcnCard>
 				</div>
 			</div>
 			<LibraryFiles organizationId={orgId} assetId={id} files={files} editable={["idea", "ai_generated", "editing"].includes(asset.status)} />
-      {linkedActivities.data?.length ? <section className="slip p-5 sm:p-6"><h2 className="text-base font-semibold">Linked activities</h2><ul className="mt-3 space-y-2">{linkedActivities.data.map(activity => <li key={activity.id}><Link href={`/activities/${activity.id}`} className="inline-flex min-h-9 items-center text-sm font-semibold text-primary underline">{activity.title}</Link>{asset.source_activity_id === activity.id ? <span className="ml-2 text-xs text-muted-foreground">Original source</span> : null}</li>)}</ul></section> : null}
+      {linkedActivities.data?.length ? <ShadcnCard asChild><section className="slip p-5 sm:p-6"><h2 className="text-base font-semibold">Linked activities</h2><ShadcnCardContent asChild className="p-0"><ul className="mt-3 flex flex-col gap-2">{linkedActivities.data.map(activity => <li key={activity.id}><Link href={`/activities/${activity.id}`} className="inline-flex min-h-9 items-center text-sm font-semibold text-primary underline">{activity.title}</Link>{asset.source_activity_id === activity.id ? <span className="ml-2 text-xs text-muted-foreground">Original source</span> : null}</li>)}</ul></ShadcnCardContent></section></ShadcnCard> : null}
 		</div></DraftSessionProvider>
 	);
 }

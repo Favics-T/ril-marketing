@@ -1,4 +1,8 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+
 
 import { useActionState, useId, useState } from "react";
 import { transitionAsset, type ActionResult } from "@/actions/content";
@@ -51,25 +55,25 @@ export function AssetTransition({
 	);
 
 	return (
-		<form action={action} className="flex flex-col gap-3">
+		<ShadcnFieldGroup asChild><form action={action} className="flex flex-col gap-3">
 			<input type="hidden" name="expected_updated_at" value={expectedUpdatedAt ?? ""} />
 			<p className="text-sm leading-6 text-muted-foreground">{{ idea: "Add the copy, save your draft, then choose Editing to develop it.", ai_generated: "Check the generated copy against its source. Save your edits, then choose Review when ready.", editing: "Save your copy first, then choose Review to request independent approval.", review: "An independent reviewer must check the copy before choosing Approved. Choose Editing if changes are needed.", approved: "This copy is approved. Use the publishing controls to send it, or choose Scheduled to reserve a calendar time.", scheduled: "Check the delivery controls below. A reserved calendar time alone does not publish this content.", published: "This content is live. Delivery details and its recorded link appear below.", analysing: "Review the recorded performance of this published content." }[status]}</p>
 			<p className="text-sm text-muted-foreground">{categoryLabel(category)} · {signoffs.length}/{second ? 2 : 1} approvals for this revision.</p>
 			{signoffs.map(signoff => <p key={signoff.id} className="text-sm">{signoff.tier === 1 ? "First" : "Second"} approval: <strong>{signoff.reviewer_name}</strong> · {signoff.reviewer_role.replaceAll("_", " ")}</p>)}
-			{second && signoffs.length === 1 ? <p role="status" className="text-sm">Waiting for {waiting?.name ?? "the named second reviewer"}. Only they can complete approval.</p> : null}
-			{["approved", "scheduled"].includes(status) && signoffs.length < (second ? 2 : 1) ? <p role="status" className="text-sm text-destructive">This older approval has no recorded sign-off for the current revision. Return to Editing and request review before publishing.</p> : null}
+			{second && signoffs.length === 1 ? <ShadcnAlert asChild role="status"><p role="status" className="text-sm">Waiting for {waiting?.name ?? "the named second reviewer"}. Only they can complete approval.</p></ShadcnAlert> : null}
+			{["approved", "scheduled"].includes(status) && signoffs.length < (second ? 2 : 1) ? <ShadcnAlert asChild role="status"><p role="status" className="text-sm text-destructive">This older approval has no recorded sign-off for the current revision. Return to Editing and request review before publishing.</p></ShadcnAlert> : null}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor={statusId} className="dateline">Status</label>
+        <ShadcnField asChild><ShadcnFieldLabel htmlFor={statusId} className="dateline">Status</ShadcnFieldLabel></ShadcnField>
         <Select name="to" value={to} onValueChange={setTo} disabled={pending}>
           <SelectTrigger id={statusId}><SelectValue>{label(to)}{to === status ? " · current" : ""}</SelectValue></SelectTrigger>
           <SelectContent>{ASSET_STATUSES.map(value => <SelectItem key={value} value={value} disabled={value !== status && !targets.includes(value)}>{label(value)}{value === status ? " · current" : ""}</SelectItem>)}</SelectContent>
         </Select>
         <p className="text-xs leading-5 text-muted-foreground">Select an available status, then save. Review and approval rules still apply. Published status is recorded through the publishing controls.</p>
       </div>
-			{to === "approved" && second && signoffs.length === 0 ? <label className="flex flex-col gap-1.5"><span className="dateline">Named second reviewer</span><select required name="second_reviewer_id" className={fieldClass} defaultValue=""><option value="" disabled>Choose an owner, admin or leader</option>{reviewers.filter(person => person.id !== authorId && ["owner", "admin", "leadership"].includes(person.role)).map(person => <option key={person.id} value={person.id}>{person.name} · {person.role}</option>)}</select><span className="text-xs text-muted-foreground">They must be different from you and the content author.</span></label> : null}
+			{to === "approved" && second && signoffs.length === 0 ? <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5"><span >Named second reviewer</span><ShadcnNativeSelect required name="second_reviewer_id" className={fieldClass} defaultValue=""><ShadcnNativeSelectOption value="" disabled>Choose an owner, admin or leader</ShadcnNativeSelectOption>{reviewers.filter(person => person.id !== authorId && ["owner", "admin", "leadership"].includes(person.role)).map(person => <ShadcnNativeSelectOption key={person.id} value={person.id}>{person.name} · {person.role}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect><span className="text-xs text-muted-foreground">They must be different from you and the content author.</span></ShadcnFieldLabel></ShadcnField> : null}
 			{to === "scheduled" ? (
-				<label className="flex flex-col gap-1.5">
-					<span className="dateline">Scheduled for ({WORKSPACE_TIME_ZONE_LABEL})</span>
+				<ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5">
+					<span >Scheduled for ({WORKSPACE_TIME_ZONE_LABEL})</span>
 					<Input
 						type="datetime-local"
 						name="scheduled_for"
@@ -77,26 +81,26 @@ export function AssetTransition({
 						defaultValue={dateToZonedInput(scheduledFor)}
 						className={fieldClass}
 					/>
-				</label>
+				</ShadcnFieldLabel></ShadcnField>
 			) : null}
 			{to === "scheduled" ? <p className="text-sm text-muted-foreground">This reserves a calendar time. To deliver automatically, use the publishing controls after approval.</p> : null}
-			<label className="flex flex-col gap-1.5">
-				<span className="dateline">Note (optional)</span>
+			<ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5">
+				<span >Note (optional)</span>
 				<Textarea name="note" rows={2} />
-			</label>
+			</ShadcnFieldLabel></ShadcnField>
 			{state?.ok === false ? (
-				<p role="alert" className="text-sm text-destructive">
+				<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 					{state.error}
-				</p>
+				</p></ShadcnAlert>
 			) : null}
 			{state?.ok ? (
-				<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+				<p className="text-sm font-semibold text-emerald-700 ">
 						{state.message ?? `Status updated to ${label(to)}.`}
 				</p>
 			) : null}
 			<Button type="submit" size="sm" className="w-fit" disabled={pending || to === status}>
 				{pending ? "Saving…" : "Save status"}
 			</Button>
-		</form>
+		</form></ShadcnFieldGroup>
 	);
 }

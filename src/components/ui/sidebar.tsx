@@ -137,7 +137,7 @@ const SidebarProvider = React.forwardRef<
 
     return (
       <SidebarContext.Provider value={contextValue}>
-        <TooltipProvider delayDuration={0}>
+        <TooltipProvider delayDuration={350} skipDelayDuration={500}>
           <div
             style={
               {
@@ -205,6 +205,13 @@ const Sidebar = React.forwardRef<
             data-sidebar="sidebar"
             data-mobile="true"
             data-workspace-portal=""
+            onCloseAutoFocus={event => {
+              const trigger = document.querySelector<HTMLButtonElement>('[data-sidebar="trigger"]')
+              if (trigger) {
+                event.preventDefault()
+                trigger.focus()
+              }
+            }}
             className={cn("workspace-sidebar w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden", className)}
             style={
               {
@@ -578,7 +585,7 @@ const SidebarMenuButton = React.forwardRef<
       />
     )
 
-    if (!tooltip) {
+    if (!tooltip || isMobile || state !== "collapsed") {
       return button
     }
 

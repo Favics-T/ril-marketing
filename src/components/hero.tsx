@@ -26,7 +26,7 @@ export function HeroSection({ signedIn = false }: { signedIn?: boolean }) {
         <div className="efferd-preview-toolbar"><span className="efferd-preview-window-marks"><i /><i /><i /></span><span>RIL Marketing Workspace</span><span className="efferd-preview-toolbar-label">Workflow preview</span></div>
         <div className="efferd-preview-workspace">
           <div className="efferd-preview-sidebar">
-            <Image src="/logo/whiteLogo.svg" alt="" width={116} height={52} className="h-9 w-auto" />
+            <Image src="/logo/blackLogo.svg" alt="" width={116} height={52} className="h-9 w-auto" />
             <div className="efferd-preview-navigation"><span className="is-selected"><LayoutDashboard />Command Centre</span><span><ClipboardCheck />Approvals</span><span><FileText />Content Library</span><span><CalendarDays />Calendar</span><span><Users />Audience</span></div>
             <p>Human approval, always</p>
           </div>

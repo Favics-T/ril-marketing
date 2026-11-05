@@ -1,3 +1,6 @@
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -47,18 +50,8 @@ export default async function InsightsPage({
 
   return (
     <div className="workspace-page insight-directory">
-      <div>
-        <p className="dateline">
-          {todayDateline()} · {result.total} findings
-        </p>
-        <h1>
-          Audience Insights
-        </h1>
-        <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-          Review AI findings before they enter recommendations, drafts, or
-          reports. Suppressed insights stay out.
-        </p>
-      </div>
+      <WorkspacePageHeader title={<>Audience Insights</>} eyebrow={<>{todayDateline()} · {result.total} findings</>} description={<>Review AI findings before they enter recommendations, drafts, or
+          reports. Suppressed insights stay out.</>} />
 
       <nav aria-label="Filter by status" className="flex flex-wrap">
         {STATUSES.map((s) => (
@@ -83,7 +76,7 @@ export default async function InsightsPage({
           action={status === "all" ? { label: "View recorded results", href: "/analytics" } : { label: "View all insights", href: "/audience/insights" }}
         />
       ) : (
-        <ul className="ledger slip overflow-hidden">
+        <ShadcnCard asChild><ul className="ledger slip overflow-hidden">
           {result.insights.map((ins) => (
             <li key={ins.id} className="ril-insight-record">
               <div className="flex flex-wrap items-center gap-2">
@@ -121,7 +114,7 @@ export default async function InsightsPage({
               </div>
             </li>
           ))}
-        </ul>
+        </ul></ShadcnCard>
       )}
 
       {result.totalPages > 1 ? (

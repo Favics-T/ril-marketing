@@ -1,4 +1,7 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import * as React from "react";
 import Link from "next/link";
@@ -10,8 +13,9 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { authSchema, type AuthInput } from "@/lib/validation/audience";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupButton } from "@/components/ui/input-group";
+import { Field, FieldLabel, FieldError, FieldDescription } from "@/components/ui/field";
 
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
@@ -19,6 +23,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const [formError, setFormError] = React.useState<string | null>(null);
   const [checkEmail, setCheckEmail] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const [hydrated, setHydrated] = React.useState(false);
+  React.useEffect(() => setHydrated(true), []);
   const {
     register,
     handleSubmit,
@@ -61,96 +67,45 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     });
 
   if (checkEmail) {
-    return (
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Check your inbox</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          We sent a confirmation link. Click it, then sign in to set up your
-          organization.
-        </p>
-        <Button asChild className="mt-6 h-11 w-full">
-          <Link href="/sign-in">Go to sign in</Link>
-        </Button>
-      </div>
-    );
+    return <Card className="ril-auth-form"><CardHeader><CardTitle asChild><h1>Check your inbox</h1></CardTitle><CardDescription>We sent a confirmation link. Click it, then sign in to set up your organization.</CardDescription></CardHeader><CardContent><Button asChild className="w-full"><Link href="/sign-in">Go to sign in</Link></Button></CardContent></Card>;
   }
 
   return (
-    <div className="ril-auth-form">
-      <Link href="/" aria-label="Renaissance Innovation Labs home" className="ril-auth-logo"><Image src="/logo/blackLogo.svg" alt="Renaissance Innovation Labs" width={116} height={52} priority /></Link>
-      <h1 className="text-2xl font-semibold leading-tight tracking-tight">
+    <Card className="ril-auth-form"><CardHeader>
+      <Link href="/" aria-label="Renaissance Innovation Labs home" className="ril-auth-logo"><Image src="/logo/blackLogo.svg" alt="Renaissance Innovation Labs" width={100} height={45} priority /></Link>
+      <CardTitle asChild><h1 className="text-2xl font-semibold leading-tight tracking-tight">
         {mode === "sign-in" ? "Sign in" : "Create account"}
-      </h1>
-      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+      </h1></CardTitle>
+      <CardDescription asChild><p className="mt-3 text-sm leading-6 text-muted-foreground">
         {mode === "sign-in"
-          ? "Access your RIL audience workspace."
+          ? "Continue to your RIL marketing workspace."
           : "Create your account, then set up the workspace for your team."}
-      </p>
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4" noValidate>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="group relative">
-              <Mail aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-150 ease-snappy group-focus-within:text-foreground" />
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                autoFocus
-                placeholder="you@company.com"
-                aria-invalid={Boolean(errors.email)}
-                aria-describedby={errors.email ? "email-error" : undefined}
-                disabled={pending}
-                className="h-11 pl-9"
-                {...register("email")}
-              />
-            </div>
-            {errors.email ? (
-              <p id="email-error" role="alert" className="text-sm text-destructive">
-                {errors.email.message}
-              </p>
-            ) : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="group relative">
-              <Lock aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-150 ease-snappy group-focus-within:text-foreground" />
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-                aria-invalid={Boolean(errors.password)}
-                aria-describedby={errors.password ? "password-error" : mode === "sign-up" ? "password-hint" : undefined}
-                disabled={pending}
-                className="h-12 pl-9 pr-12"
-                {...register("password")}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-1 top-1/2 h-11 w-11 -translate-y-1/2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:scale-100"
-              >
-                <span className="relative block h-4 w-4" aria-hidden>
-                  {showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-                </span>
-              </Button>
-            </div>
-            {errors.password ? (
-              <p id="password-error" role="alert" className="text-sm text-destructive">
-                {errors.password.message}
-              </p>
-            ) : null}
-          </div>
-          {mode === "sign-up" && !errors.password ? <p id="password-hint" className="text-xs text-muted-foreground">Use at least 8 characters for your password.</p> : null}
+      </p></CardDescription></CardHeader><CardContent>
+      <ShadcnFieldGroup asChild><form method="post" onSubmit={handleSubmit(onSubmit)} className="mt-8 flex flex-col gap-4" noValidate>
+          <Field data-invalid={Boolean(errors.email)} data-disabled={pending}>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <InputGroup>
+              <InputGroupAddon><Mail aria-hidden="true" /></InputGroupAddon>
+              <InputGroupInput id="email" type="email" autoComplete="email" autoFocus placeholder="you@company.com" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "email-error" : undefined} disabled={pending} {...register("email")} />
+            </InputGroup>
+            {errors.email ? <FieldError id="email-error">{errors.email.message}</FieldError> : null}
+          </Field>
+          <Field data-invalid={Boolean(errors.password)} data-disabled={pending}>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <InputGroup>
+              <InputGroupAddon><Lock aria-hidden="true" /></InputGroupAddon>
+              <InputGroupInput id="password" type={showPassword ? "text" : "password"} autoComplete={mode === "sign-in" ? "current-password" : "new-password"} aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "password-error" : mode === "sign-up" ? "password-hint" : undefined} disabled={pending} {...register("password")} />
+              <InputGroupAddon align="inline-end"><InputGroupButton type="button" size="icon-sm" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</InputGroupButton></InputGroupAddon>
+            </InputGroup>
+            {errors.password ? <FieldError id="password-error">{errors.password.message}</FieldError> : null}
+            {mode === "sign-up" && !errors.password ? <FieldDescription id="password-hint">Use at least 8 characters for your password.</FieldDescription> : null}
+          </Field>
           {formError ? (
-            <p role="alert" className="text-sm text-destructive">
+            <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
               {formError}
-            </p>
+            </p></ShadcnAlert>
           ) : null}
-          <Button type="submit" className="h-12 w-full" disabled={pending}>
+          <Button type="submit" className="w-full" disabled={pending || !hydrated}>
             {pending
               ? "Please wait…"
               : mode === "sign-in"
@@ -170,7 +125,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
               </>
             )}
           </p>
-        </form>
-    </div>
+        </form></ShadcnFieldGroup>
+    </CardContent></Card>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+import { CalendarDays } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import { enGB } from "date-fns/locale";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 function dayValue(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -71,22 +72,18 @@ export const DateInput = React.forwardRef<HTMLInputElement, React.ComponentProps
           if (!event.defaultPrevented && !disabled && !readOnly && (event.key === "F4" || (event.altKey && event.key === "ArrowDown"))) { event.preventDefault(); changeOpen(true); }
         }} />
       <PopoverTrigger asChild>
-        <button type="button" className="date-field-trigger" disabled={disabled || readOnly} aria-label={`Choose ${label}`}><CalendarDays aria-hidden="true" /></button>
+        <Button type="button" variant="ghost" size="icon" className="date-field-trigger" disabled={disabled || readOnly} aria-label={`Choose ${label}`}><CalendarDays aria-hidden="true" /></Button>
       </PopoverTrigger>
     </div></PopoverAnchor>
     <PopoverContent data-workspace-portal="" className="date-picker-panel" align="start" collisionPadding={12} aria-label={`Choose ${label}`}>
-      <DayPicker className="ril-calendar" locale={enGB} mode="single" selected={validSelected} onSelect={pick} month={month} onMonthChange={setMonth}
+      <Calendar className="ril-calendar w-full" classNames={{ root: "w-full" }} locale={enGB} mode="single" selected={validSelected} onSelect={pick} month={month} onMonthChange={setMonth}
         captionLayout="dropdown" startMonth={before ?? new Date(1900, 0)} endMonth={after ?? new Date(2100, 11)}
-        showOutsideDays fixedWeeks autoFocus disabled={[...(before ? [{ before }] : []), ...(after ? [{ after }] : [])]}
-        components={{ Chevron: ({ orientation, className: iconClass }) => {
-          const Icon = orientation === "left" ? ChevronLeft : orientation === "right" ? ChevronRight : ChevronDown;
-          return <Icon className={iconClass} aria-hidden="true" />;
-        } }} />
+        showOutsideDays fixedWeeks autoFocus disabled={[...(before ? [{ before }] : []), ...(after ? [{ after }] : [])]} />
       {datetime ? <label className="date-picker-time">Local time<input type="time" aria-label="Local time" value={current.split("T")[1]?.slice(0, 5) || "09:00"} onChange={event => update(`${current.slice(0, 10) || dayValue(validSelected ?? today)}T${event.target.value || "09:00"}`)} onBlur={event => { if (event.target.value) update(`${current.slice(0, 10) || dayValue(validSelected ?? today)}T${event.target.value}`); }} /></label> : null}
       <div className="date-picker-footer">
-        <button type="button" onClick={() => { update(""); setOpen(false); }} disabled={!current}>Clear</button>
-        <button type="button" onClick={() => { setMonth(today); pick(today); }} disabled={todayDisabled}>Today</button>
-        {datetime ? <button type="button" onClick={() => setOpen(false)}>Done</button> : null}
+        <Button type="button" variant="ghost" onClick={() => { update(""); setOpen(false); }} disabled={!current}>Clear</Button>
+        <Button type="button" variant="ghost" onClick={() => { setMonth(today); pick(today); }} disabled={todayDisabled}>Today</Button>
+        {datetime ? <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Done</Button> : null}
       </div>
     </PopoverContent>
   </Popover>;

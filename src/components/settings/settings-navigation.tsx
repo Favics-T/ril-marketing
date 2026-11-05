@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
 
 const sections = [
@@ -11,5 +12,5 @@ const sections = [
 
 export function SettingsNavigation() {
   const pathname = usePathname();
-  return <nav className="ril-settings-navigation" aria-label="Workspace settings">{sections.map(section => <Link key={section.href} href={section.href} aria-current={pathname.startsWith(section.href) ? "page" : undefined}><strong>{section.title}</strong><span>{section.detail}</span></Link>)}</nav>;
+  return <nav className="ril-settings-navigation" aria-label="Workspace settings">{sections.map(section => <Button key={section.href} asChild variant={pathname.startsWith(section.href) ? "secondary" : "ghost"} className="settings-navigation-item"><Link href={section.href} aria-current={pathname.startsWith(section.href) ? "page" : undefined}><span className="settings-link-title">{section.title}</span><span className="settings-link-description">{section.detail}</span></Link></Button>)}</nav>;
 }

@@ -1,5 +1,7 @@
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getPublishedLandingPage } from "@/lib/landing-pages";
@@ -49,9 +51,9 @@ export default async function PublicLandingPage({
   return (
     <main
       id="main"
-      className="published-page min-h-dvh bg-muted/30 text-foreground"
+      className="published-page glass-campaign min-h-dvh bg-background text-foreground"
     >
-      <header className="mx-auto flex max-w-6xl items-center justify-between border-b border-border/80 px-5 py-6 sm:px-8">
+      <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between px-5 py-6 sm:px-8">
         <Link
           href="/"
           aria-label="Renaissance Innovation Labs home"
@@ -59,12 +61,10 @@ export default async function PublicLandingPage({
         >
           <Image src="/logo/blackLogo.svg" alt="Renaissance Innovation Labs" width={100} height={45} unoptimized className="h-10 w-auto" />
         </Link>
-        <span className="dateline hidden sm:inline">
-          From Renaissance Innovation Labs
-        </span>
+        <Button asChild variant="outline" className="published-header-action h-auto max-w-56 whitespace-normal py-3"><a href="#register-interest">{page.cta_label}</a></Button>
       </header>
-      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-10 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-16">
-        <article className="max-w-3xl">
+      <div className="published-page-layout mx-auto grid gap-8 px-5 py-10 sm:px-8 sm:py-16">
+        <article className="published-page-story min-w-0 max-w-3xl">
           <LandingPageContent headline={page.headline} body={page.body} metadata={page.metadata} ctaLabel={page.cta_label} />
           {registrationUrl ? (
             <a
@@ -77,21 +77,21 @@ export default async function PublicLandingPage({
             </a>
           ) : null}
         </article>
-        <aside id="register-interest" className="h-fit scroll-mt-8 rounded-2xl border border-border/80 bg-card p-6 sm:p-8 lg:sticky lg:top-8">
-          <p className="dateline">Get in touch</p>
-          <h2 className="mt-1 text-balance text-xl font-bold tracking-tight">
+        <Card asChild><aside id="register-interest" className="published-page-contact h-fit scroll-mt-8 bg-card lg:sticky lg:top-8">
+          <CardHeader><p className="dateline">Your next step</p>
+          <CardTitle asChild><h2 className="mt-1 text-balance text-xl font-bold tracking-tight">
             {page.cta_label}
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          </h2></CardTitle>
+          <CardDescription asChild><p className="mt-1 text-sm leading-6 text-muted-foreground">
             Share your details and the RIL team can follow up.
-          </p>
-          <div className="mt-5">
+          </p></CardDescription></CardHeader>
+          <CardContent>
             <LeadCaptureForm
               page={leadFormPage(page)}
               pageKey={publicLandingPagePath(page).slice(3)}
             />
-          </div>
-        </aside>
+          </CardContent>
+        </aside></Card>
       </div>
       <footer className="mx-auto max-w-6xl border-t border-border/80 px-5 py-5 text-xs text-muted-foreground sm:px-8">
         Renaissance Innovation Labs

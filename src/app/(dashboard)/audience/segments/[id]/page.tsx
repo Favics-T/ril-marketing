@@ -1,3 +1,5 @@
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -63,7 +65,7 @@ export default async function SegmentDetailPage({
 					/>
 				</div>
 
-				<section className="slip flex h-fit flex-col p-5 sm:p-6">
+				<ShadcnCard asChild><section className="slip flex h-fit flex-col p-5 sm:p-6">
 					<h2 className="ril-record-aside-title">Audience evidence</h2>
 					<p className="dateline mt-2">{insights.length} insights for this segment</p>
 					{insights.length ? (
@@ -87,7 +89,7 @@ export default async function SegmentDetailPage({
 							No insights yet. They arrive after the next analysis pass.
 						</p>
 					)}
-				</section>
+				</section></ShadcnCard>
 			</div>
 		</div>
 	);

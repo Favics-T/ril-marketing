@@ -1,4 +1,6 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+
 
 import { useActionState } from "react";
 import { deleteBrandKnowledge, type BrandActionResult } from "@/actions/brand";
@@ -10,13 +12,13 @@ export function BrandKnowledgeDelete({ id }: { id: string }) {
     null
   );
   return (
-    <form action={action} className="flex flex-col items-end gap-1">
+    <ShadcnFieldGroup asChild><form action={action} className="flex flex-col items-end gap-1">
       <Button type="submit" variant="outline" size="sm" disabled={pending}>
         {pending ? "Removing…" : "Remove"}
       </Button>
       {state?.ok === false ? (
         <span role="alert" className="text-xs text-destructive">{state.error}</span>
       ) : null}
-    </form>
+    </form></ShadcnFieldGroup>
   );
 }

@@ -32,8 +32,8 @@ export function LedgerRow({
           <span
             className={cn(
               "flex items-center gap-0.5 text-xs font-medium",
-              changeType === "increase" && "text-emerald-600 dark:text-emerald-400",
-              changeType === "decrease" && "text-red-600 dark:text-red-400",
+              changeType === "increase" && "text-emerald-600 ",
+              changeType === "decrease" && "text-red-600 ",
               changeType === "neutral" && "text-muted-foreground"
             )}
           >

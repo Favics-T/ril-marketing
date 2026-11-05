@@ -1,3 +1,5 @@
+
+import { Disclosure } from "@/components/ui/disclosure";
 import { RichText } from "@/components/ui/rich-text";
 
 export function GeneratedDetails({
@@ -46,7 +48,7 @@ export function GeneratedDetails({
       {flags.length ? (
         <div className="mt-4">
           <h3 className="text-sm font-semibold">Check before approval</h3>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          <ul className="mt-2 list-disc flex flex-col gap-1 pl-5 text-sm text-muted-foreground">
             {flags.map((flag, index) => (
               <li key={index}>{flag.message}</li>
             ))}
@@ -56,7 +58,7 @@ export function GeneratedDetails({
       {subjects.length ? (
         <div className="mt-4">
           <h3 className="text-sm font-semibold">Subject line options</h3>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+          <ol className="mt-2 list-decimal flex flex-col gap-1 pl-5 text-sm text-muted-foreground">
             {subjects.map((subject) => (
               <li key={subject}>{subject}</li>
             ))}
@@ -72,16 +74,16 @@ export function GeneratedDetails({
         </div>
       ) : null}
       {outline.length ? (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm font-semibold">
+        <Disclosure className="mt-4" title={<>
             Blog outline
-          </summary>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+          </>} summaryClassName="cursor-pointer text-sm font-semibold">
+          
+          <ol className="mt-2 list-decimal flex flex-col gap-1 pl-5 text-sm text-muted-foreground">
             {outline.map((heading, index) => (
               <li key={index}>{heading}</li>
             ))}
           </ol>
-        </details>
+        </Disclosure>
       ) : null}
       {links.length ? (
         <div className="mt-4">
@@ -89,7 +91,7 @@ export function GeneratedDetails({
           <p className="mt-1 text-xs text-muted-foreground">
             Confirm each destination before adding it to the article.
           </p>
-          <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+          <ul className="mt-2 flex flex-col gap-2 text-sm text-muted-foreground">
             {links.map((link, index) => (
               <li key={index} className="break-words">
                 {link.anchorText} → {link.suggestedPath}
@@ -101,11 +103,11 @@ export function GeneratedDetails({
         </div>
       ) : null}
       {source?.summary ? (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm font-semibold">
+        <Disclosure className="mt-4" title={<>
             Source snapshot · revision {source.revision}
             {source.manual ? " · supplied manually" : ""}
-          </summary>
+          </>} summaryClassName="cursor-pointer text-sm font-semibold">
+          
           <div className="mt-3">
             <RichText>{source.summary}</RichText>
           </div>
@@ -114,7 +116,7 @@ export function GeneratedDetails({
               {source.transcript}
             </p>
           ) : null}
-        </details>
+        </Disclosure>
       ) : null}
     </section>
   );

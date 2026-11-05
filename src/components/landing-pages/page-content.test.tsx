@@ -18,7 +18,7 @@ describe("public landing page sections", () => {
   });
   it("renders a disabled preview of the real lead form with separate consent", () => {
     const html = renderToStaticMarkup(<LeadCaptureForm page={{ cta_label: "Join the programme", registration_url: null }} pageKey="" preview />);
-    expect(html).toContain('<fieldset disabled=""');
+    expect(html).toMatch(/<fieldset\b[^>]*\bdisabled=""/);
     expect(html).toContain('name="marketing_consent"');
     expect(html).toContain("optional and separate");
     expect(html).toContain('type="submit" disabled=""');

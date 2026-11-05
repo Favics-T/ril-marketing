@@ -5,8 +5,11 @@ import "./motion.css";
 import { Open_Sans } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { AnalyticsBeacon } from "@/components/analytics-beacon";
+import { InputModality } from "@/components/ui/input-modality";
 import "./ril-system.css";
 import "./ril-brand.css";
+import "./ril-theme.css";
+import "./ril-refresh.css";
 
 const rilSans = Open_Sans({
   subsets: ["latin"],
@@ -31,8 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
-      <body className={`${rilSans.variable} min-h-screen bg-background font-sans text-foreground antialiased`}>
+    <html lang="en" className="ril-light-theme" suppressHydrationWarning>
+      <body className={`${rilSans.variable} ril-light min-h-screen bg-background font-sans text-foreground antialiased`}>
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground"
@@ -40,6 +43,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <ToastProvider>
+          <InputModality />
           <AnalyticsBeacon />
           {children}
         </ToastProvider>

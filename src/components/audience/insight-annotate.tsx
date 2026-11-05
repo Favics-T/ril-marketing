@@ -1,4 +1,7 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState } from "react";
 import { annotateInsight, type ReviewResult } from "@/actions/audience/insights";
@@ -19,10 +22,10 @@ export function InsightAnnotate({
 	);
 
 	return (
-		<form action={action} className="flex flex-col gap-2">
-			<label htmlFor="insight-note" className="dateline">
+		<ShadcnFieldGroup asChild><form action={action} className="flex flex-col gap-2">
+			<ShadcnField asChild><ShadcnFieldLabel htmlFor="insight-note" className="dateline">
 				Review note
-			</label>
+			</ShadcnFieldLabel></ShadcnField>
 			<Textarea
 				id="insight-note"
 				name="note"
@@ -32,18 +35,18 @@ export function InsightAnnotate({
 				placeholder="Context for the next reviewer…"
 			/>
 			{state?.ok === false ? (
-				<p role="alert" className="text-sm text-destructive">
+				<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 					{state.error}
-				</p>
+				</p></ShadcnAlert>
 			) : null}
 			{state?.ok ? (
-				<p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+				<p className="text-sm font-semibold text-emerald-700 ">
 					Note saved.
 				</p>
 			) : null}
 			<Button type="submit" size="sm" variant="outline" className="w-fit" disabled={pending}>
 				{pending ? "Saving…" : "Save note"}
 			</Button>
-		</form>
+		</form></ShadcnFieldGroup>
 	);
 }

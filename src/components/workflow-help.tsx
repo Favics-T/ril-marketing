@@ -20,11 +20,11 @@ function PageGuide({ pathname }: { pathname: string }) {
   const descriptionId = useId();
   if (!guide) return null;
   return <Popover open={open} onOpenChange={setOpen}>
-    <PopoverTrigger asChild><Button variant="ghost" size="sm" className="min-h-10 shrink-0 gap-2" aria-label="How to use this page"><CircleHelp aria-hidden="true" className="size-4" /><span className="hidden lg:inline">Page guide</span></Button></PopoverTrigger>
+    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="workspace-guide-trigger" aria-label="How to use this page" title="Page guide"><CircleHelp aria-hidden="true" /></Button></PopoverTrigger>
     <PopoverContent align="end" sideOffset={12} collisionPadding={16} className="max-h-[min(640px,80dvh)] w-[min(400px,calc(100vw-2rem))] overflow-y-auto rounded-xl p-5" aria-labelledby={titleId} aria-describedby={descriptionId}>
       <h2 id={titleId} className="text-base font-semibold">{guide.title}</h2>
       <p id={descriptionId} className="mt-2 text-sm leading-6 text-muted-foreground">{guide.purpose}</p>
-      <ol className="mt-4 space-y-4">{guide.steps.map((step, index) => <li key={step} className="flex gap-3 text-sm leading-6"><span aria-hidden="true" className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">{index + 1}</span><span><span className="sr-only">Step {index + 1}. </span>{step}</span></li>)}</ol>
+      <ol className="mt-4 flex flex-col gap-4">{guide.steps.map((step, index) => <li key={step} className="flex gap-3 text-sm leading-6"><span aria-hidden="true" className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">{index + 1}</span><span><span className="sr-only">Step {index + 1}. </span>{step}</span></li>)}</ol>
       {guide.next.href === pathname ? <Button variant="outline" className="mt-5 w-full" onClick={() => setOpen(false)}>Got it, continue on this page</Button> : <Link href={guide.next.href} onClick={() => setOpen(false)} className="mt-5 flex min-h-11 items-center justify-between gap-3 rounded-md border-t pt-3 text-sm font-semibold text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">{guide.next.label}<ArrowRight aria-hidden="true" className="size-4 shrink-0" /></Link>}
     </PopoverContent>
   </Popover>;

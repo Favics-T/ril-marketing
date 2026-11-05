@@ -71,10 +71,12 @@ npm run build
 
 Production deployments must apply the checked-in Supabase migrations before using new database-backed features. Scheduled reports additionally require `CRON_SECRET`, the Supabase service-role key, and the `/api/cron/scheduled-reports` Vercel cron entry. The scheduler uses UTC and saves reports as review drafts; it does not email reports.
 
-## RIL collaboration-canvas redesign
+## Emil design engineering redesign
 
-The interface follows the supplied RIL Press Kit: Open Sans, verified blue #177AE5, black #212120, black logos on white navigation, pale-blue contextual surfaces, softer panels, and the five official shape motifs. The selected Miro reference informs the spacious composition and geometry while RIL retains its own identity. The layouts cover the Command Centre, content and audience directories, campaign records, lead details, publishing, calendar, email, reports, settings, homepage, authentication, and public capture pages.
+The UI uses the official shadcn/ui components throughout the public site and workspace. See [SHADCN_UI.md](SHADCN_UI.md) for the component map, theme ownership, installation commands, and migration details.
 
-See [DESIGN.md](DESIGN.md) for the visual system and responsive behavior. Brand tokens and workspace treatments are in `src/app/ril-brand.css`, with the compatibility system in `src/app/ril-system.css`. Public layouts are in `src/app/product.css`. Existing consent, approval, publishing, and authentication behavior is preserved. This visual change does not deploy migrations or configure external services.
+The app retains RIL's Open Sans, blue identity, horizontal logos, and supplied artwork. A neutral canvas, solid white work surfaces, compact navigation, and clearer hierarchy replace the glass presentation. The library uses a full-width filter area, settings pair navigation with forms, and the calendar keeps scheduling beside its backlog. The public homepage has a new composition, and account pages pair workflow context with a focused form. Keyboard navigation is immediate; pointer interactions use restrained feedback and respect reduced motion.
+
+See [DESIGN.md](DESIGN.md) for the visual system and [EMIL_REDESIGN.md](EMIL_REDESIGN.md) for verification. Semantic tokens are in `src/app/ril-theme.css`, workspace compositions in `src/app/ril-refresh.css`, public layouts in `src/app/product.css`, and interaction rules in `src/app/motion.css`. Existing brand and compatibility styles remain available for specialized components. Consent, review, and publishing gates remain in place. Authentication forms use POST and wait for hydration before enabling submission.
 
 Run `npm run dev -- --webpack` and open the local address reported in the terminal. The existing original-app server is using `http://localhost:3000`. Stop that server before starting another instance of the same project. TypeScript and lint are available through `npm run typecheck` and `npm run lint`.
