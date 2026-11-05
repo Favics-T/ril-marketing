@@ -12,7 +12,8 @@ import { DecisionQueue, type DecisionItem } from "@/components/dashboard/decisio
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { createClient } from "@/lib/supabase/server";
 import { listInsights } from "@/lib/audience/insights";
-import { listAssets, listScheduled, listSocialReminders } from "@/lib/content/assets";
+import { listAssets, listScheduled, listSocialReminders, listNeedsAttention } from "@/lib/content/assets";
+import { NeedsAttentionPanel } from "@/components/content/needs-attention";
 import { formatReminderTime } from "@/lib/content/reminders";
 import { ReminderFlag } from "@/components/content/reminder-flag";
 import { listActivities } from "@/lib/content/activities";
@@ -33,7 +34,7 @@ export default async function CommandCentrePage() {
   async function load<T>(name: string, task: Promise<T>, fallback: T) { try { return await task; } catch { errors.push(name); return fallback; } }
   const now = new Date();
   const end = new Date(now.getTime() + 30 * 86400000).toISOString();
-  const [insights, review, assets, leads, scheduled, tasks, followups, kpis, activities, reminders] = await Promise.all([
+  const [insights, review, assets, leads, scheduled, tasks, followups, kpis, activities, allReminders, attention] = await Promise.all([
     load("Insights", listInsights(org, { status: "PENDING_REVIEW", pageSize: 3 }), { insights: [], total: 0, page: 1, pageSize: 3, totalPages: 1 }),
     load("Reviews", listAssets(org, { status: "review" }), { assets: [], total: 0 }),
     load("Content", listAssets(org, {}), { assets: [], total: 0 }),
@@ -44,7 +45,9 @@ export default async function CommandCentrePage() {
     load("Goals", getKpiProgress(org), []),
     load("Activities", listActivities(org), []),
     load("Reminders", listSocialReminders(org, now), []),
+    listNeedsAttention(org, now).catch(() => null),
   ]);
+  const reminders = allReminders.filter(reminder => reminder.state === "due_today");
   const supabase = await createClient();
   const mixResult = await supabase.from("content_assets").select("channel").eq("organization_id", org).limit(5000);
   if (mixResult.error) errors.push("Channel mix");
@@ -72,7 +75,8 @@ export default async function CommandCentrePage() {
     </section></ShadcnCard>
     {errors.length ? <ShadcnAlert asChild variant="destructive"><div role="alert" className="command-data-alert"><AlertCircle aria-hidden="true" /><p>Some information could not be loaded: {errors.join(", ")}. Refresh to try again. Affected totals are unavailable.</p></div></ShadcnAlert> : null}
     {!activities.length && !errors.includes("Activities") ? <section className="command-start" aria-labelledby="start-heading"><div><h2 id="start-heading">Start with a source</h2><p>Capture the activity, write a draft, or give existing material a new format.</p></div><div className="command-start-options"><Link href="/activities/new">Log an activity<ArrowUpRight aria-hidden="true" /></Link><Link href="/library/new">Write a draft<ArrowUpRight aria-hidden="true" /></Link><Link href="/repurpose">Repurpose material<ArrowUpRight aria-hidden="true" /></Link></div></section> : null}
-    {reminders.length ? <WorkspaceSection id="reminders-heading" className="command-reminders" title="Posts needing attention" description="Due today or overdue. Add the live link after posting." action={<Link href="/calendar" className="ril-inline-action">View calendar<ArrowRight aria-hidden="true" /></Link>}>
+    <NeedsAttentionPanel attention={attention} />
+    {reminders.length ? <WorkspaceSection id="reminders-heading" className="command-reminders" title="Posts due today" description="Add the live link after posting. Overdue posts appear in Needs attention." action={<Link href="/calendar" className="ril-inline-action">View calendar<ArrowRight aria-hidden="true" /></Link>}>
       <ul>{reminders.slice(0,4).map(({asset,state}) => <li key={asset.id}><Link href={"/library/" + asset.id} className="workspace-row"><div className="min-w-0 flex-1"><h3 className="workspace-row-title">{asset.title}</h3><p className="workspace-row-meta">{formatReminderTime(asset.scheduled_for!)}</p></div><ReminderFlag state={state} /></Link></li>)}</ul>
     </WorkspaceSection> : null}
     <div className="command-layout command-desk glass-review-desk">
