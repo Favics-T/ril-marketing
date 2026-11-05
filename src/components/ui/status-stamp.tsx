@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
-type StatusVariant = "pending" | "review" | "ai_generated" | "active" | "approved" | "published" | "qualified" | "scheduled" | "editing" | "converted" | "completed" | "hot" | "failed" | "missed" | "warm" | "cold" | "paused" | "idea" | "suppressed" | "cancelled";
+type StatusVariant = "pending" | "review" | "ai_generated" | "active" | "approved" | "published" | "qualified" | "scheduled" | "editing" | "converted" | "completed" | "hot" | "failed" | "missed" | "warm" | "cold" | "paused" | "idea" | "suppressed" | "cancelled" | "sensitive";
 export interface StatusStampProps extends HTMLAttributes<HTMLSpanElement> { variant?: StatusVariant; status?: string }
 export function StatusStamp({ className, variant, status, ...props }: StatusStampProps) {
   const state = status ? mapStatusToVariant(status) : variant ?? "pending";
@@ -59,6 +59,8 @@ function mapStatusToVariant(status: string): StatusStampProps["variant"] {
       return "completed";
     case "active":
       return "active";
+    case "sensitive":
+      return "sensitive";
     default:
       return "pending";
   }
