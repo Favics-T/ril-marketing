@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./product.css";
 import "./motion.css";
-import { Open_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { ToastProvider } from "@/components/ui/toast";
 import { AnalyticsBeacon } from "@/components/analytics-beacon";
 import { InputModality } from "@/components/ui/input-modality";
@@ -11,9 +11,10 @@ import "./ril-brand.css";
 import "./ril-theme.css";
 import "./ril-refresh.css";
 
-const rilSans = Open_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const rilSans = localFont({
+  src: "../../public/fonts/open-sans-variable.ttf",
+  weight: "300 800",
+  style: "normal",
   variable: "--font-ril-sans",
   display: "swap",
 });
