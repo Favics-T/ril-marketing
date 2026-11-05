@@ -91,3 +91,5 @@ The new `tests/colleague-security-migrations.test.ts` loads the three incoming s
 ### Publishing handoff
 
 GitHub CLI had no active login, and a push dry run failed because no GitHub credentials were available. The user chose to sign in while validation continued. Push and PR creation must be confirmed from their actual command results; this document does not claim either has happened. The prepared PR title and body are in [PR_INTEGRATION_2026-11-05.md](PR_INTEGRATION_2026-11-05.md). Commits use the existing local identity, **DavidAroh**, with no added assistant co-author trailer.
+
+Subsequent handoff: the user completed GitHub device authentication as **DavidAroh**. They also explicitly authorized inspecting `.env` for the Supabase failure. That diagnostic found a rejected personal token (HTTP 401), a rejected database password (SQLSTATE 28P01), and a working application service-role API key. See [the credential diagnosis](SUPABASE_CREDENTIAL_DIAGNOSIS_2026-11-05.md). No migration was applied; successful GitHub sign-in does not resolve the separate Supabase credentials.

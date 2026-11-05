@@ -20,7 +20,7 @@ See [the integration handoff](COLLEAGUE_INTEGRATION_2026-11-05.md) for the exact
 
 ## Database rollout
 
-Do not deploy before reviewing the target Supabase schema and migration history. Live migration inspection currently returns HTTP 403, so no remote migrations were applied and their status remains unverified. Review versions `20261021000000`, `20261025000001`, `20261028000000` and `20261103000000`. The earlier email migration may require migration-order reconciliation; do not blindly add `--include-all` or repair history.
+Do not deploy before reviewing the target Supabase schema and migration history. Migration inspection was blocked by the earlier CLI session's HTTP 403. A user-authorized credential diagnostic subsequently found the environment personal token rejected with HTTP 401 and the database password rejected with SQLSTATE 28P01. The application service-role API key works, but does not replace migration credentials. No remote migrations were applied; their status remains unverified. Review versions `20261021000000`, `20261025000001`, `20261028000000` and `20261103000000`. The earlier email migration may require migration-order reconciliation; do not blindly add `--include-all` or repair history.
 
 The integration handoff includes preserved-work checkpoints and the rollout checklist. The older PR #7 targets a different integration branch and does not include this head; it has not been changed or closed by this work.
 
