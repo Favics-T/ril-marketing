@@ -1,5 +1,9 @@
+
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
+import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getLead } from "@/lib/leads/leads";
@@ -51,13 +55,13 @@ export default async function LeadDetailPage({
 	];
 
 	return (
-		<div className="workspace-page flex flex-col gap-4 md:gap-6">
+		<div className="workspace-page lead-workspace flex flex-col gap-4 md:gap-6">
 			<header>
 				<Link
 					href="/leads"
 					className="group inline-flex min-h-9 items-center gap-1.5 rounded-md text-[13px] font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				>
-					<span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> All leads
+                    <ArrowLeft aria-hidden="true" className="size-4" /> All leads
 				</Link>
 				<div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
 					<h1>
@@ -71,21 +75,22 @@ export default async function LeadDetailPage({
 				</div>
 			</header>
 
-			<div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
-				<section className="slip flex flex-col lg:col-span-2">
-					<div className="ledger flex flex-col">
+			<div className="record-layout lead-record-layout grid gap-6 lg:grid-cols-3">
+				<ShadcnCard asChild><section className="slip flex flex-col lg:col-span-2">
+					<div className="ril-record-heading"><h2>Contact &amp; context</h2><p>Use the recorded interest and consent to guide the next conversation.</p></div>
+					<ShadcnCardContent asChild className="p-0"><dl className="ril-lead-facts">
 						{facts.map((f) => (
 							<div
 								key={f.label}
 								className="flex items-baseline justify-between gap-4 px-5 py-3.5 sm:px-6"
 							>
-								<span className="dateline">{f.label}</span>
-								<span className="max-w-[60%] truncate text-sm font-medium text-foreground">
-									{f.value}
-								</span>
+								<dt>{f.label}</dt>
+								<dd>
+									{f.label === "Source" ? <ChannelIdentity channel={f.value} /> : f.value}
+								</dd>
 							</div>
 						))}
-					</div>
+					</dl></ShadcnCardContent>
 					{lead.score_reason ? (
 						<div className="border-t border-border/80 px-5 py-4 sm:px-6">
 							<p className="dateline">Why this score</p>
@@ -94,12 +99,12 @@ export default async function LeadDetailPage({
 							</p>
 						</div>
 					) : null}
-				</section>
+				</section></ShadcnCard>
 
-				<section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
+				<ShadcnCard asChild><section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
 					<div>
 						<p className="dateline">Follow-up</p>
-						<h2 className="mt-1 text-base font-bold">Work this lead</h2>
+						<h2 className="mt-1 text-base font-bold">Plan the next step</h2>
 					</div>
 					<LeadActions
 						leadId={lead.id}
@@ -108,7 +113,7 @@ export default async function LeadDetailPage({
 						notes={lead.notes}
 						hasOwner={Boolean(lead.owner_id)}
 					/>
-				</section>
+				</section></ShadcnCard>
 			</div>
 			<LeadFollowUps leadId={lead.id} items={followUps ?? []} />
 			<LeadNurture leadId={lead.id} hasConsent={hasConsent} sequences={activeSequences} enrollments={enrollments} />

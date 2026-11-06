@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationId } from "@/lib/supabase/organization";
 import { requireReviewer } from "@/lib/audience/access";
 import { LANDING_PAGE_COPY_MAX, publicLandingPagePath, safeRegistrationUrl } from "@/lib/landing-page-url";
+import { landingPageContentSchema, pageContent } from "@/lib/landing-page-content";
 
 export interface LandingPageActionResult { ok: boolean; id?: string; error?: string; }
 
@@ -28,15 +29,24 @@ const pageSchema = z.object({
   campaign_id: z.string().uuid().nullable().optional(),
   activity_id: z.string().uuid().nullable().optional(),
   audience_segment_id: z.string().uuid().nullable().optional(),
+  builder: landingPageContentSchema.optional(),
 });
 
 function readForm(formData: FormData) {
+  let builder: unknown;
+  const raw = formData.get("builder");
+  if (raw) {
+    if (typeof raw !== "string" || raw.length > 35000) return { success: false as const, error: { issues: [{ message: "Page sections are too large." }] } };
+    try { builder = JSON.parse(raw); }
+    catch { return { success: false as const, error: { issues: [{ message: "Page sections could not be read. Refresh and try again." }] } }; }
+  }
   return pageSchema.safeParse({
     title: formData.get("title"), slug: formData.get("slug"), headline: formData.get("headline"),
     body: formData.get("body") ?? "", cta_label: formData.get("cta_label"),
     registration_url: formData.get("registration_url") ?? "", meta_description: formData.get("meta_description") ?? "",
     campaign_id: formData.get("campaign_id") || null, activity_id: formData.get("activity_id") || null,
     audience_segment_id: formData.get("audience_segment_id") || null,
+    builder,
   });
 }
 
@@ -66,9 +76,12 @@ export async function createLandingPage(
     const supabase = await createClient();
     if (!(await validateRelatedRecords(supabase, organizationId, parsed.data))) return { ok: false, error: "Choose an activity, campaign, or segment in your workspace." };
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in again to save this page." };
+    const { builder, ...fields } = parsed.data;
     const { data, error } = await supabase.from("landing_pages").insert({
       organization_id: organizationId,
-      ...parsed.data,
+      ...fields,
+      metadata: { builder: builder ?? landingPageContentSchema.parse({}), last_edited_by: user.id },
       registration_url: parsed.data.registration_url || null,
       created_by: user?.id ?? null,
       status: "draft",
@@ -94,14 +107,22 @@ export async function updateLandingPage(
     if (!parsedId.success || !parsed.success) return { ok: false, error: parsed.success ? "Invalid page." : parsed.error.issues[0]?.message ?? "Check the page details." };
     const supabase = await createClient();
     if (!(await validateRelatedRecords(supabase, organizationId, parsed.data))) return { ok: false, error: "Choose an activity, campaign, or segment in your workspace." };
-    const { data: existing } = await supabase.from("landing_pages").select("status").eq("organization_id", organizationId).eq("id", pageId).maybeSingle<{ status: string }>();
+    const { data: existing } = await supabase.from("landing_pages").select("status,metadata,updated_at,slug").eq("organization_id", organizationId).eq("id", pageId).maybeSingle<{ status: string; metadata: Record<string, unknown> | null; updated_at: string; slug: string }>();
     if (!existing) return { ok: false, error: "Page not found." };
     if (existing.status !== "draft") return { ok: false, error: "Return this page to Draft before editing it." };
-    const { error } = await supabase.from("landing_pages").update({ ...parsed.data, registration_url: parsed.data.registration_url || null }).eq("organization_id", organizationId).eq("id", pageId);
+    if (formData.get("updated_at") && formData.get("updated_at") !== existing.updated_at) return { ok: false, error: "Someone changed this draft. Reload before saving to keep their work." };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Sign in again to save this page." };
+    const { builder, ...fields } = parsed.data;
+    const { data: saved, error } = await supabase.from("landing_pages").update({ ...fields, registration_url: parsed.data.registration_url || null,
+      metadata: { ...existing.metadata, builder: builder ?? pageContent(existing.metadata), last_edited_by: user.id },
+    }).eq("organization_id", organizationId).eq("id", pageId).eq("status", "draft").eq("updated_at", existing.updated_at).select("id").maybeSingle();
     if (error) return { ok: false, error: error.code === "23505" ? "That URL slug is already in use." : error.message };
+    if (!saved) return { ok: false, error: "This draft changed while saving. Reload before trying again." };
     revalidatePath("/audience/landing-pages");
     revalidatePath(`/audience/landing-pages/${pageId}`);
     revalidatePath(publicLandingPagePath({ id: pageId, slug: parsed.data.slug }));
+    revalidatePath(publicLandingPagePath({ id: pageId, slug: existing.slug }));
     return { ok: true, id: pageId };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not update page." };
@@ -110,19 +131,23 @@ export async function updateLandingPage(
 
 export async function setLandingPageStatus(
   pageId: string,
-  nextStatus: "review" | "draft" | "approved" | "published" | "paused"
+  nextStatus: "review" | "draft" | "approved" | "published" | "paused",
+  expectedVersion?: string,
 ): Promise<LandingPageActionResult> {
   try {
     const organizationId = await requireOrganizationId();
     const role = await requireReviewer(organizationId);
+    if (!z.string().uuid().safeParse(pageId).success) return { ok: false, error: "Invalid page." };
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { ok: false, error: "Sign in again to continue." };
-    const { data: page } = await supabase.from("landing_pages").select("status, created_by, approved_by, slug, title, headline, cta_label").eq("organization_id", organizationId).eq("id", pageId).maybeSingle<{ status: string; created_by: string | null; approved_by: string | null; slug: string; title: string; headline: string; cta_label: string }>();
+    const { data: page } = await supabase.from("landing_pages").select("status, created_by, approved_by, slug, title, headline, cta_label, campaign_id, metadata, updated_at").eq("organization_id", organizationId).eq("id", pageId).maybeSingle<{ status: string; created_by: string | null; approved_by: string | null; slug: string; title: string; headline: string; cta_label: string; campaign_id: string | null; metadata: Record<string, unknown> | null; updated_at: string }>();
     if (!page) return { ok: false, error: "Page not found." };
+    if (expectedVersion && page.updated_at !== expectedVersion) return { ok: false, error: "This page changed since you opened it. Reload and review the latest copy first." };
     const allowed: Record<string, string[]> = { draft: ["review"], review: ["draft", "approved"], approved: ["review", "published"], published: ["paused"], paused: ["published", "draft"] };
     if (!allowed[page.status]?.includes(nextStatus)) return { ok: false, error: `Page cannot move from ${page.status} to ${nextStatus}.` };
-    if (nextStatus === "approved" && user.id === page.created_by) return { ok: false, error: "A different reviewer must approve the page." };
+    if (["review", "approved", "published"].includes(nextStatus) && !page.campaign_id) return { ok: false, error: "Link a campaign before sending this page for review or publishing." };
+    if (nextStatus === "approved" && (user.id === page.created_by || user.id === page.metadata?.last_edited_by)) return { ok: false, error: "A reviewer who did not write or edit this page must approve it." };
     if (nextStatus === "published") {
       if (!["owner", "admin", "leadership"].includes(role)) return { ok: false, error: "Publishing a public landing page requires owner, admin or leadership approval." };
       if (!page.approved_by || user.id === page.approved_by) return { ok: false, error: "A different owner, admin or leader must publish after approval." };
@@ -131,9 +156,10 @@ export async function setLandingPageStatus(
     const patch: Record<string, unknown> = { status: nextStatus };
     if (nextStatus === "approved") patch.approved_by = user.id;
     if (nextStatus === "published") patch.published_by = user.id;
-    if (nextStatus === "draft") patch.approved_by = null;
-    const { error } = await supabase.from("landing_pages").update(patch).eq("organization_id", organizationId).eq("id", pageId);
+    if (nextStatus === "draft" || nextStatus === "review") { patch.approved_by = null; patch.published_by = null; }
+    const { data: saved, error } = await supabase.from("landing_pages").update(patch).eq("organization_id", organizationId).eq("id", pageId).eq("status", page.status).eq("updated_at", page.updated_at).select("id").maybeSingle();
     if (error) return { ok: false, error: error.message };
+    if (!saved) return { ok: false, error: "This page changed. Reload it before updating the status." };
     revalidatePath("/audience/landing-pages");
     revalidatePath(`/audience/landing-pages/${pageId}`);
     revalidatePath(publicLandingPagePath({ id: pageId, slug: page.slug }));

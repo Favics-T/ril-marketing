@@ -1,5 +1,7 @@
 # Project Status — Feature Audit and Best-Practices Review
 
+> Historical audit snapshot from 8 October 2026, preserved during the 19 October integration. Its status labels describe that earlier codebase. For the combined local implementation, see [the social/source workflow notes](SOCIAL_AND_SOURCE_WORKFLOWS_2026-10-19.md) and [the integration record](COLLEAGUE_MATCH_2026-10-19.md).
+
 Audited: **2026-10-08**, against `main` at `7a64fd8`, **plus the uncommitted publish-history work** in the working tree (see feature 9).
 Read-only audit: no code was changed. The live database was checked with two read-only calls: Supabase Management API migration history, and the PostgREST schema listing.
 Baseline: [content-gap-audit.md](content-gap-audit.md) (2026-10-02). Three commits have landed since then.

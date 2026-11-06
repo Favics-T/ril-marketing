@@ -20,7 +20,7 @@ try {
 }
 
 if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  const tables = ["organizations", "organization_members", "activities", "content_assets", "audience_segments", "audience_insights", "campaigns", "leads", "landing_pages", "tasks", "integrations", "automation_settings", "automation_events", "email_campaigns", "email_campaign_deliveries", "nurture_settings", "nurture_sequences", "nurture_steps", "nurture_enrollments"];
+  const tables = ["organizations", "organization_members", "activities", "activity_attachments", "activity_media_analyses", "content_assets", "asset_approvals", "ai_generations", "publications", "audience_segments", "audience_insights", "campaigns", "leads", "landing_pages", "tasks", "integrations", "automation_settings", "automation_events", "email_campaigns", "email_campaign_deliveries", "nurture_settings", "nurture_sequences", "nurture_steps", "nurture_enrollments"];
   await Promise.all(tables.map(async table => {
     try {
       const url = new URL(`/rest/v1/${table}?select=*&limit=0`, process.env.NEXT_PUBLIC_SUPABASE_URL);

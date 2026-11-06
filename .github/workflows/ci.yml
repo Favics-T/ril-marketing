@@ -1,0 +1,46 @@
+name: Project checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Tests, lint, types and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-key-not-for-deployment
+      NEXT_PUBLIC_SITE_URL: https://marketing.example.com
+      CRON_SECRET: ci-only-cron-secret-never-used-for-deployment
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --pool=forks --maxWorkers=2
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Check public routes and protected endpoints
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3001 > /tmp/ril-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          npm run check:http -- http://127.0.0.1:3001 --wait

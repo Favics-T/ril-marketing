@@ -7,9 +7,12 @@ import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationId } from "@/lib/supabase/organization";
 import { getUserRole, requireReviewer } from "@/lib/audience/access";
 import { decryptSecret, encryptSecret, isEncryptionEnabled } from "@/lib/crypto/secret-box";
-import { joinWarnings, recordPublication } from "@/lib/content/record-publication";
+import { claimPublication, noteUncertainDelivery, saveDelivery } from "@/lib/content/publishing";
+import { futureSchedule } from "@/lib/content/scheduling";
+import { DeliveryRejected } from "@/lib/integrations/delivery-error";
+import { joinWarnings } from "@/lib/content/record-publication";
 import { runWordPressConnectionTest, type ConnectionCheck } from "@/lib/integrations/wordpress-diagnostics";
-import { getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, verifyWordPressSeoPlugin, WORDPRESS_SEO_PLUGINS, type WordPressConfig, type WordPressSeoPlugin } from "@/lib/integrations/wordpress";
+import { assertSchedulable, getWordPressConfig, publishWordPressPost, validateWordPressSiteUrl, verifyWordPressConnection, verifyWordPressSeoPlugin, WORDPRESS_SEO_PLUGINS, type WordPressConfig, type WordPressSeoPlugin } from "@/lib/integrations/wordpress";
 
 type ActionResult = { ok: boolean; message?: string; warning?: string; error?: string; url?: string };
 
@@ -52,6 +55,7 @@ export async function saveWordPressConnection(formData: FormData): Promise<Actio
     }, { onConflict: "organization_id,key" });
     if (error) return { ok: false, error: "Could not save the verified WordPress connection." };
     revalidatePath("/settings/ai");
+    revalidatePath("/audience/landing-pages");
     return { ok: true, message: `Connected as ${profile.user}.` };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not connect WordPress." };
@@ -90,18 +94,34 @@ export async function disconnectWordPress(): Promise<ActionResult> {
     const { error } = await admin.from("integrations").update({ status: "not_connected", config: {} }).eq("organization_id", organizationId).eq("key", "cms_wordpress");
     if (error) return { ok: false, error: "Could not disconnect WordPress." };
     revalidatePath("/settings/ai");
+    revalidatePath("/audience/landing-pages");
     return { ok: true, message: "WordPress disconnected." };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not disconnect WordPress." }; }
 }
 
 export async function publishApprovedBlog(assetId: string): Promise<ActionResult> {
+  return deliverApprovedBlog(assetId);
+}
+
+export async function scheduleApprovedBlog(assetId: string, scheduledFor: string): Promise<ActionResult> {
   try {
-    const organizationId = await requireOrganizationId();
+    const at = futureSchedule(scheduledFor);
+    assertSchedulable(new Date(at));
+    return await deliverApprovedBlog(assetId, at);
+  }
+  catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Invalid schedule." }; }
+}
+
+async function deliverApprovedBlog(assetId: string, scheduledFor?: string): Promise<ActionResult> {
+  let requestId = "";
+  let organizationId = "";
+  try {
+    organizationId = await requireOrganizationId();
     await requireReviewer(organizationId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { ok: false, error: "Sign in before publishing." };
-    const { data: asset, error: assetError } = await supabase.from("content_assets").select("id,title,body,format,channel,status,metadata").eq("organization_id", organizationId).eq("id", assetId).maybeSingle();
+    const { data: asset, error: assetError } = await supabase.from("content_assets").select("id,title,body,format,channel,status,metadata,updated_at").eq("organization_id", organizationId).eq("id", assetId).maybeSingle();
     if (assetError || !asset) return { ok: false, error: "Content asset not found." };
     if (asset.status !== "approved") return { ok: false, error: "Only approved content can be published to WordPress." };
     if (asset.format !== "blog" && asset.channel !== "website") return { ok: false, error: "WordPress publishing is only available for blog and website content." };
@@ -114,34 +134,24 @@ export async function publishApprovedBlog(assetId: string): Promise<ActionResult
     const seo = metadata.seo && typeof metadata.seo === "object" ? metadata.seo as { title?: string; description?: string } : {};
     const excerpt = seo.description?.trim() || asset.body.replace(/\s+/g, " ").trim().slice(0, 180);
     const slug = `ril-${asset.id}`;
-    let published: Awaited<ReturnType<typeof publishWordPressPost>>;
-    try {
-      published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug, seo: { title: seo.title ?? "", description: seo.description ?? "" } });
-    } catch (publishError) {
-      const message = publishError instanceof Error ? publishError.message : "Could not publish to WordPress.";
-      const recorded = await recordPublication(supabase, { organization_id: organizationId, content_asset_id: assetId, channel: "wordpress", status: "failed", error: message.slice(0, 1000), actor_id: user.id });
-      revalidatePath(`/library/${assetId}`);
-      return { ok: false, error: message, warning: recorded.warning };
-    }
-    // Record the Publication before the status update: the post is live either way.
-    const recorded = await recordPublication(supabase, { organization_id: organizationId, content_asset_id: assetId, channel: "wordpress", external_id: String(published.id), url: published.url, status: "published", published_at: new Date().toISOString(), actor_id: user.id });
-    const { data: saved, error: saveError } = await createAdminClient().from("content_assets").update({
-      status: "published",
-      published_at: new Date().toISOString(),
-      metadata: { ...metadata, wordpress_post_id: published.id, wordpress_url: published.url, wordpress_published_at: new Date().toISOString(), wordpress_seo_saved: published.seoSaved },
-    }).eq("organization_id", organizationId).eq("id", assetId).eq("status", "approved").select("id").maybeSingle();
-    if (saveError || !saved) return { ok: false, error: `WordPress published the article, but the workspace could not update its status. Open the WordPress link and contact an admin before retrying.`, warning: recorded.warning, url: published.url };
-    await createAdminClient().from("asset_approvals").insert({ organization_id: organizationId, content_asset_id: assetId, actor_id: user.id, from_status: "approved", to_status: "published", note: `Published to WordPress · ${published.url}` });
+    requestId = await claimPublication(organizationId, asset, "wordpress", user.id, scheduledFor);
+    const published = await publishWordPressPost(config, { title: asset.title, body: asset.body, excerpt, slug, scheduledFor, seo: { title: seo.title ?? "", description: seo.description ?? "" } });
+    await saveDelivery(organizationId, requestId, asset.id, { ...published, id: String(published.id) });
     revalidatePath("/library");
+    revalidatePath("/audience/landing-pages");
     revalidatePath(`/library/${assetId}`);
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
-    const warning = joinWarnings(
-      published.seoSaved === false ? "The SEO title and description were not saved. Check the SEO plugin setting under AI Settings → WordPress." : undefined,
-      recorded.warning,
-    );
-    return { ok: true, message: published.alreadyCreated ? "Linked the existing WordPress post." : "Published to WordPress.", warning, url: published.url };
+    return { ok: published.status !== "failed", message: published.status === "published" ? "WordPress confirmed publication." : published.status === "queued" ? "Scheduled on WordPress. Delivery will be confirmed after it goes live." : undefined, warning: joinWarnings(published.seoSaved === false ? "The SEO title and description were not saved. Check the WordPress SEO settings." : undefined), error: published.error, url: published.url };
   } catch (error) {
+    if (requestId) {
+      try {
+        const httpStatus = error instanceof Error && "status" in error ? Number(error.status) : 0;
+        if (error instanceof DeliveryRejected || [400, 401, 403, 422].includes(httpStatus)) await saveDelivery(organizationId, requestId, assetId, { id: "", status: "failed", error: error instanceof Error ? error.message : "WordPress rejected the request." });
+        else await noteUncertainDelivery(organizationId, requestId, error instanceof Error ? error.message : "Request failed.");
+      } catch { /* Keep the reservation until the provider result can be recorded. */ }
+    }
+    if (requestId) { revalidatePath(`/library/${assetId}`); revalidatePath("/audience/landing-pages"); }
     return { ok: false, error: error instanceof Error ? error.message : "Could not publish to WordPress." };
   }
 }

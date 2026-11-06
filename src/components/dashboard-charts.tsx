@@ -1,46 +1,53 @@
+"use client";
+
 import Link from "next/link";
+import { Pie, PieChart, type PieLabelRenderProps } from "recharts";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { Progress } from "@/components/ui/progress";
+import { ChannelIdentity } from "@/components/channel-identity";
 import { channelLabel } from "@/lib/channels";
 import type { KpiProgress } from "@/lib/audience/kpis";
 
-const TINTS = ["#e5e7eb", "#9ca3af", "#606975", "#39424e"];
+const COLORS = ["var(--app-chart-1)", "var(--app-chart-2)", "var(--app-chart-3)"];
+const LABEL_COLORS = ["var(--app-chart-label-1)", "var(--app-chart-label-2)", "var(--app-chart-label-3)"];
+
+function PercentageLabel({ cx, cy, midAngle = 0, innerRadius, outerRadius, percent = 0, index = 0 }: PieLabelRenderProps) {
+  if (percent <= .06) return null;
+  const radius = Number(innerRadius) + (Number(outerRadius) - Number(innerRadius)) / 2;
+  const radians = -midAngle * Math.PI / 180;
+  return <text x={Number(cx) + radius * Math.cos(radians)} y={Number(cy) + radius * Math.sin(radians)} textAnchor="middle" dominantBaseline="middle" fill={LABEL_COLORS[index]} fontWeight={600} fontSize={14}>{Math.round(percent * 100)}%</text>;
+}
 
 export function ContentMixChart({ channels, total }: { channels: { channel: string; count: number }[]; total: number }) {
   const count = channels.reduce((sum, item) => sum + item.count, 0);
-  const ordered = [...channels].sort((a,b) => b.count-a.count);
-  const slices = ordered.slice(0,3);
-  if (channels.length > 3) slices.push({ channel: "Other", count: ordered.slice(3).reduce((sum,item)=>sum+item.count,0) });
-  let offset = 0;
-  const circumference = 2 * Math.PI * 72;
-  return (
-    <section aria-labelledby="content-mix-heading" className="overflow-hidden rounded-xl border border-[#303c4c] bg-[#182332] text-white">
-      <header className="px-5 pt-5"><h2 id="content-mix-heading" className="text-[15px] font-semibold">Content mix</h2><p className="mt-1 text-xs text-[#b2c1d4]">{count < total ? `${count} sampled assets of ${total}` : `${count} assets across your channels`}</p></header>
-      {!count ? <div className="px-5 py-12 text-sm text-[#d7e0eb]">Create content from an activity to see your channel mix. <Link href="/activities" className="mt-4 block underline">Open activities</Link></div> : <figure className="p-5">
-        <svg viewBox="0 0 220 200" className="mx-auto w-full max-w-64" role="img" aria-label={`Content mix: ${slices.map(s=>`${channelLabel(s.channel)} ${Math.round(s.count/count*100)} percent`).join(", ")}`}>
-          {slices.map((slice,i)=>{
-            const fraction=slice.count/count;
-            const dash=Math.max(0,fraction*circumference-(slices.length>1?7:0));
-            const start=offset; offset+=fraction*circumference;
-            const mid=(start/circumference+fraction/2)*2*Math.PI-Math.PI/2;
-            return <g key={slice.channel}><circle cx="110" cy="100" r="72" fill="none" stroke={TINTS[i]} strokeWidth="36" strokeDasharray={`${dash} ${circumference-dash}`} strokeDashoffset={-start} transform="rotate(-90 110 100)" strokeLinecap={slices.length>1?"butt":"round"}/>{fraction>.08&&<text x={110+72*Math.cos(mid)} y={104+72*Math.sin(mid)} textAnchor="middle" fontSize="12" fontWeight="700" fill={i<2?"#182332":"#ffffff"}>{Math.round(fraction*100)}%</text>}</g>;
-          })}
-        </svg>
-        <ul className="mt-1 grid grid-cols-2 gap-x-3 gap-y-3 text-xs" aria-label="Channel legend">{slices.map((slice,i)=><li key={slice.channel} className="flex items-center gap-2"><span className="size-2.5 shrink-0 rounded-sm" style={{background:TINTS[i]}} aria-hidden="true"/><span className="flex-1">{channelLabel(slice.channel)}</span><span className="tabular-nums text-[#b2c1d4]">{slice.count}</span></li>)}</ul>
-        <figcaption className="sr-only">Share of content by channel. {slices.map(s=>`${channelLabel(s.channel)}: ${s.count} assets.`).join(" ")}</figcaption>
-      </figure>}
-    </section>
-  );
+  const ordered = channels.filter(item => item.count > 0).sort((a, b) => b.count - a.count);
+  const slices = ordered.slice(0, ordered.length > 3 ? 2 : 3);
+  if (ordered.length > 3) slices.push({ channel: "Other", count: ordered.slice(2).reduce((sum, item) => sum + item.count, 0) });
+  const data = slices.map((slice, index) => ({ ...slice, label: channelLabel(slice.channel), fill: `var(--color-channel${index})` }));
+  const config: ChartConfig = Object.fromEntries(slices.map((slice, index) => [`channel${index}`, { label: channelLabel(slice.channel), color: COLORS[index] }]));
+  return <Card asChild><section aria-labelledby="content-mix-heading" className="ril-content-mix flex flex-col overflow-hidden">
+    <CardHeader className="flex-row items-start justify-between border-b"><CardTitle asChild><h2 id="content-mix-heading">Content mix</h2></CardTitle><CardDescription>{count < total ? `${count} sampled assets of ${total}` : `${count} content assets`} · share by channel</CardDescription></CardHeader>
+    {!count ? <CardContent className="py-12"><p>Add content to see how it is distributed across your channels.</p><Link href="/library/new" className="mt-4 block">Add content</Link></CardContent> : <CardContent asChild className="pt-3"><figure>
+      <ChartContainer config={config} className="mx-auto my-5 aspect-square h-60 w-full max-w-60" role="img" aria-label={`Content mix, ${count} assets: ${slices.map(slice => `${channelLabel(slice.channel)} ${Number((slice.count / count * 100).toFixed(1))} percent`).join(", ")}`}>
+        <PieChart><ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="label" hideLabel />} /><Pie data={data} dataKey="count" nameKey="label" innerRadius={56} outerRadius={104} paddingAngle={3} stroke="var(--app-panel)" strokeWidth={2} isAnimationActive={false} labelLine={false} label={PercentageLabel} /></PieChart>
+      </ChartContainer>
+      <ul className="mb-2 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm" aria-label="Channel legend">{slices.map((slice, index) => <li key={slice.channel} className="flex items-center gap-2"><span className="size-2.5 shrink-0 rounded-sm" style={{ background: COLORS[index] }} aria-hidden="true" /><ChannelIdentity channel={slice.channel} /><span className="tabular-nums text-muted-foreground">{slice.count}</span></li>)}</ul>
+      <figcaption className="sr-only">Share of content by channel. {slices.map(slice => `${channelLabel(slice.channel)}: ${slice.count} assets.`).join(" ")}</figcaption>
+    </figure></CardContent>}
+  </section></Card>;
 }
 
-export function KpiProgressChart({ kpis }: { kpis: KpiProgress[] }) {
-  return <section className="workspace-panel overflow-hidden" aria-labelledby="kpi-progress-heading">
-    <header className="workspace-panel-heading"><div><h2 id="kpi-progress-heading">Progress toward your goals</h2><p>Current period · each target equals 100%</p></div></header>
-    {!kpis.length ? <p className="workspace-empty">No targets are configured for this workspace.</p> : <figure className="p-5">
-      <div className="flex justify-between pb-3 text-[11px] text-muted-foreground"><span>Target completion</span><span>0% — 100%</span></div>
-      <ul className="space-y-4">{kpis.map(kpi=>{
-        const pct=kpi.fraction===null?null:Math.min(100,Math.max(0,kpi.fraction*100));
-        const value=kpi.current===null?"Not measured":`${Number(kpi.current.toFixed(1)).toLocaleString()} / ${kpi.target_value.toLocaleString()} ${kpi.unit}`;
-        return <li key={kpi.id}><div className="mb-1.5 flex flex-wrap justify-between gap-1 text-xs"><span className="font-semibold">{kpi.name}</span><span className="text-muted-foreground">{value}</span></div><svg viewBox="0 0 400 16" preserveAspectRatio="none" className="h-4 w-full" role="img" aria-label={`${kpi.name}: ${value}${pct===null?"":`; ${Number(pct.toFixed(1))}% of target`}`}><rect x="0" y="4" width="400" height="8" rx="4" fill="hsl(var(--muted))"/>{[100,200,300].map(x=><line key={x} x1={x} x2={x} y1="1" y2="15" stroke="hsl(var(--border))"/>)}{pct===null?<line x1="0" x2="400" y1="8" y2="8" stroke="hsl(var(--muted-foreground))" strokeDasharray="3 4"/>:<rect x="0" y="4" width={pct*4} height="8" rx="4" fill="hsl(var(--primary))"/>}</svg></li>;
-      })}</ul><figcaption className="mt-4 border-t pt-3 text-xs leading-5 text-muted-foreground">Unmeasured goals use dashed lines. Missing data is never shown as zero progress.</figcaption>
-    </figure>}
-  </section>;
+export function KpiProgressChart({ kpis, periodLabel = "Current period · each target equals 100%" }: { kpis: KpiProgress[]; periodLabel?: string }) {
+  return <Card asChild><section className="workspace-panel overflow-hidden" aria-labelledby="kpi-progress-heading">
+    <CardHeader className="workspace-panel-heading"><CardTitle asChild><h2 id="kpi-progress-heading">Progress toward your goals</h2></CardTitle><CardDescription>{periodLabel}</CardDescription></CardHeader>
+    {!kpis.length ? <CardContent><p>No targets are configured for this workspace.</p></CardContent> : <CardContent asChild><figure>
+      <div className="flex justify-between pb-4 text-xs text-muted-foreground"><span>Target completion</span><span>0% to 100%</span></div>
+      <ul className="flex flex-col gap-4">{kpis.map(kpi => {
+        const pct = kpi.fraction === null ? null : Math.min(100, Math.max(0, kpi.fraction * 100));
+        const value = kpi.current === null ? "Not measured" : `${Number(kpi.current.toFixed(1)).toLocaleString()} / ${kpi.target_value.toLocaleString()} ${kpi.unit}`;
+        return <li key={kpi.id}><div className="mb-1.5 flex flex-wrap justify-between gap-1 text-xs"><span className="font-semibold">{kpi.name}</span><span className="text-muted-foreground">{value}</span></div>{pct === null ? <p className="text-xs text-muted-foreground">Awaiting measurement</p> : <Progress value={pct} aria-label={kpi.name} getValueLabel={() => `${value}; ${Number(pct.toFixed(1))}% of target`} />}</li>;
+      })}</ul><figcaption className="mt-4 border-t pt-3 text-xs leading-5 text-muted-foreground">Goals without measurements are labelled “Not measured”. Missing data is never shown as zero progress.</figcaption>
+    </figure></CardContent>}
+  </section></Card>;
 }

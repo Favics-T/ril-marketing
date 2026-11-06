@@ -3,6 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 import type { PublicationRow } from "@/lib/content/publications";
 import { CALENDAR_STATUSES, calendarAt } from "@/lib/content/calendar";
 import { reminderState, type ReminderState } from "@/lib/content/reminders";
+import { z } from "zod";
+import {
+  FAILED_PUBLICATION_STATUSES,
+  selectNeedsAttention,
+  type AttentionAsset,
+  type FailedPublicationRow,
+  type NeedsAttention,
+  type PublishedPublicationRow,
+} from "@/lib/content/attention";
 
 export interface ContentAssetRow {
   id: string;
@@ -24,6 +33,11 @@ export interface ContentAssetRow {
   source_activity_id: string | null;
   generation_id: string | null;
   metadata: Record<string, unknown>;
+  updated_at: string;
+  created_by?: string | null;
+  approval_category?: string;
+  approval_revision?: number;
+  second_reviewer_id?: string | null;
   created_at: string;
 }
 
@@ -51,7 +65,11 @@ export async function listAssets(
     .range((page - 1) * pageSize, page * pageSize - 1);
   if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
   if (filters.channel && filters.channel !== "all") query = query.eq("channel", filters.channel);
-  if (filters.activityId && filters.activityId !== "all") query = query.eq("source_activity_id", filters.activityId);
+  if (filters.activityId && filters.activityId !== "all") {
+    const activity = z.uuid().safeParse(filters.activityId);
+    if (!activity.success) return { assets: [], total: 0 };
+    query = query.or(`source_activity_id.eq.${activity.data},metadata.cs.${JSON.stringify({ linked_activity_ids: [activity.data] })}`);
+  }
   if (filters.campaignId && filters.campaignId !== "all") query = query.eq("campaign_id", filters.campaignId);
   if (filters.q?.trim()) {
     const terms = filters.q
@@ -88,6 +106,10 @@ export async function getAsset(
 export interface AssetApprovalRow {
   id: string;
   actor_id: string | null;
+  actor_name?: string;
+  actor_role?: string;
+  previous_scheduled_for?: string | null;
+  scheduled_for?: string | null;
   from_status: string;
   to_status: string;
   note: string | null;
@@ -178,4 +200,54 @@ export async function listSocialReminders(
     const state = reminderState(asset, now);
     return state ? [{ asset, state }] : [];
   });
+}
+
+const ATTENTION_ASSET_COLUMNS = "id,organization_id,title,channel,platform,format,status,scheduled_for,published_at";
+
+/** Failed publishes and overdue posts for the Command Centre (see attention.ts). */
+export async function listNeedsAttention(
+  organizationId: string,
+  now: Date = new Date()
+): Promise<NeedsAttention> {
+  const supabase = await createClient();
+  const [failuresResult, overdueResult] = await Promise.all([
+    supabase
+      .from("publications")
+      .select(`id,organization_id,content_asset_id,channel,status,error,created_at,asset:content_assets(${ATTENTION_ASSET_COLUMNS})`)
+      .eq("organization_id", organizationId)
+      .in("status", [...FAILED_PUBLICATION_STATUSES])
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("content_assets")
+      .select(ATTENTION_ASSET_COLUMNS, { count: "exact" })
+      .eq("organization_id", organizationId)
+      .in("status", ["approved", "scheduled"])
+      .lt("scheduled_for", now.toISOString())
+      .order("scheduled_for")
+      .limit(500),
+  ]);
+  if (failuresResult.error) throw new Error(`Failed to load failed publishes: ${failuresResult.error.message}`);
+  if (overdueResult.error) throw new Error(`Failed to load overdue posts: ${overdueResult.error.message}`);
+  const failures = (failuresResult.data ?? []) as unknown as FailedPublicationRow[];
+
+  // Successful publishes on the same assets, to clear failures a later retry fixed.
+  const assetIds = [...new Set(failures.map((row) => row.content_asset_id))];
+  let published: PublishedPublicationRow[] = [];
+  if (assetIds.length) {
+    const { data, error } = await supabase
+      .from("publications")
+      .select("organization_id,content_asset_id,channel,created_at")
+      .eq("organization_id", organizationId)
+      .eq("status", "published")
+      .in("content_asset_id", assetIds)
+      .limit(2000);
+    if (error) throw new Error(`Failed to load publish history: ${error.message}`);
+    published = (data ?? []) as PublishedPublicationRow[];
+  }
+
+  return selectNeedsAttention(
+    { failures, published, overdue: (overdueResult.data ?? []) as AttentionAsset[], overdueCount: overdueResult.count },
+    { organizationId, now }
+  );
 }

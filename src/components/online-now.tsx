@@ -42,7 +42,7 @@ export function OnlineNow({ stats, className }: OnlineNowProps) {
   const { count, deltaPct, devices, windowMinutes } = stats;
 
   return (
-    <Card className={cn("dark:bg-transparent", className)}>
+    <Card className={cn("", className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-3 border-b pb-4">
         <div className="flex min-w-0 flex-col gap-0">
           <CardTitle className="font-mono text-2xl tabular-nums">

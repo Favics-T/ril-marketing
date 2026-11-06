@@ -1,3 +1,8 @@
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
+import { SettingsNavigation } from "@/components/settings/settings-navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, MailIcon, Sparkles, TriangleAlert } from "lucide-react";
@@ -7,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAiIntegration } from "@/lib/ai/provider";
 import { defaultModel, isProviderKey } from "@/lib/ai/providers";
 import { getBufferStatus } from "@/lib/integrations/buffer";
+import { getWordPressConfig } from "@/lib/integrations/wordpress";
 import { getResendConfig } from "@/lib/integrations/resend";
 import { getUserRole } from "@/lib/audience/access";
 import { StatusStamp } from "@/components/ui/status-stamp";
@@ -16,7 +22,9 @@ import { ConnectorCard } from "@/components/settings/connector-card";
 import { WordPressSettingsForm } from "@/components/settings/wordpress-settings-form";
 import { StrapiSettingsForm } from "@/components/settings/strapi-settings-form";
 import { GoogleAnalyticsSettingsForm } from "@/components/settings/google-analytics-settings-form";
-import { todayDateline } from "@/lib/format";
+import { ConnectionHealthPanel } from "@/components/settings/connection-health-panel";
+import { SourceConnector } from "@/components/settings/source-connectors";
+import { sourceConnectionStatus } from "@/lib/integrations/source-connections";
 
 export const metadata: Metadata = { title: "AI & Integrations" };
 
@@ -35,6 +43,8 @@ const CONNECTOR_KEYS = new Set([
   "cms_strapi",
   "google_analytics",
   "email_resend",
+  "notion",
+  "youtube",
 ]);
 
 const MANAGER_ROLES = ["owner", "admin", "marketing_manager"];
@@ -141,7 +151,7 @@ export default async function AiSettingsPage({
       integrations = (list.data ?? []) as IntegrationRow[];
       if (wordpressResult.data) {
         wordpress = {
-          connected: wordpressResult.data.status === "connected",
+          connected: Boolean(await getWordPressConfig(orgId)),
           siteUrl: wordpressResult.data.config.siteUrl ?? "",
           username: wordpressResult.data.config.username ?? "",
           seoPlugin: wordpressResult.data.config.seoPlugin ?? "none",
@@ -190,44 +200,43 @@ export default async function AiSettingsPage({
   const aiConnected = serverKey || Boolean(ai?.hasKey);
   const startProvider = isProviderKey(ai?.provider) ? ai.provider : "openai";
   const resendConnected = Boolean(resend);
-  const connectedCount = [buffer.connected, wordpress.connected, strapi.connected, googleAnalytics.connected, resendConnected]
+  const emptySource = { connected: false, configured: false, accountName: null, clientId: "" };
+  const [notion, youtube] = orgId ? await Promise.all([sourceConnectionStatus(orgId, "notion"), sourceConnectionStatus(orgId, "youtube")]) : [emptySource, emptySource];
+  const connectedCount = [buffer.connected, wordpress.connected, strapi.connected, googleAnalytics.connected, resendConnected, notion.connected, youtube.connected]
     .filter(Boolean).length;
   const otherIntegrations = integrations.filter(
     (row) => !CONNECTOR_KEYS.has(row.key)
   );
 
   return (
-    <div className="workspace-page flex flex-col gap-5 md:gap-7">
-      <header>
-        <p className="dateline">{todayDateline()} · Setup</p>
-        <h1>AI &amp; integrations</h1>
-        <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-          Bring your own AI key and connect the accounts you publish from.
-          Nothing here posts, sends or publishes on its own.
-        </p>
-      </header>
+    <div className="workspace-page settings-page">
+      <WorkspacePageHeader title={<>AI &amp; integrations</>} description={<>Connect the tools you use to write, publish, and track your marketing.
+          Start with AI, then add only the services you need.</>} />
+      <div className="settings-workbench"><SettingsNavigation /><div className="settings-content">
+
+      <ConnectionHealthPanel canManage={canManageConnectors} />
 
       {search.connect_error ? (
-        <p
+        <ShadcnAlert asChild variant="destructive"><ShadcnCard asChild><p
           role="alert"
-          className="slip flex items-start gap-3 rounded-lg border-destructive/40 px-5 py-4 text-sm leading-6 text-destructive sm:px-6"
+          className="slip flex items-start gap-3 px-5 py-4 leading-6 sm:px-6"
         >
           <TriangleAlert className="mt-1 size-4 shrink-0" aria-hidden="true" />
           <span className="min-w-0">{search.connect_error}</span>
-        </p>
+        </p></ShadcnCard></ShadcnAlert>
       ) : null}
       {search.connected ? (
-        <p
+        <ShadcnAlert asChild role="status"><ShadcnCard asChild><p
           role="status"
-          className="slip flex items-start gap-3 px-5 py-4 text-sm font-semibold leading-6 text-emerald-700 dark:text-emerald-400 sm:px-6"
+          className="slip flex items-start gap-3 px-5 py-4 leading-6 sm:px-6"
         >
           <CheckCircle2 className="mt-1 size-4 shrink-0" aria-hidden="true" />
           Connected. Your channels are ready to use.
-        </p>
+        </p></ShadcnCard></ShadcnAlert>
       ) : null}
 
-      {/* ── AI provider ───────────────────────────────────────────────── */}
-      <section
+      <nav aria-label="Integration sections" className="flex flex-wrap gap-2"><a href="#ai-provider" className="inline-flex min-h-11 items-center rounded-md border bg-card px-4 text-sm font-medium hover:bg-muted">AI writing</a><a href="#connectors" className="inline-flex min-h-11 items-center rounded-md border bg-card px-4 text-sm font-medium hover:bg-muted">Saved apps · {connectedCount}</a></nav>
+      <ShadcnCard asChild><section
         id="ai-provider"
         aria-labelledby="ai-provider-heading"
         className="slip scroll-mt-20 px-5 py-5 sm:px-6"
@@ -239,7 +248,7 @@ export default async function AiSettingsPage({
               className={cn(
                 "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border [&_svg]:size-4",
                 aiConnected
-                  ? "border-emerald-600/20 bg-emerald-600/5 text-emerald-700 dark:text-emerald-400"
+                  ? "border-emerald-600/20 bg-emerald-600/5 text-emerald-700 "
                   : "border-border bg-muted/40 text-muted-foreground"
               )}
             >
@@ -247,36 +256,33 @@ export default async function AiSettingsPage({
             </span>
             <div className="min-w-0">
               <h2 id="ai-provider-heading" className="text-[17px] font-bold tracking-[-0.02em]">
-                Your AI provider
+                AI writing
               </h2>
               <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-muted-foreground">
-                Choose a provider, pick the model you want, paste your key and
-                connect. Your assistant and every new draft start using it
-                straight away. The key stays in this workspace.
+                Connect an AI service to help write drafts and power your assistant.
+                Your team still approves what gets published.
               </p>
             </div>
           </div>
           <StatusStamp variant={aiConnected ? "approved" : "cold"}>
-            {aiConnected ? "CONNECTED" : "NOT CONNECTED"}
+            {aiConnected ? "Key saved" : "Not connected"}
           </StatusStamp>
         </div>
 
         <div className="mt-4">
           {serverKey ? (
             <p className="max-w-[62ch] text-sm leading-6 text-muted-foreground">
-              This workspace is already set up with a key configured on the
-              server, so there is nothing to connect here.
+              Your workspace administrator manages the saved AI key. Use Check connections to verify access.
             </p>
           ) : (
             <>
               {!ai?.hasKey ? (
                 <p className="mb-4 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-                  Until you connect a provider, drafts are written from your
-                  activity facts using built-in templates. Connecting one adds
-                  richer, brand-voice writing.
+                  No AI account yet? You can still create drafts using built-in templates.
                 </p>
               ) : null}
               <AiSettingsForm
+                canManage={canManageConnectors}
                 initial={{
                   provider: startProvider,
                   model: ai?.model ?? defaultModel(startProvider),
@@ -287,44 +293,32 @@ export default async function AiSettingsPage({
             </>
           )}
         </div>
-      </section>
+      </section></ShadcnCard>
 
       {/* ── Connectors ────────────────────────────────────────────────── */}
       <section id="connectors" aria-labelledby="connectors-heading" className="scroll-mt-20">
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
           <div className="min-w-0">
             <h2 id="connectors-heading" className="text-[17px] font-bold tracking-[-0.02em]">
-              Connectors
+              Your apps
             </h2>
             <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-muted-foreground">
-              Link the accounts your marketing runs through. Each one is checked
-              with the provider before it is saved, so connected means it works.
+              Choose what you want to do, then connect the matching service.
+              Connecting an app does not publish or send anything.
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             <p className="dateline tabular-nums">
-              {connectedCount} of 5 connected
+              {connectedCount} of 7 connections saved
             </p>
-            <div
-              className="flex items-center gap-1"
-              role="img"
-              aria-label={`${connectedCount} of 5 connectors connected`}
-            >
-              {Array.from({ length: 5 }, (_, i) => (
-                <span
-                  key={i}
-                  aria-hidden="true"
-                  className={cn(
-                    "h-1.5 w-7 rounded-full",
-                    i < connectedCount ? "bg-emerald-500" : "bg-border"
-                  )}
-                />
-              ))}
-            </div>
           </div>
         </div>
 
         <div className="mt-4 grid gap-4">
+          <h3 className="mt-2 text-sm font-semibold">Import and repurpose content</h3>
+          <SourceConnector provider="notion" initial={notion} canManage={canManageConnectors} />
+          <SourceConnector provider="youtube" initial={youtube} canManage={canManageConnectors} />
+          <h3 className="mt-2 text-sm font-semibold">Publish to social media</h3>
           <BufferConnector
             connected={buffer.connected}
             envConfigured={buffer.envConfigured}
@@ -332,12 +326,15 @@ export default async function AiSettingsPage({
             organizationName={buffer.organizationName}
           />
 
+          <h3 className="mt-4 text-sm font-semibold">Publish to your website</h3>
           <WordPressSettingsForm initial={wordpress} />
 
           <StrapiSettingsForm initial={strapi} />
 
+          <h3 className="mt-4 text-sm font-semibold">Track website results</h3>
           <GoogleAnalyticsSettingsForm initial={googleAnalytics} />
 
+          <h3 className="mt-4 text-sm font-semibold">Send email campaigns</h3>
           <ConnectorCard
             icon={<MailIcon />}
             title="Resend"
@@ -351,14 +348,14 @@ export default async function AiSettingsPage({
           >
             {canManageConnectors ? (
               <p className="text-[13px] leading-5 text-muted-foreground">
-                Resend is set up on the{" "}
+                {resendConnected ? "Manage your email connection on the " : "Connect Resend on the "}
                 <Link
                   href="/email"
                   className="inline-flex min-h-9 items-center rounded-md px-1 text-[13px] font-semibold text-primary underline-offset-4 outline-none transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Email page
                 </Link>
-                , where you also pick the verified sender and webhook.
+                . The setup there walks you through choosing a sender.
               </p>
             ) : (
               <p className="text-[13px] leading-5 text-muted-foreground">
@@ -372,7 +369,7 @@ export default async function AiSettingsPage({
       </section>
 
       {otherIntegrations.length > 0 ? (
-        <section
+        <ShadcnCard asChild><section
           aria-labelledby="other-connections-heading"
           className="slip px-5 py-5 sm:px-6"
         >
@@ -382,7 +379,7 @@ export default async function AiSettingsPage({
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
             Workspace services that don&apos;t need setup here.
           </p>
-          <ul className="ledger mt-3 border-t border-border/80">
+          <ShadcnCardContent asChild className="p-0"><ul className="ledger mt-3 border-t border-border/80">
             {otherIntegrations.map((row) => (
               <li
                 key={row.key}
@@ -403,9 +400,9 @@ export default async function AiSettingsPage({
                 </StatusStamp>
               </li>
             ))}
-          </ul>
-        </section>
+          </ul></ShadcnCardContent>
+        </section></ShadcnCard>
       ) : null}
-    </div>
+    </div></div></div>
   );
 }

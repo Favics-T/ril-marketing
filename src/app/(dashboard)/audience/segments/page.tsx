@@ -1,3 +1,6 @@
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
@@ -17,23 +20,10 @@ export default async function SegmentsPage() {
 
   return (
     <div className="workspace-page flex flex-col gap-4 md:gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <div>
-          <p className="dateline">
-            {todayDateline()} · {segments.length} segments
-          </p>
-          <h1>
-            Audience Segments
-          </h1>
-          <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-            Define audience needs, motivations, and preferred formats to ground
-            recommendations.
-          </p>
-        </div>
-        <Button asChild className="min-h-10 rounded-lg px-4 text-[13px] font-semibold">
+      <WorkspacePageHeader title={<>Audience Segments</>} eyebrow={<>{todayDateline()} · {segments.length} segments</>} description={<>Define audience needs, motivations, and preferred formats to ground
+            recommendations.</>} actions={<> <Button asChild className="px-4">
           <Link href="/audience/segments/new">New segment</Link>
-        </Button>
-      </div>
+        </Button> </>} />
 
       {segments.length === 0 ? (
         <EmptyState
@@ -42,12 +32,12 @@ export default async function SegmentsPage() {
           action={{ label: "Create segment", href: "/audience/segments/new" }}
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="segment-directory grid gap-5 lg:grid-cols-2">
           {segments.map((s) => (
-            <Link
+            <ShadcnCard asChild key={s.id}><Link
               key={s.id}
               href={`/audience/segments/${s.id}`}
-              className="slip flex flex-col gap-3 px-5 py-4 outline-none transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring sm:px-6"
+              className="slip flex flex-col gap-3 px-5 py-4 transition-colors sm:px-6"
             >
               <div className="flex flex-wrap items-center gap-2">
                 {s.pending_insights_count > 0 ? (
@@ -70,7 +60,7 @@ export default async function SegmentsPage() {
                   {s.needs_motivations.slice(0, 4).map((n) => (
                     <li
                       key={n}
-                      className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-secondary-foreground"
+                      className="rounded-md border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground"
                     >
                       {n}
                     </li>
@@ -87,7 +77,7 @@ export default async function SegmentsPage() {
                   Programs: {s.programs.map((p) => p.name).join(", ")}
                 </p>
               ) : null}
-            </Link>
+            </Link></ShadcnCard>
           ))}
         </div>
       )}

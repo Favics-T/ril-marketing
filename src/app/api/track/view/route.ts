@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { classifyDevice } from "@/lib/analytics/visitor-stats";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPublishedLandingPage } from "@/lib/landing-pages";
 
 const viewSchema = z.object({
   path: z
@@ -103,7 +104,11 @@ export async function POST(request: NextRequest) {
     if (device === "bot") return response;
 
     try {
-      const organizationId = await resolveOrganizationId();
+      const path = parsed.data.path.split(/[?#]/, 1)[0];
+      const pageKey = path.match(/^\/p\/([a-z0-9-]+)\/?$/)?.[1];
+      const landingPage = pageKey ? await getPublishedLandingPage(pageKey) : null;
+      // An unpublished or unknown campaign page must never fall back to another workspace.
+      const organizationId = path.startsWith("/p/") ? landingPage?.organization_id : await resolveOrganizationId();
       if (organizationId) {
         // Best-effort: a dropped pageview must never surface an error.
         await createAdminClient()
@@ -111,7 +116,7 @@ export async function POST(request: NextRequest) {
           .insert({
             organization_id: organizationId,
             event_type: "pageview",
-            metadata: { visitor_id: visitorId, path: parsed.data.path, device },
+            metadata: { visitor_id: visitorId, path, device, ...(landingPage ? { landing_page_id: landingPage.id, campaign_id: landingPage.campaign_id } : {}) },
           });
       }
     } catch {

@@ -1,4 +1,8 @@
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import { StatusStamp } from "@/components/ui/status-stamp";
+import { ChannelIdentity } from "@/components/channel-identity";
+import { socialChannelKey } from "@/components/settings/channel-icons";
 import { formatDayTime } from "@/lib/format";
 import {
 	publicationDestination,
@@ -19,7 +23,7 @@ export function PublishHistory({
 	assetStatus: string;
 }) {
 	return (
-		<section className="slip flex h-fit flex-col p-5 sm:p-6">
+		<ShadcnCard asChild><section className="slip flex h-fit flex-col p-5 sm:p-6">
 			<p className="dateline">Publish history</p>
 			{publications.length ? (
 				<ol className="ledger mt-2 flex flex-col">
@@ -29,7 +33,7 @@ export function PublishHistory({
 							<li key={p.id} className="flex flex-col gap-1 py-2.5">
 								<div className="flex items-center justify-between gap-3">
 									<span className="text-sm font-semibold tracking-[-0.01em] text-foreground">
-										{publicationDestination(p.channel)}
+										{socialChannelKey(p.channel) ? <ChannelIdentity channel={p.channel} /> : publicationDestination(p.channel)}
 									</span>
 									<StatusStamp status={p.status} />
 								</div>
@@ -41,7 +45,7 @@ export function PublishHistory({
 										rel="noreferrer"
 										className="w-fit text-sm font-medium text-primary underline underline-offset-2"
 									>
-										View live post
+										{p.status === "published" ? "View live post" : "View provider post"}
 									</a>
 								) : null}
 								{p.status === "failed" && p.error ? (
@@ -58,6 +62,6 @@ export function PublishHistory({
 						: "Not published to any channel yet."}
 				</p>
 			)}
-		</section>
+		</section></ShadcnCard>
 	);
 }

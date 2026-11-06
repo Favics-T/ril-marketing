@@ -5,7 +5,7 @@ const coreWebVitals = nextPlugin.configs["core-web-vitals"];
 
 /** Flat config: TypeScript parsing + official Next.js plugin (no FlatCompat). */
 const eslintConfig = tseslint.config(
-  { ignores: [".next/**", "node_modules/**"] },
+  { ignores: [".next/**", "node_modules/**", ".playwright-cli/**", "recordings/**"] },
   ...tseslint.configs.recommended,
   {
     files: ["src/**/*.{js,jsx,ts,tsx}"],

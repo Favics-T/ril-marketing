@@ -1,12 +1,26 @@
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { RecordFilters, RecordPagination } from "@/components/record-navigation";
+
+import { Disclosure } from "@/components/ui/disclosure";
+
+import { FieldGroup as ShadcnFieldGroup, FieldLabel as ShadcnFieldLabel, Field as ShadcnField, FieldSet as ShadcnFieldSet, FieldLegend as ShadcnFieldLegend } from "@/components/ui/field";
+import { Input as ShadcnInput } from "@/components/ui/input";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+import { ContentChannels } from "@/components/channel-identity";
+import { ChannelSelect } from "@/components/channel-select";
+import { channelLabel } from "@/lib/channels";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listAssets } from "@/lib/content/assets";
 import { ASSET_STATUSES } from "@/lib/content/transitions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusStamp } from "@/components/ui/status-stamp";
-import { formatDay, todayDateline } from "@/lib/format";
+import { formatDay } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { reminderState } from "@/lib/content/reminders";
 import { ReminderFlag } from "@/components/content/reminder-flag";
@@ -27,6 +41,7 @@ export default async function LibraryPage({
   const channel = sp.channel ?? "all";
   const activity = sp.activity ?? "all";
   const campaign = sp.campaign ?? "all";
+  const hasFilters = status !== "all" || Boolean(q) || channel !== "all" || activity !== "all" || campaign !== "all";
 
   const orgId = await getCallerOrganizationId();
   const supabase = orgId ? await createClient() : null;
@@ -70,114 +85,26 @@ export default async function LibraryPage({
     return `/library${qs ? `?${qs}` : ""}`;
   };
 
-  return (
-    <div className="workspace-page flex flex-col gap-4 md:gap-6">
-      <div>
-        <p className="dateline">
-          {todayDateline()} · {result.total} assets
-        </p>
-        <h1>
-          Content Library
-        </h1>
-        <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-          Manage drafts, review content, and keep track of everything you publish.
-        </p>
-      </div>
-
-      <form method="get" action="/library" className="slip grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-        {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
-        <label className="flex flex-col gap-1.5 lg:col-span-2"><span className="dateline">Search copy</span><input name="q" defaultValue={q} maxLength={200} placeholder="Title or draft text" className="h-10 rounded-lg border border-input bg-background px-3 text-sm" /></label>
-        <label className="flex flex-col gap-1.5"><span className="dateline">Channel</span><select name="channel" defaultValue={channel} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All channels</option>{channelOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-        <label className="flex flex-col gap-1.5"><span className="dateline">Source activity</span><select name="activity" defaultValue={activity} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All activities</option>{activityOptions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
-        <label className="flex flex-col gap-1.5"><span className="dateline">Campaign</span><select name="campaign" defaultValue={campaign} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="all">All campaigns</option>{campaignOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <div className="flex items-center justify-end gap-2 sm:col-span-2 lg:col-span-5"><Button variant="ghost" asChild><Link href="/library">Clear filters</Link></Button><Button type="submit" className="min-h-10 rounded-lg px-4 text-[13px] font-semibold">Apply filters</Button></div>
-      </form>
-
-      <nav aria-label="Filter by status" className="flex flex-wrap">
-        {filters.map((f) => (
-          <Link
-            key={f}
-            href={filterHref(f)}
-            aria-current={status === f ? "page" : undefined}
-            className="capitalize"
-          >
-            {f === "all" ? "All" : f === "ai_generated" ? "AI generated" : f.replace(/_/g, " ")}
-          </Link>
-        ))}
-      </nav>
-
-      {result.assets.length === 0 ? (
-        <EmptyState
-          title="No content yet"
-          description={
-            status === "all"
-              ? "Assets appear once you generate content from an activity or create one manually."
-              : "No assets match this filter. Try another stage."
-          }
-        />
-      ) : (
-        <ul className="ledger slip overflow-hidden">
-          {result.assets.map((a) => (
-            <li key={a.id}>
-              <Link
-                href={`/library/${a.id}`}
-                className="flex items-start justify-between gap-4 rounded-lg px-5 py-4 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
-              >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusStamp status={a.status} />
-                  <ReminderFlag state={reminderState(a, now)} />
-                  {a.metadata?.calendar_generator === true ? (
-                    <span className="rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                      Calendar proposal
-                    </span>
-                  ) : null}
-                  {a.sensitivity === "high" ? (
-                    <span className="rounded-md border border-destructive bg-destructive/5 px-1.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-destructive">
-                      High sensitivity
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1.5 truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
-                  {a.title}
-                </p>
-                <p className="mt-0.5 truncate text-[13px] leading-5 text-muted-foreground">
-                  {[a.channel, a.platform, a.format].filter(Boolean).join(" · ") ||
-                    "No channel set"}
-                </p>
-              </div>
-              <span className="dateline shrink-0 tabular-nums">
-                {a.metadata?.calendar_generator === true && typeof a.metadata.suggested_publish_at === "string"
-                  ? `Suggested ${formatDay(a.metadata.suggested_publish_at)}`
-                  : formatDay(a.scheduled_for ?? a.published_at ?? a.created_at)}
-              </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {totalPages > 1 ? (
-        <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
-          {page > 1 ? (
-            <Link href={pageHref(page - 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              ← Previous
-            </Link>
-          ) : (
-            <span />
-          )}
-          <span className="dateline tabular-nums">
-            Page {page} / {totalPages}
-          </span>
-          {page < totalPages ? (
-            <Link href={pageHref(page + 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              Next →
-            </Link>
-          ) : (
-            <span />
-          )}
-        </nav>
-      ) : null}
+  return <div className="workspace-page library-directory">
+    <WorkspacePageHeader title="Content Library" description="Drafts, reviews, and published content." actions={<><Button asChild variant="outline"><Link href="/library/import">Import content</Link></Button><Button asChild><Link href="/library/new"><Plus data-icon="inline-start" aria-hidden="true" />Add content</Link></Button></>} />
+    <div className="record-directory">
+      <ShadcnCard asChild><section className="library-toolbar" aria-label="Find content">
+        <ShadcnFieldGroup asChild><form method="get" action="/library">
+          {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
+          <div className="library-search-primary"><ShadcnField asChild><ShadcnFieldLabel><span>Search content</span><ShadcnInput name="q" defaultValue={q} maxLength={200} placeholder="Search titles or draft text" className="" /></ShadcnFieldLabel></ShadcnField><Button type="submit">Apply filters</Button>{hasFilters ? <Button asChild variant="ghost"><Link href="/library">Clear filters</Link></Button> : null}</div>
+          <Disclosure className="library-advanced-filters" initiallyOpen={channel !== "all" || activity !== "all" || campaign !== "all"} title={<>Channel, activity &amp; campaign</>}><ShadcnFieldSet><ShadcnFieldLegend className="sr-only">Additional content filters</ShadcnFieldLegend>
+            <ShadcnField asChild><ShadcnFieldLabel><span>Channel</span><ChannelSelect key={channel} name="channel" defaultValue={channel} options={[["all", "All channels"], ...channelOptions.map(value => [value, channelLabel(value)] as const)]} /></ShadcnFieldLabel></ShadcnField>
+            <ShadcnField asChild><ShadcnFieldLabel><span>Source activity</span><ShadcnNativeSelect name="activity" defaultValue={activity} className=""><ShadcnNativeSelectOption value="all">All activities</ShadcnNativeSelectOption>{activityOptions.map(item => <ShadcnNativeSelectOption key={item.id} value={item.id}>{item.title}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect></ShadcnFieldLabel></ShadcnField>
+            <ShadcnField asChild><ShadcnFieldLabel><span>Campaign</span><ShadcnNativeSelect name="campaign" defaultValue={campaign} className=""><ShadcnNativeSelectOption value="all">All campaigns</ShadcnNativeSelectOption>{campaignOptions.map(item => <ShadcnNativeSelectOption key={item.id} value={item.id}>{item.name}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect></ShadcnFieldLabel></ShadcnField>
+          </ShadcnFieldSet></Disclosure>
+        </form></ShadcnFieldGroup>
+        <RecordFilters label="Content status" value={status} items={filters.map(value => ({value, label: value === "all" ? "All content" : value === "ai_generated" ? "AI generated" : value.replaceAll("_", " "), href: filterHref(value)}))} />
+      </section></ShadcnCard>
+      <section className="directory-results" aria-label="Content results">
+        <div className="directory-result-heading"><p><strong>{result.total.toLocaleString()}</strong> {result.total === 1 ? "content item" : "content items"}{hasFilters ? " match your filters" : " in your library"}</p><span>Most recent first</span></div>
+        {!result.assets.length ? <EmptyState title={hasFilters ? "No content matches these filters" : "Your next draft starts here"} description={hasFilters ? "Try a different search or clear your filters to see all content." : "Write a draft, import existing material, or repurpose an activity for your audience."} action={hasFilters ? { label: "Clear filters", href: "/library" } : { label: "Add content", href: "/library/new" }} /> : <ShadcnCard className="record-table-panel"><Table className="record-table library-table" aria-label="Content library"><TableHeader><TableRow><TableHead scope="col">Content</TableHead><TableHead scope="col">Workflow</TableHead><TableHead scope="col">Date / action</TableHead></TableRow></TableHeader><TableBody>{result.assets.map(asset => <TableRow key={asset.id}><TableCell data-label="Content"><div className="directory-record-main"><Link href={`/library/${asset.id}`}><h2>{asset.title}</h2></Link><div className="library-record-details"><ContentChannels channel={asset.channel} platform={asset.platform} format={asset.format} /></div></div></TableCell><TableCell data-label="Workflow"><div className="directory-record-workflow"><StatusStamp status={asset.status} /><ReminderFlag state={reminderState(asset, now)} />{asset.metadata?.calendar_generator === true ? <span className="text-xs text-muted-foreground">Calendar proposal</span> : null}{asset.sensitivity === "high" ? <span className="text-xs font-semibold text-destructive">High sensitivity</span> : null}</div></TableCell><TableCell data-label="Date / action"><div className="directory-record-meta"><span>{asset.metadata?.calendar_generator === true && typeof asset.metadata.suggested_publish_at === "string" ? `Suggested ${formatDay(asset.metadata.suggested_publish_at)}` : formatDay(asset.scheduled_for ?? asset.published_at ?? asset.created_at)}</span><Link href={`/repurpose?asset=${asset.id}`} aria-label={`Repurpose ${asset.title}`} className="directory-record-secondary">Repurpose</Link></div></TableCell></TableRow>)}</TableBody></Table></ShadcnCard>}
+        <RecordPagination page={page} totalPages={totalPages} previousHref={page > 1 ? pageHref(page - 1) : undefined} nextHref={page < totalPages ? pageHref(page + 1) : undefined} />
+      </section>
     </div>
-  );
+  </div>;
 }

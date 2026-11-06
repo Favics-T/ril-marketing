@@ -1,11 +1,19 @@
+
+import { Disclosure } from "@/components/ui/disclosure";
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+import { WorkflowGuide } from "@/components/workflow-guide";
+import { Button } from "@/components/ui/button";
+import { publicAppOrigin } from "@/lib/integrations/public-app-origin";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { applyActiveConsentFilter } from "@/lib/email/consent";
+import { markdownToPlainText } from "@/lib/email/from-newsletter";
 import { listSegments } from "@/lib/audience/segments";
 import { listCampaignRollups } from "@/lib/audience/campaigns";
-import { Button } from "@/components/ui/button";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { todayDateline } from "@/lib/format";
@@ -14,20 +22,28 @@ import { getResendConfig } from "@/lib/integrations/resend";
 import { getUserRole } from "@/lib/audience/access";
 import { ResendSettings } from "@/components/content/resend-settings";
 import { EmailDeliveryActions } from "@/components/content/email-delivery-actions";
+import Link from "next/link";
+import { isReviewerRole } from "@/lib/audience/access";
 import { EmailCreateForm } from "@/components/email/email-create-form";
 import { EmailTransitionButton } from "@/components/email/email-transition-button";
-import { describeDeliveryProblem, readDeliveryProblem } from "@/lib/email/workflow";
+import { describeDeliveryProblem, readDeliveryProblem, resumeStatus } from "@/lib/email/workflow";
+import { SensitiveSignoffNote } from "@/components/email/email-signoff";
+import { EmailSignoffControls } from "@/components/email/email-signoff-controls";
+import { awaitingSeniorSignoff, DEFAULT_SENSITIVITY_SETTINGS, flagRefusal, seniorApprovalRefusal, submitterOf, type SignoffCampaign } from "@/lib/email/sensitivity";
+import { getWorkspaceSettings } from "@/lib/settings/workspace";
 
 export const metadata: Metadata = { title: "Email Marketing" };
-type EmailRow = { id:string; name:string; subject:string; preview_text:string; body:string; status:string; audience_segment_id:string|null; campaign_id:string|null; created_at:string; metadata:Record<string, unknown>|null };
+type EmailRow = SignoffCampaign & { id:string; name:string; subject:string; preview_text:string; body:string; audience_segment_id:string|null; campaign_id:string|null; created_at:string; metadata:Record<string,unknown>|null };
 
-export default async function EmailPage({ searchParams }: { searchParams: Promise<{ campaign?: string }> }) {
+export default async function EmailPage({ searchParams }: { searchParams: Promise<{ campaign?: string; review?: string }> }) {
   const search = await searchParams;
   const campaignFilter = z.string().uuid().safeParse(search.campaign).success ? search.campaign : undefined;
+  const reviewFilter = z.string().uuid().safeParse(search.review).success ? search.review : undefined;
   const organizationId = await getCallerOrganizationId();
   const supabase = await createClient();
   const campaignQuery = organizationId ? supabase.from("email_campaigns").select("*").eq("organization_id", organizationId).is("metadata->>nurture", null).order("created_at", { ascending: false }).limit(100) : null;
   if (campaignQuery && campaignFilter) campaignQuery.eq("campaign_id", campaignFilter);
+  if (campaignQuery && reviewFilter) campaignQuery.eq("id", reviewFilter);
   const [segments, campaignRollups, emailResult] = organizationId ? await Promise.all([
     listSegments(organizationId),
     listCampaignRollups(organizationId),
@@ -45,9 +61,12 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
   const eligible = (id: string | null) => id ? countBySegment.get(id) ?? 0 : leadCount.count ?? 0;
   const campaignNames = new Map(campaignRollups.map((campaign) => [campaign.id, campaign.name]));
   const segmentNames = new Map(segments.map((segment) => [segment.id, segment.name]));
-  const [resend, role] = organizationId ? await Promise.all([getResendConfig(organizationId), getUserRole(organizationId)]) : [null, null];
-  const webhookUrl = process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/api/webhooks/resend` : "";
+  const [resend, role, settings] = organizationId ? await Promise.all([getResendConfig(organizationId), getUserRole(organizationId), getWorkspaceSettings(organizationId).catch(() => DEFAULT_SENSITIVITY_SETTINGS)]) : [null, null, DEFAULT_SENSITIVITY_SETTINGS];
+  const appOrigin = publicAppOrigin(process.env.NEXT_PUBLIC_SITE_URL);
+  const webhookUrl = appOrigin ? `${appOrigin}/api/webhooks/resend` : "";
   const canManageProvider = Boolean(role && ["owner", "admin", "marketing_manager"].includes(role));
+  const { data: { user } } = await supabase.auth.getUser();
+  const actor = { id: user?.id ?? null, role };
   const deliveryResult = organizationId && emails.length ? await supabase.from("email_campaign_deliveries").select("campaign_id,status,opened_count,clicked_count").eq("organization_id", organizationId).in("campaign_id", emails.map((email) => email.id)).limit(20000) : { data: [] };
   const deliveryStats = new Map<string, { queued:number; sent:number; delivered:number; opened:number; clicked:number; bounced:number; complained:number; failed:number }>();
   for (const delivery of deliveryResult.data ?? []) {
@@ -63,14 +82,40 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
     deliveryStats.set(delivery.campaign_id, stats);
   }
 
-  return <div className="workspace-page flex flex-col gap-5 md:gap-7">
-    <header><p className="dateline">{todayDateline()} · audience-led delivery</p><h1>Email Marketing</h1><p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">Write campaign emails for a defined audience. Only opted-in, unsuppressed contacts are eligible; each send checks consent again before delivery.{campaignFilter ? " Showing this campaign’s email drafts." : ""}</p></header>
-<details className="slip p-5" open={!resend || !resend.webhookSecret}><summary>Sender settings · {resend && resend.webhookSecret ? "connected" : "setup required"}</summary><ResendSettings connected={Boolean(resend)} fromEmail={resend?.fromEmail ?? ""} fromName={resend?.fromName ?? "Renaissance Innovation Labs"} replyTo={resend?.replyTo ?? ""} hasWebhook={Boolean(resend?.webhookSecret)} webhookUrl={webhookUrl} canManage={canManageProvider} /></details>
-    <details className="slip p-5 sm:p-6" open={emails.length === 0}><summary>Create an email draft</summary><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create an email draft</h2><p className="mt-1 text-sm text-muted-foreground">Drafts need a second reviewer before they can be marked approved.</p></div>
-      <EmailCreateForm campaignFilter={campaignFilter ?? ""} campaigns={campaignRollups.map((campaign) => ({ id: campaign.id, name: campaign.name }))} segments={segments.map((segment) => ({ id: segment.id, name: segment.name, count: countBySegment.get(segment.id) ?? 0 }))} allContactsCount={leadCount.count ?? 0} senderReady={Boolean(resend?.webhookSecret)} />
-    </div></details>
-    <section className="flex flex-col gap-3"><div><p className="dateline">Workflow · {emails.length} drafts</p><h2 className="mt-1 text-lg font-bold">Email campaigns</h2></div>
-      {emails.length === 0 ? <EmptyState title="No email drafts yet" description="Create an audience-specific email above." /> : <ul className="flex flex-col gap-3">{emails.map((email) => { const stats = deliveryStats.get(email.id); const problem = email.status === "paused" ? readDeliveryProblem(email.metadata) : null; return <li key={email.id} className="slip flex flex-col gap-3 p-5"><div className="flex flex-wrap items-center gap-2"><StatusStamp status={email.status} /><span className="dateline">{eligible(email.audience_segment_id)} opted-in recipients</span><span className="ml-auto text-[13px] leading-5 text-muted-foreground">{email.campaign_id ? campaignNames.get(email.campaign_id) ?? "Campaign" : "Unlinked campaign"}</span></div><div><h3 className="font-bold"><Link href={`/email/${email.id}`} className="underline-offset-2 hover:underline">{email.name}</Link></h3>{typeof email.metadata?.source_content_asset_id === "string" ? <p className="dateline">From newsletter · <Link href={`/library/${email.metadata.source_content_asset_id}`} className="text-primary underline underline-offset-2">open source newsletter</Link></p> : null}<p className="mt-0.5 text-sm text-foreground">{email.subject}</p>{email.preview_text ? <p className="text-[13px] leading-5 text-muted-foreground">{email.preview_text}</p> : null}<p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{email.body}</p><p className="mt-2 dateline">Audience · {email.audience_segment_id ? segmentNames.get(email.audience_segment_id) ?? "Segment" : "All opted-in contacts"}</p></div>{problem ? <p role="alert" className="text-sm leading-5 text-destructive">{describeDeliveryProblem(problem)}</p> : null}{stats ? <p className="dateline">Delivery · {stats.queued} queued · {stats.sent} sent · {stats.delivered} delivered · {stats.opened} opens · {stats.clicked} clicks · {stats.bounced} bounced · {stats.complained} complaints · {stats.failed} failed</p> : null}<div className="flex flex-wrap gap-2 border-t border-border/80 pt-3">{email.status === "draft" ? <><Button asChild size="sm" variant="outline"><Link href={`/email/${email.id}`}>Edit draft</Link></Button><EmailTransitionButton emailId={email.id} to="review" label="Submit for review" /></> : null}{email.status === "review" ? <EmailTransitionButton emailId={email.id} to="approved" label="Approve" /> : null}{email.status === "approved" ? <EmailDeliveryActions campaignId={email.id} status={email.status} hasRecipients={eligible(email.audience_segment_id) > 0} /> : null}{email.status === "scheduled" ? <><EmailDeliveryActions campaignId={email.id} status={email.status} hasRecipients={true} /><EmailTransitionButton emailId={email.id} to="paused" label="Pause sending" /></> : null}{email.status === "paused" ? <EmailTransitionButton emailId={email.id} to="scheduled" label="Resume" /> : null}</div></li>})}</ul>}
-    </section>
-  </div>;
+  return <div className="workspace-page workflow-page email-workspace">
+<WorkspacePageHeader title={<>Email Marketing</>} eyebrow={<>{todayDateline()} · audience-led delivery</>} description={<>Write campaign emails for a defined audience. Only opted-in, unsuppressed contacts are eligible; each send checks consent again before delivery.{campaignFilter ? " Showing this campaign’s email drafts." : ""}</>} />
+<div className="operations-workbench glass-operations"><div className="operations-main"><p className="text-sm leading-6 text-muted-foreground">Write a draft → ask another reviewer to approve it → choose when to send. {resend?.webhookSecret ? "Your sender setup is saved." : <a href="#sender-settings" className="font-semibold text-primary underline underline-offset-4">Set up a sender before delivery.</a>}</p>
+<ShadcnCard asChild><Disclosure className="slip p-5 sm:p-6" initiallyOpen={emails.length === 0} title={<>Create an email draft</>}><div><div className="mb-4"><p className="dateline">Compose</p><h2 className="mt-1 text-lg font-bold">Create an email draft</h2><p className="mt-1 text-sm text-muted-foreground">Drafts need a second reviewer before they can be marked approved.</p></div>
+      <EmailCreateForm campaignFilter={campaignFilter ?? ""} campaigns={campaignRollups.map(campaign => ({ id: campaign.id, name: campaign.name }))} segments={segments.map(segment => ({ id: segment.id, name: segment.name, count: countBySegment.get(segment.id) ?? 0 }))} allContactsCount={leadCount.count ?? 0} senderReady={Boolean(resend?.webhookSecret)} />
+    </div></Disclosure></ShadcnCard>
+<section className="flex flex-col gap-3"><div><p className="dateline">Workflow · {emails.length} drafts</p><h2 className="mt-1 text-lg font-bold">Email campaigns</h2></div>
+      {reviewFilter ? <Link href="/email" className="text-sm font-semibold text-primary underline">View all emails</Link> : null}
+      {emails.length === 0 ? <EmptyState title={reviewFilter ? "Email not found" : "No email drafts yet"} description={reviewFilter ? "This email may have been removed or is outside this workspace. Return to all emails to choose another." : "Create an audience-specific email above. You can write a draft before connecting a sender."} action={reviewFilter ? { label: "View all emails", href: "/email" } : undefined} /> : <ul className="flex flex-col gap-3">{emails.map(email => {
+        const stats = deliveryStats.get(email.id);
+        const canApprove = isReviewerRole(role) && Boolean(user?.id && email.created_by !== user.id && submitterOf(email) !== user.id);
+        const awaiting = awaitingSeniorSignoff(email);
+        const problem = email.status === "paused" ? readDeliveryProblem(email.metadata) : null;
+        return <ShadcnCard asChild key={email.id}><li key={email.id} id={`email-${email.id}`} className="slip flex scroll-mt-6 flex-col gap-3 p-5">
+          <div className="flex flex-wrap items-center gap-2"><StatusStamp status={email.status} /><SensitiveSignoffNote campaign={email} approverRoles={settings.sensitiveApproverRoles} /><span className="dateline">{eligible(email.audience_segment_id)} opted-in recipients</span><span className="ml-auto text-[13px] leading-5 text-muted-foreground">{email.campaign_id ? campaignNames.get(email.campaign_id) ?? "Campaign" : "No campaign linked"}</span></div>
+          <div><h3 className="font-bold"><Link href={`/email/${email.id}`} className="underline-offset-2 hover:underline">{email.name}</Link></h3>{typeof email.metadata?.source_content_asset_id === "string" ? <p className="dateline">From newsletter · <Link href={`/library/${email.metadata.source_content_asset_id}`} className="text-primary underline">Open source newsletter</Link></p> : null}<p className="mt-0.5 text-sm text-foreground">Subject: {email.subject}</p>{email.preview_text ? <p className="text-[13px] leading-5 text-muted-foreground">Inbox preview: {email.preview_text}</p> : null}
+            <Disclosure initiallyOpen={email.status === "review" || Boolean(reviewFilter)} className="mt-3 border-y py-3" title={<>Read full email</>}><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{markdownToPlainText(email.body)}</p></Disclosure>
+            <p className="mt-2 dateline">Audience · {email.audience_segment_id ? segmentNames.get(email.audience_segment_id) ?? "Segment" : "All opted-in contacts"}</p>
+          </div>
+          {problem ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm leading-6 text-destructive">{describeDeliveryProblem(problem)}</p></ShadcnAlert> : null}
+          {stats ? <p className="dateline">Delivery · {stats.queued} queued · {stats.sent} sent · {stats.delivered} delivered · {stats.opened} opens · {stats.clicked} clicks · {stats.bounced} bounced · {stats.complained} complaints · {stats.failed} failed</p> : null}
+          {email.status === "review" ? <p className="text-sm text-muted-foreground">{canApprove ? "Check the full message and audience before approving. Approval does not send this email." : "Waiting for a different eligible reviewer. Authors cannot approve their own email."}</p> : null}
+          {email.status === "approved" && eligible(email.audience_segment_id) === 0 ? <p className="text-sm text-muted-foreground">No eligible recipients yet. <Link href="/leads" className="text-primary underline">Check your contacts and their consent</Link> before sending.</p> : null}
+          <div className="flex flex-wrap gap-2 border-t border-border/80 pt-3">
+            {email.status === "draft" ? <><Button asChild size="sm" variant="outline"><Link href={`/email/${email.id}`}>Edit draft</Link></Button><EmailTransitionButton emailId={email.id} to="review" label="Submit for review" /></> : null}
+            {email.status === "review" && canApprove ? <EmailTransitionButton emailId={email.id} to="approved" label="Approve email" /> : null}
+            {email.status === "approved" && !awaiting ? <EmailDeliveryActions campaignId={email.id} status={email.status} hasRecipients={eligible(email.audience_segment_id) > 0} /> : null}
+            {email.status === "scheduled" ? <><EmailDeliveryActions campaignId={email.id} status={email.status} hasRecipients={true} /><EmailTransitionButton emailId={email.id} to="paused" label="Pause sending" /></> : null}
+            {email.status === "paused" && !(awaiting && resumeStatus(email) === "scheduled") ? <EmailTransitionButton emailId={email.id} to="scheduled" label="Resume delivery" /> : null}
+            <EmailSignoffControls emailId={email.id} isSensitive={email.is_sensitive} canFlag={!flagRefusal(email, actor, settings)} canApprove={!seniorApprovalRefusal(email, actor, settings)} />
+          </div>
+        </li></ShadcnCard>;
+      })}</ul>}
+    </section></div><aside className="operations-reference" aria-label="Email setup and workflow"><Disclosure className="workflow-reference" title={<>Publishing guide</>}><WorkflowGuide label="Email workflow" steps={[{ title: "Draft", description: "Choose the message and audience." }, { title: "Review", description: "A different reviewer approves." }, { title: "Queue", description: "Consent is checked before delivery." }, { title: "Send", description: "Confirm the batch and track results." }]} /></Disclosure>
+<ShadcnCard asChild><Disclosure id="sender-settings" className="slip scroll-mt-6 p-5" title={<>Sender settings · {resend && resend.webhookSecret ? "connection saved" : "setup required before sending"}</>}><ResendSettings connected={Boolean(resend)} fromEmail={resend?.fromEmail ?? ""} fromName={resend?.fromName ?? "Renaissance Innovation Labs"} replyTo={resend?.replyTo ?? ""} hasWebhook={Boolean(resend?.webhookSecret)} webhookUrl={webhookUrl} canManage={canManageProvider} /></Disclosure></ShadcnCard></aside></div>
+</div>;
 }

@@ -1,4 +1,8 @@
 "use client";
+import { FieldGroup as ShadcnFieldGroup, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { Input as ShadcnInput } from "@/components/ui/input";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +38,7 @@ export function InsightActions({ insightId }: { insightId: string }) {
 
   if (done) {
     return (
-      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+      <p className="text-xs font-semibold text-emerald-700 ">
         Recorded. The queue has been updated.
       </p>
     );
@@ -43,11 +47,11 @@ export function InsightActions({ insightId }: { insightId: string }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <form action={approveAction}>
+        <ShadcnFieldGroup asChild><form action={approveAction}>
           <Button type="submit" size="sm" disabled={busy}>
             {approvePending ? "Approving…" : "Approve"}
           </Button>
-        </form>
+        </form></ShadcnFieldGroup>
         <Button
           type="button"
           size="sm"
@@ -60,27 +64,27 @@ export function InsightActions({ insightId }: { insightId: string }) {
         </Button>
       </div>
       {showSuppress ? (
-        <form action={suppressAction} className="flex flex-col gap-2">
-          <label className="text-xs font-medium text-muted-foreground">
+        <ShadcnFieldGroup asChild><form action={suppressAction} className="flex flex-col gap-2">
+          <ShadcnField asChild><ShadcnFieldLabel className="text-xs font-medium text-muted-foreground">
             Suppression reason (required)
-            <input
+            <ShadcnInput
               name="reason"
               required
               minLength={3}
               maxLength={1000}
               placeholder="Why should this never be recommended?"
-              className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-1 w-full"
             />
-          </label>
+          </ShadcnFieldLabel></ShadcnField>
           <Button type="submit" size="sm" variant="destructive" disabled={busy}>
             {suppressPending ? "Suppressing…" : "Suppress insight"}
           </Button>
-        </form>
+        </form></ShadcnFieldGroup>
       ) : null}
       {error ? (
-        <p role="alert" className="text-xs text-destructive">
+        <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-xs text-destructive">
           {error}
-        </p>
+        </p></ShadcnAlert>
       ) : null}
     </div>
   );

@@ -1,8 +1,18 @@
+
+import { Disclosure } from "@/components/ui/disclosure";
+
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
+import { AssetWorkflow } from "@/components/content/asset-workflow";
+import { ChannelIdentity } from "@/components/channel-identity";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft, Copy, } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getConnectedChannelOptions } from "@/lib/content/connected-channels";
 import { notFound } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { getAsset, listAssetApprovals, listAssetPublications } from "@/lib/content/assets";
+import { needsSecondApproval, type ContentSignoff, type ContentReviewer } from "@/lib/content/workflow";
 import { AssetTransition } from "@/components/content/asset-transition";
 import { StatusStamp } from "@/components/ui/status-stamp";
 import { formatDay, formatDayTime } from "@/lib/format";
@@ -11,12 +21,30 @@ import { WordPressPublishAction } from "@/components/content/wordpress-publish-a
 import { StrapiPublishAction } from "@/components/content/strapi-publish-action";
 import { PublishHistory } from "@/components/content/publish-history";
 import { createClient } from "@/lib/supabase/server";
+import { ManualPostAction } from "@/components/content/manual-post-action";
+import { isSocialAsset, parseLivePostUrl } from "@/lib/content/manual-posting";
+import { SocialPublishAction } from "@/components/content/social-publish-action";
+import { PublicationStatus } from "@/components/content/publication-status";
+import { getBufferStatus } from "@/lib/integrations/buffer";
+import { getWordPressConfig } from "@/lib/integrations/wordpress";
+import { ContentDetails } from "@/components/content/content-details";
+import { GeneratedDetails } from "@/components/content/generated-details";
+import { RecurringContent } from "@/components/content/recurring-content";
+import { RichText } from "@/components/ui/rich-text";
+import { getUserRole, isReviewerRole } from "@/lib/audience/access";
 import { formatReminderTime, reminderState } from "@/lib/content/reminders";
 import { ReminderFlag } from "@/components/content/reminder-flag";
-import { MarkPosted } from "@/components/content/mark-posted";
+import { LibraryFiles } from "@/components/content/library-files";
+import { signedLibraryFiles } from "@/lib/content/library-attachments";
+import { linkedActivityIds } from "@/lib/content/library-files";
+import { DraftSessionProvider } from "@/components/content/draft-session";
+import { YouTubePublishAction } from "@/components/content/youtube-publish-action";
+import { sourceConnectionStatus } from "@/lib/integrations/source-connections";
+import { socialPost } from "@/lib/content/social-media";
 import { NewsletterEmailButton } from "@/components/email/newsletter-email-button";
 
 export const metadata: Metadata = { title: "Content asset" };
+export const maxDuration = 300;
 
 const statusLabel = (s: string) =>
 	s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -32,16 +60,33 @@ export default async function AssetDetailPage({
 
 	const asset = await getAsset(orgId, id);
 	if (!asset) notFound();
-	const [approvals, publications] = await Promise.all([
-		listAssetApprovals(orgId, id),
-		listAssetPublications(orgId, id),
-	]);
+  const channels = await getConnectedChannelOptions(orgId);
+  const files = await signedLibraryFiles(orgId, id, asset.metadata);
+	const socialAsset = isSocialAsset(asset.channel, asset.platform);
+	const manualPost = asset.metadata?.manual_post as { url?: string; recorded_at?: string } | undefined;
+	const liveUrl = typeof manualPost?.url === "string" ? parseLivePostUrl(manualPost.url) : null;
+	const [approvals, publications] = await Promise.all([listAssetApprovals(orgId, id), listAssetPublications(orgId, id)]);
+	const workflowClient = await createClient();
+  const activityIds = [...new Set([asset.source_activity_id, ...linkedActivityIds(asset.metadata)].filter((value): value is string => Boolean(value)))];
+  const linkedActivities = activityIds.length ? await workflowClient.from("activities").select("id,title").eq("organization_id", orgId).in("id", activityIds) : { data: [] };
+ const [actorRole, { data: { user: actor } }] = await Promise.all([getUserRole(orgId), workflowClient.auth.getUser()]);
+ const canPublish=isReviewerRole(actorRole);
+ const [signoffs, reviewers] = await Promise.all([
+   workflowClient.from("content_signoffs").select("*").eq("organization_id", orgId).eq("content_asset_id", id).eq("approval_revision", asset.approval_revision ?? 1).order("tier"),
+   workflowClient.rpc("content_reviewers", {p_org: orgId}),
+ ]);
+ if (signoffs.error || reviewers.error) throw new Error("Could not load recorded approvals. Refresh before taking action.");
+ const releaseReady = (signoffs.data?.length ?? 0) >= (needsSecondApproval(asset.approval_category ?? "standard", asset.sensitivity) ? 2 : 1);
+  const youtubeEligible = canPublish && releaseReady && asset.status === "approved" && [asset.platform, asset.channel].includes("youtube");
+  const youtube = youtubeEligible ? await sourceConnectionStatus(orgId, "youtube") : null;
+  const imported = asset.metadata?.external_import as { provider?: string; source_url?: string; warning?: string } | undefined;
+  const importUrl = imported?.source_url && /^https:\/\/(www\.)?(notion\.so|youtube\.com)\//.test(imported.source_url) ? imported.source_url : null;
 	const reminder = reminderState(asset);
 	const isCalendarProposal = asset.metadata?.calendar_generator === true;
 	const recommendationReason = typeof asset.metadata?.recommendation_reason === "string" ? asset.metadata.recommendation_reason : null;
 	const suggestedAt = typeof asset.metadata?.suggested_publish_at === "string" ? asset.metadata.suggested_publish_at : null;
 	const seo = asset.metadata?.seo && typeof asset.metadata.seo === "object" ? asset.metadata.seo as { title?: string; description?: string; keywords?: string[]; internalLinks?: string[] } : null;
-	const cmsEligible = asset.status === "approved" && (asset.format === "blog" || asset.channel === "website");
+	const cmsEligible = releaseReady && asset.status === "approved" && (asset.format === "blog" || asset.channel === "website");
 	const [wpResult, strapiResult] = cmsEligible
 		? await createClient().then((client) =>
 				Promise.all([
@@ -50,8 +95,13 @@ export default async function AssetDetailPage({
 				]),
 			)
 		: [{ data: null }, { data: null }];
-	const wordpress = wpResult.data;
+	const wordpress = wpResult.data?.status === "connected" && await getWordPressConfig(orgId) ? wpResult.data : null;
 	const strapi = strapiResult.data;
+	const buffer = releaseReady && socialAsset && asset.status === "approved" ? await getBufferStatus(orgId) : null;
+	const publishingRecord = asset.metadata?.publishing as { provider?: string; state?: string } | undefined;
+	const publishing = publishingRecord?.state === "failed" ? undefined : publishingRecord;
+	const delivery = publishing && asset.status === "scheduled" ? await createClient().then(client => client.from("publications").select("error,external_id").eq("organization_id", orgId).eq("content_asset_id", id).in("status", ["queued", "scheduled", "missed"]).order("created_at", { ascending: false }).limit(1).maybeSingle()) : null;
+	const providerUrl = typeof asset.metadata?.published_url === "string" ? parseLivePostUrl(asset.metadata.published_url) : null;
 
 	const meta: Array<{ label: string; value: string | null }> = [
 		{ label: "Channel", value: asset.channel },
@@ -65,36 +115,36 @@ export default async function AssetDetailPage({
 	].filter((m) => m.value);
 
 	return (
-		<div className="workspace-page flex flex-col gap-4 md:gap-6">
+		<DraftSessionProvider key={asset.id}><div className="workspace-page asset-workspace flex flex-col gap-4 md:gap-6">
 			<header>
 				<Link
 					href="/library"
 					className="group inline-flex min-h-9 items-center gap-1.5 rounded-md text-[13px] font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				>
-					<span aria-hidden="true" className="transition-transform duration-200 group-hover:-translate-x-0.5">←</span> Content library
+                    <ArrowLeft aria-hidden="true" className="size-4" /> Content library
 				</Link>
 				<div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
 					<h1>
 						{asset.title}
 					</h1>
-					<StatusStamp status={asset.status} />
+          <div className="flex flex-wrap items-center gap-3"><StatusStamp status={asset.status} /><Button asChild variant="outline"><a href="#content-files">Files{files.filter(file => !file.removedAt).length ? ` (${files.filter(file => !file.removedAt).length})` : " & attachments"}</a></Button>{asset.body?.trim() || files.some(file => !file.removedAt) ? <Button asChild variant="outline"><Link href={`/repurpose?asset=${asset.id}`}><Copy aria-hidden="true" className="size-4" />Repurpose content</Link></Button> : null}</div>
 				</div>
 			</header>
+            <AssetWorkflow status={asset.status} approvalsReady={releaseReady} />
 
-			<div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
-				<section className="slip flex flex-col lg:col-span-2">
-					<div className="px-5 py-5 sm:px-6">
+			<div className="record-layout grid gap-6 lg:grid-cols-3">
+				<ShadcnCard asChild><section className="slip asset-copy-zone flex flex-col" aria-label="Working copy">
+                    {["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor channels={channels} key={asset.updated_at} asset={asset} /> : null}
+					<Disclosure className="asset-saved-preview" initiallyOpen={!['idea', 'ai_generated', 'editing'].includes(asset.status)} title={<><span>Saved copy</span></>}><div className="px-5 py-5 sm:px-6">
 						{asset.body ? (
-							<p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-								{asset.body}
-							</p>
+							<RichText>{asset.body}</RichText>
 						) : (
 							<p className="text-sm italic text-muted-foreground">
 								This asset is still a brief. Add body copy before review.
 							</p>
 						)}
-					</div>
-					{meta.length ? (
+					</div></Disclosure>
+					<Disclosure className="asset-context-disclosure" title={<>Source, context, and content details</>}><div>{meta.length ? (
 						<div className="ledger flex flex-col border-t border-border/80">
 							{meta.map((m) => (
 								<div
@@ -103,17 +153,18 @@ export default async function AssetDetailPage({
 								>
 									<span className="dateline">{m.label}</span>
 									<span className="text-sm font-semibold tracking-[-0.01em] text-foreground">
-										{m.value}
+										{["Channel", "Platform"].includes(m.label) ? <ChannelIdentity channel={m.value} /> : m.value}
 									</span>
 								</div>
 							))}
 						</div>
 					) : null}
 					{seo && (seo.title || seo.description || seo.keywords?.length || seo.internalLinks?.length) ? <section className="border-t border-border/80 px-5 py-4 sm:px-6"><p className="dateline">SEO preparation</p>{seo.title ? <p className="mt-2 text-[13px] font-bold tracking-[-0.01em]">{seo.title}</p> : null}{seo.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{seo.description}</p> : null}{seo.keywords?.length ? <p className="mt-2 text-[13px] leading-5 text-muted-foreground">Target terms · {seo.keywords.join(", ")}</p> : null}{seo.internalLinks?.length ? <ul className="mt-2 flex flex-col gap-1 text-xs text-primary">{seo.internalLinks.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{url}</a></li>)}</ul> : null}<p className="mt-2 text-[13px] leading-5 text-muted-foreground">Editorial search metadata only. Search performance is not verified until analytics data is connected.</p></section> : null}
-					{["idea", "ai_generated", "editing"].includes(asset.status) ? <DraftEditor asset={asset} /> : null}
-					</section>
+					<GeneratedDetails metadata={asset.metadata} /></div></Disclosure>
+					
+					</section></ShadcnCard>
 
-				<div className="flex flex-col gap-4 lg:gap-6">
+				<div className="asset-review-zone flex flex-col gap-4 lg:gap-6"><header className="asset-review-heading"><h2>Review &amp; distribution</h2><p>Check the saved revision, record approval, then choose where it goes.</p></header>
 					{reminder && asset.scheduled_for ? (
 						<section
 							aria-labelledby="reminder-heading"
@@ -129,36 +180,47 @@ export default async function AssetDetailPage({
 								<ReminderFlag state={reminder} />
 							</div>
 							<p className="text-sm leading-6 text-muted-foreground">
-								{reminder === "overdue"
+								{!releaseReady ? "Check delivery first, then remove this reservation and request recorded approval before publishing again." : reminder === "overdue"
 									? `It was due ${formatReminderTime(asset.scheduled_for)}. Post it now, or move it back to Approved to pick a new time.`
 									: `Due ${formatReminderTime(asset.scheduled_for)}. Once it's live on ${asset.platform || asset.channel || "the channel"}, mark it as posted.`}
 							</p>
-							<MarkPosted assetId={asset.id} />
+							{releaseReady ? <a href="#manual-post-heading" className="text-sm font-semibold text-primary underline underline-offset-4">Record the live post link</a> : null}
 						</section>
 					) : null}
 					{isCalendarProposal ? (
-						<section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
+						<ShadcnCard asChild><section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">
 							<div><p className="dateline">Calendar proposal</p><h2 className="mt-1 text-base font-bold">Recommendation</h2></div>
 							{suggestedAt ? <p className="text-sm"><span className="text-muted-foreground">Suggested timing: </span>{formatDayTime(suggestedAt)}</p> : null}
 							{typeof asset.metadata?.objective === "string" ? <p className="text-sm"><span className="text-muted-foreground">Objective: </span>{asset.metadata.objective}</p> : null}
 							{typeof asset.metadata?.funnel_stage === "string" ? <p className="text-sm"><span className="text-muted-foreground">Funnel stage: </span>{asset.metadata.funnel_stage}</p> : null}
 							{recommendationReason ? <p className="text-sm leading-6 text-muted-foreground">{recommendationReason}</p> : null}
-						</section>
+						</section></ShadcnCard>
 					) : null}
-					<section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
+					<ShadcnCard asChild><section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
 						<div>
 							<p className="dateline">Approval pipeline</p>
-							<h2 className="mt-1 text-base font-bold">Move this asset</h2>
+							<h2 className="mt-1 text-base font-bold">Content status</h2>
 						</div>
-						<AssetTransition assetId={asset.id} status={asset.status} scheduledFor={asset.scheduled_for} />
-					</section>
-					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
-					{cmsEligible ? <section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section> : null}
+						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below, or change the schedule in the calendar.</p> : <AssetTransition key={asset.updated_at} assetId={asset.id} status={asset.status} actorId={actor?.id ?? null} actorRole={actorRole} manualSocialPosting={socialAsset} scheduledFor={asset.scheduled_for} expectedUpdatedAt={asset.updated_at} category={asset.approval_category} sensitivity={asset.sensitivity} signoffs={(signoffs.data ?? []) as ContentSignoff[]} reviewers={(reviewers.data ?? []) as ContentReviewer[]} authorId={asset.created_by} secondReviewerId={asset.second_reviewer_id} />}
+					</section></ShadcnCard>
+					{socialAsset && (releaseReady || ["published", "analysing"].includes(asset.status)) && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
+					{buffer ? <SocialPublishAction assetId={asset.id} connected={buffer.connected} channels={buffer.channels} copy={asset} updatedAt={asset.updated_at} /> : null}
+          {youtube ? <YouTubePublishAction key={asset.updated_at} assetId={asset.id} updatedAt={asset.updated_at} title={socialPost(asset.metadata).videoTitle || asset.title} connected={youtube.connected} accountName={youtube.accountName} files={files.filter(file => !file.removedAt && ["video/mp4", "video/quicktime", "video/webm"].includes(file.mime)).map(file => ({ id: file.id, name: file.name }))} /> : null}
+          {importUrl ? <ShadcnCard asChild><section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Imported source</h2><a href={importUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline">Open original {imported?.provider === "notion" ? "Notion page" : "YouTube video"}</a><p className="text-sm leading-6 text-muted-foreground">This is an editable copy. Changes here do not change the original source.</p>{imported?.warning ? <p className="text-sm leading-6 text-muted-foreground">{imported.warning}</p> : null}</section></ShadcnCard> : null}
+					{socialAsset && asset.format !== "short-form video" ? <ContentDetails key={`media-${asset.updated_at}`} assetId={asset.id} updatedAt={asset.updated_at} metadata={asset.metadata} editable={["idea","ai_generated","editing"].includes(asset.status)} platform={asset.platform || asset.channel} /> : null}
+					{asset.metadata?.clip || asset.format === "short-form video" ? <ContentDetails key={`clip-${asset.updated_at}`} assetId={asset.id} updatedAt={asset.updated_at} metadata={asset.metadata} editable={["idea","ai_generated","editing"].includes(asset.status)} platform={asset.platform || asset.channel} clip /> : null}
+					{canPublish && socialAsset && ["approved","published","analysing"].includes(asset.status) ? <RecurringContent assetId={asset.id} /> : null}
+					{typeof asset.metadata?.repurposing_source_id === "string" ? <ShadcnCard asChild><section className="slip flex flex-col gap-2 p-5 sm:p-6"><h2 className="text-base font-semibold">Source and interpretation</h2><Link className="text-sm text-primary underline" href={`/repurpose/${asset.metadata.repurposing_source_id}`}>Open original source and extraction</Link>{["interpretation_notes","missing_information"].map(key => Array.isArray(asset.metadata[key]) && (asset.metadata[key] as unknown[]).length ? <div key={key}><h3 className="text-sm font-semibold">{key === "interpretation_notes" ? "AI interpretation" : "Missing information"}</h3><ul className="list-disc pl-5 text-sm text-muted-foreground">{(asset.metadata[key] as unknown[]).filter((text):text is string=>typeof text==="string").map((text,index)=><li key={index}>{text}</li>)}</ul></div> : null)}</section></ShadcnCard> : null}
+					{publishing && asset.status === "scheduled" ? <PublicationStatus assetId={asset.id} provider={publishing.provider || "provider"} error={delivery?.data?.error} url={providerUrl} missingReceipt={!delivery?.data?.external_id && publishing.provider !== "youtube"} /> : null}
+					{providerUrl && asset.status === "published" ? <ShadcnCard asChild><section className="slip p-5 sm:p-6"><p className="dateline">{socialAsset ? "Published post" : "Published article"}</p><a href={providerUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary underline underline-offset-2">Open live {socialAsset ? "post" : "article"}</a></section></ShadcnCard> : null}
+					{cmsEligible ? <ShadcnCard asChild><section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{wordpress?.status === "connected" ? <WordPressPublishAction assetId={asset.id} /> : <><p className="dateline">WordPress publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect WordPress in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section></ShadcnCard> : null}
+					{cmsEligible ? <ShadcnCard asChild><section className="slip flex h-fit flex-col gap-3 p-5 sm:p-6">{strapi?.status === "connected" ? <StrapiPublishAction assetId={asset.id} /> : <><p className="dateline">Strapi publishing</p><p className="text-sm leading-5 text-muted-foreground">Connect Strapi in AI Settings to publish this approved article.</p><Link href="/settings/ai" className="text-sm font-medium text-primary underline underline-offset-2">Open AI Settings</Link></>}</section></ShadcnCard> : null}
 					<NewsletterEmailButton asset={asset} />
 
+					<Link href="/calendar" className="text-sm font-semibold text-primary underline underline-offset-4">Open calendar to change or recover a schedule</Link>
 					<PublishHistory publications={publications} assetStatus={asset.status} />
 
-					<section className="slip flex h-fit flex-col p-5 sm:p-6">
+					<ShadcnCard asChild><section className="slip flex h-fit flex-col p-5 sm:p-6">
 						<p className="dateline">History</p>
 						{approvals.length ? (
 							<ol className="ledger mt-2 flex flex-col">
@@ -167,7 +229,7 @@ export default async function AssetDetailPage({
 										<span className="text-sm font-semibold tracking-[-0.01em] text-foreground">
 											{statusLabel(a.from_status)} → {statusLabel(a.to_status)}
 										</span>
-										<span className="dateline">{formatDay(a.created_at)}</span>
+										<span className="dateline">{formatDayTime(a.created_at)}{a.actor_name ? ` · ${a.actor_name}` : ""}{a.actor_role ? ` · ${a.actor_role.replaceAll("_", " ")}` : ""}</span>{a.previous_scheduled_for !== a.scheduled_for && (a.previous_scheduled_for || a.scheduled_for) ? <span className="text-xs text-muted-foreground">{a.previous_scheduled_for ? formatReminderTime(a.previous_scheduled_for) : "Unscheduled"} → {a.scheduled_for ? formatReminderTime(a.scheduled_for) : "Unscheduled"}</span> : null}
 										{a.note ? (
 											<span className="mt-0.5 text-sm text-muted-foreground">
 												{a.note}
@@ -181,9 +243,11 @@ export default async function AssetDetailPage({
 								No transitions recorded yet.
 							</p>
 						)}
-					</section>
+					</section></ShadcnCard>
 				</div>
 			</div>
-		</div>
+			<LibraryFiles organizationId={orgId} assetId={id} files={files} editable={["idea", "ai_generated", "editing"].includes(asset.status)} />
+      {linkedActivities.data?.length ? <ShadcnCard asChild><section className="slip p-5 sm:p-6"><h2 className="text-base font-semibold">Linked activities</h2><ShadcnCardContent asChild className="p-0"><ul className="mt-3 flex flex-col gap-2">{linkedActivities.data.map(activity => <li key={activity.id}><Link href={`/activities/${activity.id}`} className="inline-flex min-h-9 items-center text-sm font-semibold text-primary underline">{activity.title}</Link>{asset.source_activity_id === activity.id ? <span className="ml-2 text-xs text-muted-foreground">Original source</span> : null}</li>)}</ul></ShadcnCardContent></section></ShadcnCard> : null}
+		</div></DraftSessionProvider>
 	);
 }

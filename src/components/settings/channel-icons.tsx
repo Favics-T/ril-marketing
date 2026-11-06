@@ -1,72 +1,27 @@
-import type { ComponentType } from "react";
-import {
-  AtSign,
-  Instagram,
-  Linkedin,
-  Twitter,
-  Youtube,
-} from "lucide-react";
+import { AtSign, Facebook, Instagram, Linkedin, Youtube } from "lucide-react";
 
-/**
- * Social-channel brand marks for the Buffer channel chips. Identification never
- * rests on the glyph alone — the chip text always names the account — so the
- * marks stay small and monochrome (currentColor) like the rest of the app.
- *
- * LinkedIn / Instagram / Twitter / YouTube reuse the installed lucide-react
- * brand icons; TikTok has no lucide equivalent, so it gets a small quaver
- * drawn on the same 24px grid with the same 2px round stroke.
- */
-function TiktokMark({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-      className={className}
-    >
-      <path d="M14.5 3v13" />
-      <path d="M14.5 3c.9 3.4 3.2 5.7 6.5 6.2" />
-      <circle cx="11" cy="17" r="3.2" />
-    </svg>
-  );
+// Brand paths: https://github.com/simple-icons/simple-icons (CC0).
+const paths: Record<string, string> = {
+  mastodon: "M23.268 5.313c-.35-2.578-2.617-4.61-5.304-5.004C17.51.242 15.792 0 11.813 0h-.03c-3.98 0-4.835.242-5.288.309C3.882.692 1.496 2.518.917 5.127.64 6.412.61 7.837.661 9.143c.074 1.874.088 3.745.26 5.611.118 1.24.325 2.47.62 3.68.55 2.237 2.777 4.098 4.96 4.857 2.336.792 4.849.923 7.256.38.265-.061.527-.132.786-.213.585-.184 1.27-.39 1.774-.753a.057.057 0 0 0 .023-.043v-1.809a.052.052 0 0 0-.02-.041.053.053 0 0 0-.046-.01 20.282 20.282 0 0 1-4.709.545c-2.73 0-3.463-1.284-3.674-1.818a5.593 5.593 0 0 1-.319-1.433.053.053 0 0 1 .066-.054c1.517.363 3.072.546 4.632.546.376 0 .75 0 1.125-.01 1.57-.044 3.224-.124 4.768-.422.038-.008.077-.015.11-.024 2.435-.464 4.753-1.92 4.989-5.604.008-.145.03-1.52.03-1.67.002-.512.167-3.63-.024-5.545zm-3.748 9.195h-2.561V8.29c0-1.309-.55-1.976-1.67-1.976-1.23 0-1.846.79-1.846 2.35v3.403h-2.546V8.663c0-1.56-.617-2.35-1.848-2.35-1.112 0-1.668.668-1.67 1.977v6.218H4.822V8.102c0-1.31.337-2.35 1.011-3.12.696-.77 1.608-1.164 2.74-1.164 1.311 0 2.302.5 2.962 1.498l.638 1.06.638-1.06c.66-.999 1.65-1.498 2.96-1.498 1.13 0 2.043.395 2.74 1.164.675.77 1.012 1.81 1.012 3.12z",
+  threads: "M18.263 11.097c-.03-3.486-1.92-5.586-5.111-5.586-2.13 0-3.922.963-4.863 2.499l2.062 1.438c.535-.843 1.272-1.543 2.628-1.543 1.528 0 2.318.85 2.544 2.431a15 15 0 0 0-2.236-.173c-4.125 0-6.068 1.867-6.068 4.336s1.943 3.99 4.804 3.99c3.139 0 5.013-2.115 5.781-4.735.798.361 1.348 1.204 1.348 2.47 0 3.387-3.907 5.232-7.22 5.232-4.885 0-8.077-3.207-8.077-8.424 0-6.392 4.223-10.487 9.9-10.487 3.808 0 5.69 1.671 6.97 3.914l2.108-1.475C21.44 2.078 18.331 0 13.663 0 6.227 0 1.168 5.277 1.168 12.934c0 7 4.953 11.066 10.856 11.066 4.878 0 9.809-2.846 9.809-7.716 0-2.545-1.46-4.231-3.569-5.187m-6.33 4.855c-1.077 0-2.026-.512-2.026-1.453 0-1.483 1.822-1.934 3.606-1.934.678 0 1.34.045 1.927.173-.422 1.927-1.671 3.215-3.508 3.214Z",
+  bluesky: "M5.202 2.857C7.954 4.922 10.913 9.11 12 11.358c1.087-2.247 4.046-6.436 6.798-8.501C20.783 1.366 24 .213 24 3.883c0 .732-.42 6.156-.667 7.037-.856 3.061-3.978 3.842-6.755 3.37 4.854.826 6.089 3.562 3.422 6.299-5.065 5.196-7.28-1.304-7.847-2.97-.104-.305-.152-.448-.153-.327 0-.121-.05.022-.153.327-.568 1.666-2.782 8.166-7.847 2.97-2.667-2.737-1.432-5.473 3.422-6.3-2.777.473-5.899-.308-6.755-3.369C.42 10.04 0 4.615 0 3.883c0-3.67 3.217-2.517 5.202-1.026",
+  tiktok: "M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z",
+  x: "M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z",
+  pinterest: "M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0z",
+};
+const marks = { linkedin: Linkedin, instagram: Instagram, facebook: Facebook, youtube: Youtube };
+
+export function socialChannelKey(value: string) {
+  const key = value.trim().toLowerCase();
+  if (key === "twitter") return "x";
+  return Object.hasOwn(marks, key) || Object.hasOwn(paths, key) ? key : null;
 }
 
-const MARKS: Record<string, ComponentType<{ className?: string }>> = {
-  linkedin: Linkedin,
-  instagram: Instagram,
-  twitter: Twitter,
-  youtube: Youtube,
-  tiktok: TiktokMark,
-};
-
-/** Logo for a Buffer channel, matched on the lowercase service key first. */
-export function ChannelMark({
-  service,
-  descriptor,
-  className,
-}: {
-  service: string;
-  descriptor: string;
-  className?: string;
-}) {
-  const byService = MARKS[service.trim().toLowerCase()];
-  // Both lucide icons and TiktokMark hide themselves from assistive tech;
-  // the chip text always carries the channel identity.
-  if (byService) {
-    const Mark = byService;
-    return <Mark className={className} />;
-  }
-  const text = descriptor.toLowerCase();
-  for (const key of Object.keys(MARKS)) {
-    if (text.includes(key)) {
-      const Mark = MARKS[key];
-      return <Mark className={className} />;
-    }
-  }
-  return <AtSign className={className} />;
+export function ChannelMark({ service, descriptor = "", className }: { service: string; descriptor?: string; className?: string }) {
+  const key = socialChannelKey(service) ?? [...Object.keys(marks), ...Object.keys(paths), "twitter"].find(value => descriptor.toLowerCase().includes(value));
+  const normalized = key === "twitter" ? "x" : key;
+  const Icon = marks[normalized as keyof typeof marks];
+  if (Icon) return <Icon aria-hidden="true" focusable="false" className={className} />;
+  if (normalized && paths[normalized]) return <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className} fill="currentColor"><path d={paths[normalized]} /></svg>;
+  return <AtSign aria-hidden="true" focusable="false" className={className} />;
 }

@@ -1,10 +1,13 @@
 import "server-only";
+import { publicAppOrigin } from "@/lib/integrations/public-app-origin";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendConfig } from "@/lib/integrations/resend";
 import { createUnsubscribeToken } from "@/lib/email/tokens";
 import { hasActiveConsent } from "@/lib/email/consent";
+import { markdownToPlainText } from "@/lib/email/from-newsletter";
 import { ATTEMPTED_DELIVERY_STATUSES, shouldPauseForFailures, type DeliveryProblem } from "@/lib/email/workflow";
+import { awaitingSeniorSignoff } from "@/lib/email/sensitivity";
 
 type Delivery = { id:string; organization_id:string; campaign_id:string; lead_id:string; attempts:number; unsubscribe_token_hash:string };
 type Campaign = { id:string; organization_id:string; status:string; delivery_authorized_at:string|null; subject:string; preview_text:string; body:string; name:string };
@@ -12,19 +15,22 @@ type Lead = { id:string; organization_id:string; email:string|null; name:string|
 
 function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[char] ?? char); }
 function publicOrigin() {
-  const value = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!value) throw new Error("Set NEXT_PUBLIC_SITE_URL before sending email.");
-  const url = new URL(value);
-  if (url.protocol !== "https:" && url.hostname !== "localhost") throw new Error("NEXT_PUBLIC_SITE_URL must use HTTPS.");
-  return url.origin;
+  const origin = publicAppOrigin(process.env.NEXT_PUBLIC_SITE_URL);
+  if (!origin) throw new Error("Set NEXT_PUBLIC_SITE_URL to the public HTTPS application address before sending email.");
+  return origin;
 }
 
 async function sendOne(delivery: Delivery, campaign: Campaign, lead: Lead, unsubscribeTokens: Map<string,string>) {
   const admin = createAdminClient();
-  const { data: currentCampaign, error: campaignError } = await admin.from("email_campaigns").select("status,delivery_authorized_at,metadata").eq("organization_id", delivery.organization_id).eq("id", delivery.campaign_id).maybeSingle<{status:string;delivery_authorized_at:string|null;metadata:Record<string,unknown>}>();
+  const { data: currentCampaign, error: campaignError } = await admin.from("email_campaigns").select("status,delivery_authorized_at,metadata,is_sensitive,sensitive_approved_by").eq("organization_id", delivery.organization_id).eq("id", delivery.campaign_id).maybeSingle<{status:string;delivery_authorized_at:string|null;metadata:Record<string,unknown>;is_sensitive:boolean;sensitive_approved_by:string|null}>();
   if (campaignError) throw new Error(`Could not recheck campaign: ${campaignError.message}`);
   if (currentCampaign?.status === "paused") {
     await admin.from("email_campaign_deliveries").update({ status: "queued", attempts: Math.max(0, delivery.attempts - 1), next_attempt_at: new Date(Date.now() + 30 * 60_000).toISOString(), error: "Campaign paused before send." }).eq("id", delivery.id);
+    return "queued";
+  }
+  // The database refuses to schedule this; hold rather than send if it ever happens.
+  if (currentCampaign && awaitingSeniorSignoff(currentCampaign)) {
+    await admin.from("email_campaign_deliveries").update({ status: "queued", attempts: Math.max(0, delivery.attempts - 1), next_attempt_at: new Date(Date.now() + 30 * 60_000).toISOString(), error: "Sensitive campaign awaiting senior sign-off." }).eq("id", delivery.id);
     return "queued";
   }
   if (currentCampaign?.status !== "scheduled" || !currentCampaign.delivery_authorized_at) {
@@ -73,9 +79,10 @@ async function sendOne(delivery: Delivery, campaign: Campaign, lead: Lead, unsub
     return "failed";
   }
   const unsubscribeUrl = `${publicOrigin()}/api/email/unsubscribe?token=${encodeURIComponent(token)}`;
-  const bodyText = `${campaign.body}\n\n——\nYou are receiving this because you opted in to Renaissance Innovation Labs marketing updates. Unsubscribe: ${unsubscribeUrl}`;
+  const copy = markdownToPlainText(campaign.body);
+  const bodyText = `${copy}\n\n——\nYou are receiving this because you opted in to Renaissance Innovation Labs marketing updates. Unsubscribe: ${unsubscribeUrl}`;
   const preheader = campaign.preview_text ? `<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0">${escapeHtml(campaign.preview_text)}</span>` : "";
-  const html = `${preheader}<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap">${escapeHtml(campaign.body)}</div><hr><p style="font-size:12px;color:#555">You are receiving this because you opted in to Renaissance Innovation Labs marketing updates. <a href="${escapeHtml(unsubscribeUrl)}">Unsubscribe</a>.</p>`;
+  const html = `${preheader}<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap">${escapeHtml(copy)}</div><hr><p style="font-size:12px;color:#555">You are receiving this because you opted in to Renaissance Innovation Labs marketing updates. <a href="${escapeHtml(unsubscribeUrl)}">Unsubscribe</a>.</p>`;
   const senderName = config.fromName.replace(/[\r\n<>]/g, " ").trim().slice(0, 120);
   const payload = {
     from: `${senderName} <${config.fromEmail}>`, to: [lead.email], subject: campaign.subject,
@@ -137,6 +144,7 @@ export async function processEmailDeliveryBatch(options: { limit?: number; organ
   if (error) throw new Error(`Could not read queued email deliveries: ${error.message}`);
   const rows = (raw ?? []) as Delivery[];
   if (!rows.length) return { processed: 0, sent: 0, failed: 0, pending: 0 };
+  publicOrigin();
   const [campaignResult, leadResult] = await Promise.all([
     admin.from("email_campaigns").select("id,organization_id,status,delivery_authorized_at,subject,preview_text,body,name").in("id", [...new Set(rows.map((row) => row.campaign_id))]),
     admin.from("leads").select("id,organization_id,email,name,marketing_consent,email_unsubscribed_at,email_suppressed_at").in("id", [...new Set(rows.map((row) => row.lead_id))]),

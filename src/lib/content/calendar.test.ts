@@ -1,51 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { calendarAt, calendarFlag } from "@/lib/content/calendar";
+import { calendarDays, candidatePublishingTimes, shiftDay } from "./calendar";
 
-const asset = (scheduled_for: string | null, overrides: Partial<Parameters<typeof calendarFlag>[0]> = {}) => ({
-  status: "scheduled",
-  channel: "website",
-  platform: null,
-  format: "blog",
-  scheduled_for,
-  published_at: null,
-  ...overrides,
-});
-
-describe("calendarAt", () => {
-  it("uses the planned time first, then when it went out", () => {
-    expect(calendarAt({ scheduled_for: "2026-10-12T08:00:00Z", published_at: "2026-10-12T09:00:00Z" })).toBe("2026-10-12T08:00:00Z");
-    expect(calendarAt({ scheduled_for: null, published_at: "2026-10-12T09:00:00Z" })).toBe("2026-10-12T09:00:00Z");
-    expect(calendarAt({ scheduled_for: null, published_at: null })).toBeNull();
+describe("calendar ranges and suggested times", () => {
+  it("starts weeks on Monday across year boundaries", () => {
+    expect(calendarDays("2027-01-01", "week")).toEqual(["2026-12-28", "2026-12-29", "2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02", "2027-01-03"]);
+    expect(shiftDay("2028-02-28", 1)).toBe("2028-02-29");
   });
-});
-
-describe("calendarFlag", () => {
-  const now = new Date("2026-10-09T09:00:00Z"); // 10:00 WAT
-
-  it("flags any content type whose time has passed as overdue", () => {
-    expect(calendarFlag(asset("2026-10-09T08:00:00Z"), now)).toBe("overdue");
-    expect(calendarFlag(asset("2026-10-01T08:00:00Z", { channel: "email", format: "newsletter" }), now)).toBe("overdue");
-    expect(calendarFlag(asset("2026-10-01T08:00:00Z", { channel: null, format: null }), now)).toBe("overdue");
+  it("covers all of a month with complete weeks", () => {
+    const days = calendarDays("2026-10-15", "month");
+    expect(days[0]).toBe("2026-09-28"); expect(days.at(-1)).toBe("2026-11-01");
+    expect(calendarDays("2026-10-15", "day")).toEqual(["2026-10-15"]);
   });
-
-  it("flags an approved asset whose date passed without going out", () => {
-    expect(calendarFlag(asset("2026-10-08T08:00:00Z", { status: "approved" }), now)).toBe("overdue");
-  });
-
-  it("keeps the social reminder, including due today", () => {
-    const social = { channel: "linkedin", format: "social post" };
-    expect(calendarFlag(asset("2026-10-09T15:00:00Z", social), now)).toBe("due_today");
-    expect(calendarFlag(asset("2026-10-09T08:00:00Z", social), now)).toBe("overdue");
-  });
-
-  it("only gives due today to social posts", () => {
-    expect(calendarFlag(asset("2026-10-09T15:00:00Z"), now)).toBeNull();
-  });
-
-  it("never flags published, future or undated assets", () => {
-    expect(calendarFlag(asset("2026-10-01T08:00:00Z", { status: "published", published_at: "2026-10-01T08:00:00Z" }), now)).toBeNull();
-    expect(calendarFlag(asset("2026-10-11T09:00:00Z"), now)).toBeNull();
-    expect(calendarFlag(asset(null, { status: "approved" }), now)).toBeNull();
-    expect(calendarFlag(asset("not a date"), now)).toBeNull();
+  it("excludes occupied and past times and uses WAT independently of the server zone", () => {
+    const now = new Date("2026-10-15T08:30:00Z");
+    const slots = candidatePublishingTimes([{ scheduled_for: "2026-10-15T11:00:00Z", published_at: "2026-10-01T13:00:00Z" }], now);
+    expect(slots.every(s => Date.parse(s.at) > now.getTime() + 3600000)).toBe(true);
+    expect(slots.some(s => s.at === "2026-10-15T11:00:00.000Z")).toBe(false);
+    expect(slots[0].at).toBe("2026-10-15T13:00:00.000Z");
   });
 });

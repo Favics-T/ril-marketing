@@ -1,4 +1,6 @@
 "use client";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -13,20 +15,22 @@ const actions: Record<string, Array<{ status: "review" | "draft" | "approved" | 
   paused: [{ status: "draft", label: "Edit this page" }, { status: "published", label: "Publish again" }],
 };
 
-export function LandingPageStatus({ pageId, status }: { pageId: string; status: string }) {
+export function LandingPageStatus({ pageId, status, updatedAt, disabled = false }: { pageId: string; status: string; updatedAt: string; disabled?: boolean }) {
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState("");
   return (
     <div className="flex flex-col gap-2">
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{error}</p></ShadcnAlert> : null}
       <div className="flex flex-wrap gap-2">
-        {(actions[status] ?? []).map((item) => <Button key={item.status} type="button" size="sm" variant={item.status === "published" ? "default" : "outline"} disabled={busy} onClick={() => {
+        {(actions[status] ?? []).map((item) => <Button key={item.status} type="button" size="sm" variant={item.status === "published" ? "default" : "outline"} disabled={busy || disabled} onClick={() => {
           setError("");
           startTransition(async () => {
-            const result = await setLandingPageStatus(pageId, item.status);
-            if (!result.ok) setError(result.error ?? "Could not change page status.");
-            else router.refresh();
+            try {
+              const result = await setLandingPageStatus(pageId, item.status, updatedAt);
+              if (!result.ok) setError(result.error ?? "Could not change page status.");
+              else router.refresh();
+            } catch { setError("The page could not be updated. Check your connection and try again."); }
           });
         }}>{busy ? "Saving…" : item.label}</Button>)}
       </div>

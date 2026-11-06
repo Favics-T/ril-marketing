@@ -1,3 +1,6 @@
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+
+import { Card as ShadcnCard, CardContent as ShadcnCardContent } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
@@ -57,18 +60,8 @@ export default async function TrendsPage({
 
   return (
     <div className="workspace-page flex flex-col gap-4 md:gap-6">
-      <div>
-        <p className="dateline">
-          {todayDateline()} · {trends.length} signals
-        </p>
-        <h1>
-          Trends
-        </h1>
-        <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-          Review sourced industry developments, suggested angles, and risk
-          notes before creating content.
-        </p>
-      </div>
+      <WorkspacePageHeader title={<>Trends</>} eyebrow={<>{todayDateline()} · {trends.length} signals</>} description={<>Review sourced industry developments, suggested angles, and risk
+          notes before creating content.</>} />
 
       {canManageMonitoring ? <TrendMonitorControls enabled={monitoringEnabled} lastSyncedAt={lastSyncedAt} /> : null}
       <TrendCreateForm />
@@ -95,9 +88,9 @@ export default async function TrendsPage({
           }
         />
       ) : (
-        <ul className="ledger slip divide-y divide-border/80 overflow-hidden">
+        <ShadcnCard asChild><section className="slip overflow-hidden" aria-label="Sourced trend signals"><div className="workspace-list-heading"><span>Signal, source and editorial angle</span><span>Source date</span></div><ShadcnCardContent asChild className="p-0"><ul className="ledger divide-y divide-border/80">
           {trends.map((t) => (
-            <li key={t.id} className="flex items-start justify-between gap-4 px-5 py-4 sm:px-6">
+            <li key={t.id} className="flex flex-wrap items-start justify-between gap-4 px-5 py-6 sm:flex-nowrap sm:px-6">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusStamp status={t.status} />
@@ -132,13 +125,13 @@ export default async function TrendsPage({
                     Risk note: {t.risk}
                   </p>
                 ) : null}
-                {t.analysis_status === "unanalysed" ? <p className="mt-1 text-[13px] leading-5 font-medium text-amber-700 dark:text-amber-400">AI analysis unavailable · verify claims before use</p> : null}
+                {t.analysis_status === "unanalysed" ? <p className="mt-1 text-[13px] leading-5 font-medium text-amber-700 ">AI analysis unavailable · verify claims before use</p> : null}
                 <TrendWorkflowActions trendId={t.id} status={t.status} segments={segments} />
               </div>
               <div className="shrink-0 text-right"><p className="dateline tabular-nums">{formatDay(t.source_published_at ?? t.created_at)}</p>{t.source_published_at ? <p className="dateline mt-1">Published</p> : null}</div>
             </li>
           ))}
-        </ul>
+        </ul></ShadcnCardContent></section></ShadcnCard>
       )}
     </div>
   );

@@ -1,0 +1,29 @@
+{
+    "assets":  [
+                   {
+                       "file":  "images/ril-hero.png",
+                       "source":  "User-supplied linked Renaissance Marketing project: public/assets/images/ril-hero.png",
+                       "author":  "Renaissance Innovation Labs brand asset; original creator not specified",
+                       "license":  "Not specified in supplied project; retained for this project"
+                   },
+                   {
+                       "file":  "../logo/blackLogo.svg",
+                       "source":  "User-supplied linked Renaissance Marketing project: public/logo/blackLogo.svg",
+                       "author":  "Renaissance Innovation Labs",
+                       "license":  "Brand mark; no independent reuse license supplied"
+                   },
+                   {
+                       "file":  "../logo/whiteLogo.svg",
+                       "source":  "User-supplied linked Renaissance Marketing project: public/logo/whiteLogo.svg",
+                       "author":  "Renaissance Innovation Labs",
+                       "license":  "Brand mark; no independent reuse license supplied"
+                   },
+                   {
+                       "file":  "../../src/components/brand-motif.tsx",
+                       "source":  "User-supplied RIL Press Kit, pages 26–27. SHA256 ee3e0bfe8d41e0ed99b10fd9684f64250af0779e41ed45f71c887bf70dce1729",
+                       "author":  "Renaissance Innovation Labs; geometric motifs redrawn in SVG for this application",
+                       "license":  "Supplied brand reference; no independent reuse licence specified"
+                   }
+               ],
+    "note":  "Existing user assets reused locally. Motifs are code-drawn interpretations of the supplied kit. No stock photographs or generated images were added."
+}

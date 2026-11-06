@@ -1,4 +1,6 @@
 "use client";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -19,7 +21,7 @@ export function BrandKnowledgeToggle({ id, active }: { id: string; active: boole
           else router.refresh();
         });
       }}>{busy ? "Saving…" : active ? "Pause" : "Activate"}</Button>
-      {error ? <p role="alert" className="max-w-32 text-right text-xs text-destructive">{error}</p> : null}
+      {error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="max-w-32 text-right text-xs text-destructive">{error}</p></ShadcnAlert> : null}
     </div>
   );
 }

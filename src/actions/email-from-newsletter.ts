@@ -93,8 +93,8 @@ export async function updateEmailDraft(emailId: string, _previous: EmailDraftAct
     });
     if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the email details." };
     const supabase = await createClient();
-    const { data: email } = await supabase.from("email_campaigns").select("id,status")
-      .eq("organization_id", organizationId).eq("id", emailId).maybeSingle<{ id: string; status: string }>();
+    const { data: email } = await supabase.from("email_campaigns").select("id,status,sensitive_approved_by")
+      .eq("organization_id", organizationId).eq("id", emailId).maybeSingle<{ id: string; status: string; sensitive_approved_by?: string | null }>();
     if (!email) return { ok: false, error: "Email campaign not found." };
     if (email.status !== "draft") return { ok: false, error: "Only a draft email can be edited." };
     if (parsed.data.audience_segment_id) {
@@ -107,11 +107,16 @@ export async function updateEmailDraft(emailId: string, _previous: EmailDraftAct
       preview_text: parsed.data.preview_text,
       body: parsed.data.body,
       audience_segment_id: parsed.data.audience_segment_id || null,
-    }).eq("organization_id", organizationId).eq("id", emailId).eq("status", "draft").select("id").maybeSingle();
+    }).eq("organization_id", organizationId).eq("id", emailId).eq("status", "draft").select("id,sensitive_approved_by").maybeSingle<{ id: string; sensitive_approved_by?: string | null }>();
     if (error) return { ok: false, error: error.message };
     if (!updated) return { ok: false, error: "This email left draft while you were editing. Reload to see its status." };
     revalidatePath("/email");
     revalidatePath(`/email/${emailId}`);
+    // The database clears a senior sign-off when the copy or audience changes.
+    if (email.sensitive_approved_by && !updated.sensitive_approved_by) {
+      revalidatePath("/approvals");
+      return { ok: true, message: "Draft saved. The copy or audience changed, so its senior sign-off was cleared and must be given again before sending." };
+    }
     return { ok: true, message: "Draft saved." };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not save the email draft." };

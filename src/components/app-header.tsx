@@ -1,49 +1,28 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
-import { Separator } from "@/components/ui/separator";
 import { AppBreadcrumbs } from "@/components/app-breadcrumbs";
 import { CustomSidebarTrigger } from "@/components/custom-sidebar-trigger";
-import { navGroups, navLinks } from "@/components/app-shared";
+import { navLinks } from "@/components/app-shared";
 import { NavUser } from "@/components/nav-user";
 import { WorkspaceSearch } from "@/components/workspace-search";
+import { WorkflowHelp } from "@/components/workflow-help";
+import { Separator } from "@/components/ui/separator";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export function AppHeader({ userEmail }: { userEmail?: string }) {
-	const pathname = usePathname();
-	const activeItem = navLinks.find((item) => {
-		if (!item.path || item.path.startsWith("#")) return false;
-		if (item.path === "/dashboard") return pathname === "/dashboard";
-		return pathname === item.path || pathname.startsWith(`${item.path}/`);
-	});
-	const activeSection = navGroups.find((group) => group.items.some((item) => {
-		if (!item.path) return false;
-		return item.path === "/dashboard"
-			? pathname === item.path
-			: pathname === item.path || pathname.startsWith(`${item.path}/`);
-	}))?.label ?? "Workspace";
-
-	return (
-		<header
-			className={cn(
-				"workspace-topbar sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4 md:px-8"
-			)}
-		>
-			<div className="flex items-center gap-3">
-				<CustomSidebarTrigger />
-				<Separator
-					className="mr-2 h-4 data-[orientation=vertical]:self-center"
-					orientation="vertical"
-				/>
-				<div className="flex flex-col justify-center gap-0.5">
-					<span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:block">{activeSection}</span>
-					<AppBreadcrumbs page={activeItem} />
-				</div>
-			</div>
-			<div className="flex items-center gap-3">
-				<WorkspaceSearch />
-				<NavUser email={userEmail} />
-			</div>
-		</header>
-	);
+  const pathname = usePathname();
+  const { isMobile } = useSidebar();
+  const activeItem = navLinks.find(item => {
+    if (!item.path || item.path.startsWith("#")) return false;
+    return item.path === "/dashboard" ? pathname === item.path : pathname === item.path || pathname.startsWith(item.path + "/");
+  });
+  return <header className="workspace-topbar sticky top-0 z-30 shrink-0">
+    <div className="workspace-location">{isMobile ? <CustomSidebarTrigger /> : null}<AppBreadcrumbs page={activeItem ? { title: activeItem.title } : null} /></div>
+    <div className="workspace-header-actions">
+      <div className="workspace-topbar-search"><WorkspaceSearch /></div>
+      <Separator orientation="vertical" className="workspace-header-divider" />
+      <div className="workspace-topbar-account"><WorkflowHelp /><NavUser email={userEmail} /></div>
+    </div>
+  </header>;
 }

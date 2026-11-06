@@ -1,3 +1,5 @@
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -10,6 +12,8 @@ import { listActivityAttachments } from "@/lib/content/attachments";
 import { ActivityAttachments } from "@/components/content/activity-attachments";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ActivityLibraryContent } from "@/components/content/activity-library-content";
+import { activityLibraryItems } from "@/lib/content/library-attachments";
 
 export const metadata: Metadata = { title: "Activity" };
 
@@ -25,6 +29,7 @@ export default async function ActivityDetailPage({
 	const activity = await getActivity(orgId, id);
 	if (!activity) notFound();
 	const attachments = await listActivityAttachments(orgId, id);
+  const library = await activityLibraryItems(orgId, id);
 
 	const campaign = campaignFact(activity.campaign);
 	const facts: Array<{ label: string; value: string; href?: string | null }> = [
@@ -63,12 +68,12 @@ export default async function ActivityDetailPage({
 					</p>
 				) : null}
 				</div>
-				<Button asChild variant="outline" className="min-h-10 rounded-lg px-4 text-[13px] font-semibold"><Link href={`/activities/${activity.id}/edit`}>Edit activity</Link></Button>
+				<Button asChild variant="outline" className="px-4"><Link href={`/activities/${activity.id}/edit`}>Edit activity</Link></Button>
 				</div>
 			</header>
 
-			<div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
-				<section className="slip flex flex-col gap-0 lg:col-span-2">
+			<div className="record-layout grid gap-6 lg:grid-cols-3">
+				<ShadcnCard asChild><section className="slip flex flex-col gap-0 lg:col-span-2">
 					<div className="ledger flex flex-col">
 						{facts.map((f) => (
 							<div
@@ -112,9 +117,9 @@ export default async function ActivityDetailPage({
 							</p>
 						</div>
 					) : null}
-				</section>
+				</section></ShadcnCard>
 
-				<section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
+				<ShadcnCard asChild><section className="slip flex h-fit flex-col gap-4 p-5 sm:p-6">
 					<div>
 						<p className="dateline">Repurpose</p>
 						<h2 className="mt-1 text-base font-bold">One activity, many drafts</h2>
@@ -123,9 +128,10 @@ export default async function ActivityDetailPage({
 						</p>
 					</div>
 					<GenerateFromActivity activityId={activity.id} />
-				</section>
+				</section></ShadcnCard>
 			</div>
 			<ActivityAttachments organizationId={orgId} activityId={activity.id} attachments={attachments} />
+      <ActivityLibraryContent activityId={activity.id} linked={library.linked} recent={library.recent} />
 		</div>
 	);
 }

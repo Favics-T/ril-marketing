@@ -1,4 +1,7 @@
 "use client";
+import { FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -34,8 +37,8 @@ export function TrendWorkflowActions({ trendId, status, segments }: { trendId: s
     {status === "new" || status === "dismissed" ? <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => updateStatus("approved")}>{status === "new" ? "Approve opportunity" : "Reconsider"}</Button> : null}
     {status !== "dismissed" ? <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => updateStatus("dismissed")}>Dismiss</Button> : null}
     {status === "approved" ? <>
-      {segments.length ? <label className="sr-only" htmlFor={`trend-segment-${trendId}`}>Audience for trend drafts</label> : null}
-      {segments.length ? <select id={`trend-segment-${trendId}`} value={segmentId} onChange={(event) => setSegmentId(event.target.value)} className="h-9 max-w-56 rounded-md border border-border bg-card px-2 text-xs"><option value="">Use suggested audience</option>{segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name}</option>)}</select> : null}
+      {segments.length ? <ShadcnField asChild><ShadcnFieldLabel className="sr-only" htmlFor={`trend-segment-${trendId}`}>Audience for trend drafts</ShadcnFieldLabel></ShadcnField> : null}
+      {segments.length ? <ShadcnNativeSelect id={`trend-segment-${trendId}`} value={segmentId} onChange={(event) => setSegmentId(event.target.value)} className="max-w-56"><ShadcnNativeSelectOption value="">Use suggested audience</ShadcnNativeSelectOption>{segments.map((segment) => <ShadcnNativeSelectOption key={segment.id} value={segment.id}>{segment.name}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect> : null}
       <Button type="button" size="sm" disabled={busy} onClick={generate}>{busy ? "Working…" : "Create content drafts"}</Button>
     </> : null}
     {message ? <p role={error ? "alert" : "status"} className={error ? "basis-full text-xs text-destructive" : "basis-full text-xs text-muted-foreground"}>{message}</p> : null}

@@ -1,8 +1,13 @@
 "use client";
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
 
 import { useActionState } from "react";
 import { analyzeSeoAsset, applySeoMetadata } from "@/actions/seo";
 import { Button } from "@/components/ui/button";
+import { Check, Circle } from "lucide-react";
 
 type SeoAudit = {
   searchIntent: "informational" | "commercial" | "transactional" | "navigational";
@@ -44,7 +49,7 @@ export function SeoAssetWorkflow({ asset }: {
   const readinessState = readiness({ title: asset.title, body: asset.body, seo: audit });
   const canEdit = ["idea", "ai_generated", "editing"].includes(asset.status);
 
-  return <li className="slip overflow-hidden">
+  return <ShadcnCard asChild><li className="slip overflow-hidden">
     <div className="flex flex-col gap-4 p-4 sm:p-5">
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -56,28 +61,28 @@ export function SeoAssetWorkflow({ asset }: {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <form action={analyze}><Button type="submit" size="sm" variant="outline" disabled={analyzing || !canEdit}>{analyzing ? "Analysing…" : audit ? "Refresh suggestions" : "Analyse website draft"}</Button></form>
-        {audit ? <form action={apply}><Button type="submit" size="sm" disabled={applying || !canEdit}>{applying ? "Applying…" : asset.seoAppliedAt ? "Apply refreshed metadata" : "Apply title & description"}</Button></form> : null}
+        <ShadcnFieldGroup asChild><form action={analyze}><Button type="submit" size="sm" variant="outline" disabled={analyzing || !canEdit}>{analyzing ? "Analysing…" : audit ? "Refresh suggestions" : "Analyse website draft"}</Button></form></ShadcnFieldGroup>
+        {audit ? <ShadcnFieldGroup asChild><form action={apply}><Button type="submit" size="sm" disabled={applying || !canEdit}>{applying ? "Applying…" : asset.seoAppliedAt ? "Apply refreshed metadata" : "Apply title & description"}</Button></form></ShadcnFieldGroup> : null}
         {!canEdit ? <span className="self-center text-xs text-muted-foreground">Move this asset to Editing to change its search metadata.</span> : null}
       </div>
 
-      {analysisState?.error ? <p role="alert" className="text-sm text-destructive">{analysisState.error}</p> : null}
-      {analysisState?.message ? <p role="status" className="text-sm text-muted-foreground">{analysisState.message}</p> : null}
-      {applyState?.error ? <p role="alert" className="text-sm text-destructive">{applyState.error}</p> : null}
-      {applyState?.message ? <p role="status" className="text-sm text-muted-foreground">{applyState.message}</p> : null}
+      {analysisState?.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{analysisState.error}</p></ShadcnAlert> : null}
+      {analysisState?.message ? <ShadcnAlert asChild role="status"><p role="status" className="text-sm text-muted-foreground">{analysisState.message}</p></ShadcnAlert> : null}
+      {applyState?.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{applyState.error}</p></ShadcnAlert> : null}
+      {applyState?.message ? <ShadcnAlert asChild role="status"><p role="status" className="text-sm text-muted-foreground">{applyState.message}</p></ShadcnAlert> : null}
 
       {audit ? <div className="grid gap-4 border-t border-border pt-4 lg:grid-cols-2">
-        <section aria-label="Search metadata recommendations" className="space-y-3">
+        <section aria-label="Search metadata recommendations" className="flex flex-col gap-3">
           <div><p className="dateline">Recommended metadata · {audit.searchIntent} intent</p><p className="mt-1 text-sm font-semibold">{audit.seoTitle}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{audit.metaDescription}</p><p className="mt-2 text-xs text-muted-foreground">Focus terms · {audit.focusKeywords.join(" · ")}</p></div>
-          <div><p className="dateline">Suggested article structure</p><ol className="mt-1 list-inside list-decimal space-y-1 text-sm">{audit.headingOutline.map((heading, index) => <li key={`${heading}-${index}`}>{heading}</li>)}</ol></div>
+          <div><p className="dateline">Suggested article structure</p><ol className="mt-1 list-inside list-decimal flex flex-col gap-1 text-sm">{audit.headingOutline.map((heading, index) => <li key={`${heading}-${index}`}>{heading}</li>)}</ol></div>
           <p className="text-xs text-muted-foreground">Plan from {audit.model} · {new Date(audit.generatedAt).toLocaleDateString("en-GB")}. Suggestions need editorial fact-checking before publication.</p>
         </section>
-        <section className="space-y-3">
-          <div><p className="dateline">On-page checks · {readinessState.score}%</p><ul className="mt-1 space-y-1.5 text-xs">{readinessState.checks.map((check) => <li key={check.label} className="flex items-start gap-2"><span aria-hidden="true" className="w-3 shrink-0">{check.complete ? "✓" : "·"}</span><span>{check.label}</span></li>)}</ul></div>
-          <div><p className="dateline">Internal link opportunities</p>{audit.internalLinkSuggestions.length ? <ul className="mt-1 space-y-1 text-sm">{audit.internalLinkSuggestions.map((link) => <li key={link.path}><a href={link.path} className="underline underline-offset-2">{link.label}</a><span className="ml-2 text-xs text-muted-foreground">{link.path}</span></li>)}</ul> : <p className="mt-1 text-xs leading-5 text-muted-foreground">No published internal pages are available as verified link targets yet.</p>}</div>
-          {audit.notes.length ? <ul className="list-inside list-disc space-y-1 text-xs leading-5 text-muted-foreground">{audit.notes.map((note, index) => <li key={index}>{note}</li>)}</ul> : null}
+        <section className="flex flex-col gap-3">
+          <div><p className="dateline">On-page checks · {readinessState.score}%</p><ul className="mt-1 flex flex-col gap-1.5 text-xs">{readinessState.checks.map((check) => <li key={check.label} className="flex items-start gap-2">{check.complete ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <Circle aria-hidden="true" className="size-3.5 shrink-0" />}<span className="sr-only">{check.complete ? "Complete: " : "Incomplete: "}</span><span>{check.label}</span></li>)}</ul></div>
+          <div><p className="dateline">Internal link opportunities</p>{audit.internalLinkSuggestions.length ? <ul className="mt-1 flex flex-col gap-1 text-sm">{audit.internalLinkSuggestions.map((link) => <li key={link.path}><a href={link.path} className="underline underline-offset-2">{link.label}</a><span className="ml-2 text-xs text-muted-foreground">{link.path}</span></li>)}</ul> : <p className="mt-1 text-xs leading-5 text-muted-foreground">No published internal pages are available as verified link targets yet.</p>}</div>
+          {audit.notes.length ? <ul className="list-inside list-disc flex flex-col gap-1 text-xs leading-5 text-muted-foreground">{audit.notes.map((note, index) => <li key={index}>{note}</li>)}</ul> : null}
         </section>
       </div> : <p className="border-t border-border pt-3 text-sm text-muted-foreground">Analyse this blog draft for a search intent, focus terms, title, description, heading plan and verified internal link opportunities.</p>}
     </div>
-  </li>;
+  </li></ShadcnCard>;
 }

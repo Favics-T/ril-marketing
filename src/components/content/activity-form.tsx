@@ -1,5 +1,12 @@
 "use client";
 
+import { Disclosure } from "@/components/ui/disclosure";
+import { FieldGroup as ShadcnFieldGroup } from "@/components/ui/field";
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
+
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -48,9 +55,10 @@ export function ActivityForm({
 	}, [state, router]);
 
 	return (
-		<form action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+		<ShadcnFieldGroup asChild><ShadcnCard asChild><form onReset={event => event.preventDefault()} action={action} className="slip flex flex-col gap-5 p-5 sm:p-6">
+			<p className="text-sm text-muted-foreground">Start with a name and what happened. Only the activity name is required; you can add files after saving.</p>
 			<div className="grid gap-5 sm:grid-cols-2">
-				<div className="space-y-2 sm:col-span-2">
+				<div className="flex flex-col gap-2 sm:col-span-2">
 					<Label htmlFor="title">Activity name</Label>
 					<Input
 						id="title"
@@ -61,12 +69,20 @@ export function ActivityForm({
 						placeholder="e.g. Founder Demo Day — June cohort"
 					/>
 				</div>
-				<div className="space-y-2">
+				<div className="flex flex-col gap-2">
 					<Label htmlFor="event_date">Event date</Label>
 					<Input id="event_date" name="event_date" type="date" defaultValue={activity?.event_date ?? ""} />
 				</div>
-				<div className="space-y-2">
-					<Label htmlFor="registration_url">Registration URL</Label>
+				<div className="flex flex-col gap-2 sm:col-span-2">
+					<Label htmlFor="description">What happened or is planned?</Label>
+					<Textarea id="description" name="description" rows={4} defaultValue={activity?.description ?? ""} placeholder="Describe the activity, key facts and who it is for." />
+				</div>
+			</div>
+			<Disclosure initiallyOpen={Boolean(activity?.registration_url || activity?.audience_segment_id || activity?.campaign_id || activity?.outcomes || activity?.speakers.length || activity?.partners.length)} className="border-t pt-4" title={<>People, campaign &amp; registration (optional)</>}>
+				
+				<div className="mt-4 grid gap-5 sm:grid-cols-2">
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="registration_url">Registration link</Label>
 					<Input
 						id="registration_url"
 						name="registration_url"
@@ -75,48 +91,38 @@ export function ActivityForm({
 						defaultValue={activity?.registration_url ?? ""}
 					/>
 				</div>
-				<div className="space-y-2">
+				<div className="flex flex-col gap-2">
 					<Label htmlFor="audience_segment_id">Audience segment</Label>
-					<select
+					<ShadcnNativeSelect
 						id="audience_segment_id"
 						name="audience_segment_id"
 						defaultValue={activity?.audience_segment_id ?? ""}
 						className={selectClass}
 					>
-						<option value="">Untagged</option>
+						<ShadcnNativeSelectOption value="">Untagged</ShadcnNativeSelectOption>
 						{segments.map((s) => (
-							<option key={s.id} value={s.id}>
+							<ShadcnNativeSelectOption key={s.id} value={s.id}>
 								{s.name}
-							</option>
+							</ShadcnNativeSelectOption>
 						))}
-					</select>
+					</ShadcnNativeSelect>
 				</div>
-				<div className="space-y-2 sm:col-span-2">
+				<div className="flex flex-col gap-2 sm:col-span-2">
 					<Label htmlFor="campaign_id">Campaign</Label>
-					<select id="campaign_id" name="campaign_id" defaultValue={activity?.campaign_id ?? ""} className={selectClass}>
-						<option value="">No campaign</option>
-						{campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
-					</select>
+					<ShadcnNativeSelect id="campaign_id" name="campaign_id" defaultValue={activity?.campaign_id ?? ""} className={selectClass}>
+						<ShadcnNativeSelectOption value="">No campaign</ShadcnNativeSelectOption>
+						{campaigns.map((campaign) => <ShadcnNativeSelectOption key={campaign.id} value={campaign.id}>{campaign.name}</ShadcnNativeSelectOption>)}
+					</ShadcnNativeSelect>
 				</div>
-				<div className="space-y-2 sm:col-span-2">
-					<Label htmlFor="description">Description</Label>
-					<Textarea
-						id="description"
-						name="description"
-						rows={4}
-						defaultValue={activity?.description ?? ""}
-						placeholder="What happened / will happen, key themes, who should care…"
-					/>
-				</div>
-				<div className="space-y-2">
+				<div className="flex flex-col gap-2">
 					<Label htmlFor="speakers">Speakers (one per line)</Label>
 					<Textarea id="speakers" name="speakers" rows={4} defaultValue={activity?.speakers.join("\n") ?? ""} />
 				</div>
-				<div className="space-y-2">
+				<div className="flex flex-col gap-2">
 					<Label htmlFor="partners">Partners (one per line)</Label>
 					<Textarea id="partners" name="partners" rows={4} defaultValue={activity?.partners.join("\n") ?? ""} />
 				</div>
-				<div className="space-y-2 sm:col-span-2">
+				<div className="flex flex-col gap-2 sm:col-span-2">
 					<Label htmlFor="outcomes">Key outcomes</Label>
 					<Textarea
 						id="outcomes"
@@ -127,10 +133,11 @@ export function ActivityForm({
 					/>
 				</div>
 			</div>
+			</Disclosure>
 			{state?.ok === false ? (
-				<p role="alert" className="text-sm text-destructive">
+				<ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">
 					{state.error}
-				</p>
+				</p></ShadcnAlert>
 			) : null}
 			<div className="flex items-center gap-3">
 				<Button type="submit" disabled={pending}>
@@ -140,6 +147,6 @@ export function ActivityForm({
 					<Link href="/activities">Cancel</Link>
 				</Button>
 			</div>
-		</form>
+		</form></ShadcnCard></ShadcnFieldGroup>
 	);
 }

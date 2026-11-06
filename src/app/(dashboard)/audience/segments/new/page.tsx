@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { EditorLayout } from "@/components/editor-layout";
 import { redirect } from "next/navigation";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listPrograms } from "@/lib/audience/segments";
@@ -13,7 +14,7 @@ export default async function NewSegmentPage() {
 	const programs = await listPrograms(orgId);
 
 	return (
-		<div className="workspace-page mx-auto flex w-full max-w-3xl flex-col gap-4 md:gap-6">
+		<div className="workspace-page mx-auto w-full max-w-6xl">
 			<header>
 				<p className="dateline">New segment</p>
 				<h1>
@@ -24,7 +25,7 @@ export default async function NewSegmentPage() {
 					recommendation for this audience.
 				</p>
 			</header>
-			<SegmentForm programs={programs.map((p) => ({ id: p.id, name: p.name }))} />
+			<EditorLayout guidance={["Describe who this audience is and what they need.", "Record motivations, formats and related programs with specific language.", "New audience insights still need human approval before informing content."]}><SegmentForm programs={programs.map((p) => ({ id: p.id, name: p.name }))} /></EditorLayout>
 		</div>
 	);
 }

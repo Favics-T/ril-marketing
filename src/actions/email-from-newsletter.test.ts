@@ -18,13 +18,13 @@ const newsletter = {
   audience_segment_id: SEGMENT, campaign_id: null,
 };
 
-type Options = { asset?: Record<string, unknown> | null; existing?: Array<{ id: string }>; segment?: boolean; email?: { id: string; status: string } | null; updated?: boolean };
+type Options = { asset?: Record<string, unknown> | null; existing?: Array<{ id: string }>; segment?: boolean; email?: { id: string; status: string; sensitive_approved_by?: string | null } | null; updated?: boolean; updatedRow?: Record<string, unknown> };
 function setup(options: Options = {}) {
   const db = databaseMock((q: Query): QueryResult => {
     if (q.table === "content_assets") return { data: options.asset === undefined ? newsletter : options.asset };
     if (q.table === "audience_segments") return { data: options.segment === false ? null : { id: SEGMENT } };
     if (q.table === "email_campaigns" && q.operation === "insert") return { data: { id: EMAIL } };
-    if (q.table === "email_campaigns" && q.operation === "update") return { data: options.updated === false ? null : { id: EMAIL } };
+    if (q.table === "email_campaigns" && q.operation === "update") return { data: options.updated === false ? null : options.updatedRow ?? { id: EMAIL } };
     if (q.table === "email_campaigns" && q.single) return { data: options.email === undefined ? { id: EMAIL, status: "draft" } : options.email };
     if (q.table === "email_campaigns") return { data: options.existing ?? [] };
     return { data: null };
@@ -134,6 +134,17 @@ describe("updateEmailDraft", () => {
     const db = setup({ email: { id: EMAIL, status: "review" } });
     expect(await updateEmailDraft(EMAIL, null, form(valid))).toEqual({ ok: false, error: "Only a draft email can be edited." });
     expect(db.queries.some((q) => q.operation === "update")).toBe(false);
+  });
+
+  it("says so when the database cleared a senior sign-off because the content changed", async () => {
+    const db = setup({ email: { id: EMAIL, status: "draft", sensitive_approved_by: "senior" }, updatedRow: { id: EMAIL, sensitive_approved_by: null } });
+    expect(await updateEmailDraft(EMAIL, null, form(valid))).toEqual({ ok: true, message: "Draft saved. The copy or audience changed, so its senior sign-off was cleared and must be given again before sending." });
+    expect(db.queries.find((q) => q.operation === "update")?.payload).not.toHaveProperty("sensitive_approved_by");
+  });
+
+  it("keeps the plain message when a signed-off draft is saved unchanged", async () => {
+    setup({ email: { id: EMAIL, status: "draft", sensitive_approved_by: "senior" }, updatedRow: { id: EMAIL, sensitive_approved_by: "senior" } });
+    expect(await updateEmailDraft(EMAIL, null, form(valid))).toEqual({ ok: true, message: "Draft saved." });
   });
 
   it("reports an email that left draft during the edit", async () => {

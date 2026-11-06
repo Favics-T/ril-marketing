@@ -1,3 +1,5 @@
+
+import { Card as ShadcnCard } from "@/components/ui/card";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { StatusStamp } from "@/components/ui/status-stamp";
@@ -14,6 +16,7 @@ export function ConnectorCard({
   connected,
   badge,
   children,
+  id,
 }: {
   icon: ReactNode;
   title: string;
@@ -22,17 +25,18 @@ export function ConnectorCard({
   /** Short factual line under the blurb, e.g. the connected account. */
   badge?: string;
   children: ReactNode;
+  id?: string;
 }) {
   return (
-    <section className="slip flex flex-col px-5 py-5 sm:px-6">
-      <div className="flex items-start justify-between gap-4">
+    <ShadcnCard asChild><section id={id} className="slip ril-connector scroll-mt-24 flex flex-col px-5 py-5 sm:px-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3.5">
           <span
             aria-hidden="true"
             className={cn(
               "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border [&_svg]:size-4",
               connected
-                ? "border-emerald-600/20 bg-emerald-600/5 text-emerald-700 dark:text-emerald-400"
+                ? "border-emerald-600/20 bg-emerald-600/5 text-emerald-700 "
                 : "border-border bg-muted/40 text-muted-foreground"
             )}
           >
@@ -47,10 +51,10 @@ export function ConnectorCard({
           </div>
         </div>
         <StatusStamp variant={connected ? "approved" : "cold"}>
-          {connected ? "CONNECTED" : "NOT CONNECTED"}
+          {connected ? "Connection saved" : "Not connected"}
         </StatusStamp>
       </div>
       <div className="mt-4 border-t border-border/80 pt-4">{children}</div>
-    </section>
+    </section></ShadcnCard>
   );
 }

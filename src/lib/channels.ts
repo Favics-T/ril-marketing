@@ -7,6 +7,10 @@ const CHANNEL_LABELS: Record<string, string> = {
   twitter: "X",
   youtube: "YouTube",
   tiktok: "TikTok",
+  threads: "Threads",
+  bluesky: "Bluesky",
+  pinterest: "Pinterest",
+  mastodon: "Mastodon",
   email: "Email",
   website: "Website",
   events: "Events",
@@ -17,5 +21,5 @@ const CHANNEL_LABELS: Record<string, string> = {
 
 export function channelLabel(slug: string | null | undefined): string {
   if (!slug) return "";
-  return CHANNEL_LABELS[slug.toLowerCase()] ?? slug;
+  return CHANNEL_LABELS[slug.trim().toLowerCase()] ?? slug;
 }

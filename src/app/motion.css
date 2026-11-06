@@ -1,0 +1,43 @@
+:root { --motion-quick: 140ms; --motion-standard: 180ms; --motion-ease: cubic-bezier(.23,1,.32,1); }
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="button"] { transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 120ms var(--motion-ease); }
+  :is(input,textarea,select,[data-slot="input-group"]) { transition: border-color 140ms ease, box-shadow 140ms ease; }
+  :is([data-sidebar="menu-button"],.library-status-navigation a,.ril-inline-action) { transition: color 100ms ease, background-color 100ms ease; }
+  .disclosure-summary > svg, [data-slot="disclosure-trigger"] > svg { transition: transform 160ms var(--motion-ease); }
+  [data-motion-surface] { animation-duration: 180ms; animation-timing-function: var(--motion-ease); }
+  [data-motion-surface][data-state="closed"] { animation-duration: 120ms; }
+  :is([data-motion-surface="popover"],[data-motion-surface="menu"]) { transform-origin: var(--radix-popover-content-transform-origin,var(--radix-dropdown-menu-content-transform-origin,top center)); }
+  :is([data-motion-surface="popover"],[data-motion-surface="menu"])[data-state="open"] { animation-name: menu-arrive; }
+  :is([data-motion-surface="popover"],[data-motion-surface="menu"])[data-state="closed"] { animation-name: surface-leave; }
+  [data-motion-surface="backdrop"][data-state="open"] { animation: fade-enter 160ms ease; }
+  [data-motion-surface="backdrop"][data-state="closed"] { animation: fade-enter 120ms ease reverse; }
+  [data-motion-surface="drawer"] { --drawer-x: 0px; --drawer-y: 0px; }
+  [data-motion-side="left"] { --drawer-x: -100%; }
+  [data-motion-side="right"] { --drawer-x: 100%; }
+  [data-motion-side="top"] { --drawer-y: -100%; }
+  [data-motion-side="bottom"] { --drawer-y: 100%; }
+  [data-motion-surface="drawer"][data-state="open"] { animation: drawer-arrive 240ms cubic-bezier(.32,.72,0,1); }
+  [data-motion-surface="drawer"][data-state="closed"] { animation: drawer-arrive 160ms ease reverse; }
+  .dialog-content[data-state="open"] { animation: dialog-enter 180ms var(--motion-ease); }
+  .dialog-content[data-state="closed"] { animation: surface-leave 120ms ease; }
+  [data-slot="select-content"] { transform-origin: var(--radix-select-content-transform-origin); }
+  .ril-reveal[data-shown="true"] { animation: section-arrive 260ms var(--motion-ease); }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  html:not([data-input="keyboard"]) [data-slot="button"]:not(:disabled):not([aria-disabled="true"]):active { transform: scale(.98); }
+}
+html[data-input="keyboard"] :is([data-motion-surface],[data-slot="button"],[data-slot="select-content"],[data-slot="tabs-trigger"],[data-slot="progress-indicator"],.dialog-content,.dialog-overlay,[data-sidebar="sidebar"],.analytics-view) { animation: none !important; transition: none !important; }
+html[data-input="keyboard"] [data-side] > div { transition: none !important; }
+@keyframes surface-leave { to { opacity: 0; transform: scale(.98); } }
+@keyframes menu-arrive { from { opacity: 0; transform: translateY(-3px) scale(.98); } }
+@keyframes drawer-arrive { from { transform: translate(var(--drawer-x),var(--drawer-y)); } to { transform: translate(0,0); } }
+@keyframes section-arrive { from { opacity: .75; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+@media (pointer: coarse) {
+  [data-slot="button"]:not(:where([data-slot="calendar"] *)) { min-height: 44px; min-width: 44px; }
+  :is([data-slot="input"],[data-slot="native-select"],[data-slot="select-trigger"]) { min-height: 44px; font-size: 16px; }
+  [data-slot="input-group"]:not(:has(textarea)) { height: 44px; min-height: 44px; }
+  input[data-slot="input-group-control"] { font-size: 16px; }
+}

@@ -1,5 +1,13 @@
+import { Button } from "@/components/ui/button";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { RecordFilters, RecordPagination } from "@/components/record-navigation";
+
+import { Card as ShadcnCard } from "@/components/ui/card";
+import { WorkspacePageHeader } from "@/components/workspace-page-header";
+import { DirectoryFilters } from "@/components/directory-filters";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { listLeads } from "@/lib/leads/leads";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -49,106 +57,14 @@ export default async function LeadsPage({
     return `/leads${qs ? `?${qs}` : ""}`;
   };
 
-  return (
-    <div className="workspace-page flex flex-col gap-4 md:gap-6">
-      <div>
-        <p className="dateline">
-          {todayDateline()} · {result.total} leads
-        </p>
-        <h1>
-          Leads
-        </h1>
-        <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground">
-          Track every lead through the funnel and see why each score was assigned.
-        </p>
-      </div>
-
-      <nav aria-label="Filter by stage" className="flex flex-wrap">
-        {STAGES.map((s) => (
-          <Link
-            key={s}
-            href={stageHref(s)}
-            aria-current={stage === s ? "page" : undefined}
-            className="capitalize"
-          >
-            {s === "all" ? "All" : s}
-          </Link>
-        ))}
-      </nav>
-
-      {result.leads.length === 0 ? (
-        <EmptyState
-          title="No leads yet"
-          description={
-            stage === "all"
-              ? "Leads land here from landing pages, registration links, email campaigns, and manual entry."
-              : "No leads in this stage right now."
-          }
-        />
-      ) : (
-        <ul className="ledger slip overflow-hidden">
-          {result.leads.map((l) => (
-            <li key={l.id}>
-              <Link
-                href={`/leads/${l.id}`}
-                className="flex items-start justify-between gap-4 rounded-lg px-5 py-4 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
-              >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusStamp variant="scheduled">{l.funnel_stage}</StatusStamp>
-                  {l.is_qualified ? <StatusStamp status="qualified" /> : null}
-                  {l.is_converted ? <StatusStamp status="converted" /> : null}
-                </div>
-                <p className="mt-1.5 truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
-                  {l.name || l.email || "Unnamed lead"}
-                </p>
-                <p className="mt-0.5 truncate text-[13px] leading-5 text-muted-foreground">
-                  {[l.organisation, l.email, l.interest].filter(Boolean).join(" · ") ||
-                    "No details recorded"}
-                </p>
-                {l.score_reason ? (
-                  <p className="mt-0.5 truncate text-[13px] leading-5 text-muted-foreground">
-                    Why: {l.score_reason}
-                  </p>
-                ) : null}
-              </div>
-              <div className="shrink-0 text-right">
-                <span className="dateline block tabular-nums">
-                  {formatDay(l.created_at)}
-                </span>
-                {l.score ? (
-                  <span className="mt-1.5 flex justify-end">
-                    <StatusStamp status={l.score}>{scoreLabel(l.score)}</StatusStamp>
-                  </span>
-                ) : null}
-              </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {totalPages > 1 ? (
-        <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
-          {page > 1 ? (
-            <Link href={pageHref(page - 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              ← Previous
-            </Link>
-          ) : (
-            <span />
-          )}
-          <span className="dateline tabular-nums">
-            Page {page} / {totalPages}
-          </span>
-          {page < totalPages ? (
-            <Link href={pageHref(page + 1)} className="inline-flex min-h-9 items-center rounded-md py-2 font-medium text-primary outline-none hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-              Next →
-            </Link>
-          ) : (
-            <span />
-          )}
-        </nav>
-      ) : null}
+  return <div className="workspace-page lead-directory">
+    <WorkspacePageHeader title="Leads" eyebrow={todayDateline()} description="Understand the interest. Keep the next conversation moving." actions={<Link href="/audience/landing-pages" className="ril-inline-action">Manage lead capture<ArrowRight aria-hidden="true" /></Link>} />
+    <div className="record-directory">
+      <DirectoryFilters title="Filter leads" active={stage !== "all"}><RecordFilters label="Lead funnel stage" value={stage} items={STAGES.map(value => ({value, label: value === "all" ? "All leads" : value, href: stageHref(value)}))} /><p className="text-sm leading-6 text-muted-foreground">Scores explain the signals behind a lead. Marketing consent remains a separate choice.</p></DirectoryFilters>
+      <section className="directory-results" aria-label="Lead records"><div className="directory-result-heading"><p><strong>{result.total.toLocaleString()}</strong> {result.total === 1 ? "lead" : "leads"}{stage === "all" ? " across your workspace" : ` in ${stage}`}</p><span>Most recent first</span></div>
+        {!result.leads.length ? <EmptyState title={stage === "all" ? "Make your first connection" : "No leads in this stage"} description={stage === "all" ? "Create a campaign page and share its public link. People who register their interest will appear here." : "Choose another stage or view all leads to continue."} action={stage === "all" ? { label: "Manage capture pages", href: "/audience/landing-pages" } : { label: "View all leads", href: "/leads" }} /> : <ShadcnCard className="record-table-panel"><Table className="record-table lead-table" aria-label="Lead records"><TableHeader><TableRow><TableHead scope="col">Contact</TableHead><TableHead scope="col">Funnel stage</TableHead><TableHead scope="col">Captured / score</TableHead></TableRow></TableHeader><TableBody>{result.leads.map(lead => <TableRow key={lead.id}><TableCell data-label="Contact"><div className="directory-record-main"><Link href={`/leads/${lead.id}`}><h2>{lead.name || lead.email || "Unnamed lead"}</h2></Link><p className="line-clamp-2">{[lead.organisation, lead.email, lead.interest].filter(Boolean).join(" · ") || "No details recorded"}</p>{lead.score_reason ? <p className="line-clamp-2">Why: {lead.score_reason}</p> : null}</div></TableCell><TableCell data-label="Funnel stage"><div className="directory-record-workflow"><StatusStamp variant="scheduled">{lead.funnel_stage}</StatusStamp>{lead.is_qualified ? <StatusStamp status="qualified" /> : null}{lead.is_converted ? <StatusStamp status="converted" /> : null}</div></TableCell><TableCell data-label="Captured / score"><div className="directory-record-meta"><span>{formatDay(lead.created_at)}</span>{lead.score ? <StatusStamp status={lead.score}>{scoreLabel(lead.score)}</StatusStamp> : null}<Button asChild variant="ghost" size="sm"><Link href={`/leads/${lead.id}`} className="directory-record-secondary">Open lead<ArrowRight data-icon="inline-end" aria-hidden="true" /></Link></Button></div></TableCell></TableRow>)}</TableBody></Table></ShadcnCard>}
+        <RecordPagination page={page} totalPages={totalPages} previousHref={page > 1 ? pageHref(page - 1) : undefined} nextHref={page < totalPages ? pageHref(page + 1) : undefined} />
+      </section>
     </div>
-  );
+  </div>;
 }

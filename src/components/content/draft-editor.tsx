@@ -1,14 +1,25 @@
 "use client";
 
+import { Disclosure } from "@/components/ui/disclosure";
+import { FieldGroup as ShadcnFieldGroup, FieldLabel as ShadcnFieldLabel, Field as ShadcnField } from "@/components/ui/field";
+import { NativeSelect as ShadcnNativeSelect, NativeSelectOption as ShadcnNativeSelectOption } from "@/components/ui/native-select";
+import { Alert as ShadcnAlert } from "@/components/ui/alert";
+
+
+import { ChannelSelect } from "@/components/channel-select";
 import { useActionState, useMemo, useState } from "react";
 import { updateContentDraft, type ActionResult } from "@/actions/content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { CHANNELS, checkChannelLimits, normalizeChannel } from "@/lib/content/channels";
+import { APPROVAL_CATEGORIES } from "@/lib/content/workflow";
+import { checkChannelLimits, normalizeChannel } from "@/lib/content/channels";
+import type { ChannelOption } from "@/lib/content/connected-channels";
+import { channelLabel } from "@/lib/channels";
+import Link from "next/link";
+import { useDraftSession } from "@/components/content/draft-session";
 
 const field = "flex flex-col gap-1.5";
-const label = "dateline";
 
 /** Live character and hashtag count against the channel's hard limits. */
 function LimitMeter({ channel, body, format }: { channel: string; body: string; format: string | null }) {
@@ -16,7 +27,7 @@ function LimitMeter({ channel, body, format }: { channel: string; body: string; 
   if (!check.limit || format === "short-form video") return null;
   const over = check.problems.length > 0;
   const near = !over && check.length >= check.limit * 0.9;
-  const tone = over ? "text-destructive" : near ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground";
+  const tone = over ? "text-destructive" : near ? "text-amber-700 " : "text-muted-foreground";
   return (
     <div aria-live="polite" className={`flex flex-col gap-1 text-xs ${tone}`}>
       <p className="tabular-nums">
@@ -36,10 +47,12 @@ function LimitMeter({ channel, body, format }: { channel: string; body: string; 
 }
 
 export function DraftEditor({
-  asset,
+  asset, channels,
 }: {
-  asset: { id: string; title: string; body: string | null; channel: string | null; format?: string | null; topic: string | null; hook: string | null; cta: string | null; metadata?: Record<string, unknown> | null };
+  channels: ChannelOption[];
+  asset: { approval_category?: string; updated_at?: string; id: string; title: string; body: string | null; channel: string | null; format?: string | null; topic: string | null; hook: string | null; cta: string | null; metadata?: Record<string, unknown> | null };
 }) {
+  const { setDirty } = useDraftSession();
   const [channel, setChannel] = useState<string>(normalizeChannel(asset.channel) ?? "");
   const remappedFrom = asset.channel && normalizeChannel(asset.channel) === "other" && asset.channel.trim().toLowerCase() !== "other" ? asset.channel : null;
   const seo = asset.metadata?.seo && typeof asset.metadata.seo === "object" ? asset.metadata.seo as { title?: string; description?: string; keywords?: string[]; internalLinks?: string[] } : {};
@@ -59,42 +72,41 @@ export function DraftEditor({
     ];
   }, [bodyText, seoDescription, seoKeywords, seoLinks, seoTitle]);
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(
-    async (previous, formData) => updateContentDraft(asset.id, previous, formData),
+    async (previous, formData) => { const result = await updateContentDraft(asset.id, previous, formData); if (result.ok) setDirty(false); return result; },
     null
   );
 
   return (
-    <form action={action} className="flex flex-col gap-3 border-t border-border px-5 py-5 sm:px-6">
-      <div>
-        <p className="dateline">Human review</p>
-        <h2 className="mt-1 text-base font-bold">Edit draft</h2>
-      </div>
-      <label className={field}><span className={label}>Title</span><Input name="title" required maxLength={200} defaultValue={asset.title} /></label>
-      <label className={field}><span className={label}>Copy</span><Textarea name="body" rows={10} maxLength={20000} value={bodyText} onChange={(event) => setBodyText(event.target.value)} /></label>
+    <ShadcnFieldGroup asChild><form id="draft-editor" aria-busy={pending} onChangeCapture={() => setDirty(true)} onReset={event => event.preventDefault()} action={action} className="flex scroll-mt-6 flex-col gap-3 border-t border-border px-5 py-5 sm:px-6">
+      <input type="hidden" name="expected_updated_at" value={asset.updated_at ?? ""} />
+      <div className="draft-editor-heading"><div><h2 className="text-xl font-semibold">Writing</h2><p className="mt-1 text-sm text-muted-foreground">Keep the copy grounded in its source.</p></div><p>{bodyText.trim() ? bodyText.trim().split(/\s+/).length.toLocaleString() : 0} words</p></div>
+
+      <ShadcnField asChild><ShadcnFieldLabel className={field}><span >Title</span><Input name="title" required maxLength={200} defaultValue={asset.title} /></ShadcnFieldLabel></ShadcnField>
+      <ShadcnField asChild><ShadcnFieldLabel className={field}><span >Working copy</span><Textarea name="body" rows={10} maxLength={20000} value={bodyText} onChange={(event) => setBodyText(event.target.value)} /></ShadcnFieldLabel></ShadcnField>
       <LimitMeter channel={channel} body={bodyText} format={asset.format ?? null} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className={field}>
-          <span className={label}>Channel</span>
-          <select name="channel" value={channel} onChange={(event) => setChannel(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-            <option value="">Not set</option>
-            {CHANNELS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
+      <Disclosure className="draft-context-details" title={<>Channel, context &amp; approval requirements</>}><div className="draft-context-fields">      <ShadcnField asChild><ShadcnFieldLabel className={field}><span >Approval category</span><ShadcnNativeSelect name="approval_category" defaultValue={asset.approval_category ?? "standard"} className="">{APPROVAL_CATEGORIES.map(([value, text]) => <ShadcnNativeSelectOption key={value} value={value}>{text}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect><span className="text-xs text-muted-foreground">Sensitive content needs two independent reviewers, including a named owner, admin or leader.</span></ShadcnFieldLabel></ShadcnField>      <div className="grid gap-3 sm:grid-cols-2">
+        <ShadcnField asChild><ShadcnFieldLabel className={field}>
+          <span >Channel</span>
+          <ChannelSelect name="channel" value={channel} onValueChange={setChannel} placeholder="Not set" className="h-10" options={[["", "Not set"], ...channels, ...(channel && !channels.some(([value]) => value === channel) ? [[channel, `${channelLabel(channel)} · not connected`] as const] : [])]} />
+          <span className="text-xs text-muted-foreground">Choose from connected accounts. <Link href="/settings/ai" className="text-primary underline">Manage connections</Link></span>
           {remappedFrom ? <span className="text-xs text-muted-foreground">Previously typed as &ldquo;{remappedFrom}&rdquo;. Pick the matching channel.</span> : null}
-        </label>
-        <label className={field}><span className={label}>Topic</span><Input name="topic" maxLength={200} defaultValue={asset.topic ?? ""} /></label>
-        <label className={field}><span className={label}>Hook</span><Input name="hook" maxLength={500} defaultValue={asset.hook ?? ""} /></label>
-        <label className={field}><span className={label}>Call to action</span><Input name="cta" maxLength={500} defaultValue={asset.cta ?? ""} /></label>
+        </ShadcnFieldLabel></ShadcnField>
+        <ShadcnField asChild><ShadcnFieldLabel className={field}><span >Topic</span><Input name="topic" maxLength={200} defaultValue={asset.topic ?? ""} /></ShadcnFieldLabel></ShadcnField>
+        <ShadcnField asChild><ShadcnFieldLabel className={field}><span >Hook</span><Input name="hook" maxLength={500} defaultValue={asset.hook ?? ""} /></ShadcnFieldLabel></ShadcnField>
+        <ShadcnField asChild><ShadcnFieldLabel className={field}><span >Call to action</span><Input name="cta" maxLength={500} defaultValue={asset.cta ?? ""} /></ShadcnFieldLabel></ShadcnField>
       </div>
-      <fieldset className="flex flex-col gap-3 border-t border-border pt-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2"><div><p className="dateline">Website content</p><legend className="mt-1 text-sm font-semibold">Search metadata &amp; on-page checks</legend></div><span className="dateline">{seoChecks.filter(Boolean).length}/4 checks · editorial aid only</span></div>
-        <label className={field}><span className={label}>SEO title · {seoTitle.length}/60 recommended</span><Input name="seo_title" maxLength={70} value={seoTitle} onChange={(event) => setSeoTitle(event.target.value)} placeholder="Clear page title with the main topic" /></label>
-        <label className={field}><span className={label}>Meta description · {seoDescription.length}/160 recommended</span><Textarea name="seo_description" rows={3} maxLength={320} value={seoDescription} onChange={(event) => setSeoDescription(event.target.value)} placeholder="Summarise the page accurately for search results" /></label>
-        <div className="grid gap-3 sm:grid-cols-2"><label className={field}><span className={label}>Target terms · comma separated</span><Input name="seo_keywords" maxLength={500} value={seoKeywords} onChange={(event) => setSeoKeywords(event.target.value)} placeholder="innovation, founders programme" /></label><label className={field}><span className={label}>Internal link suggestions · one per line</span><Textarea name="seo_internal_links" rows={2} maxLength={1000} value={seoLinks} onChange={(event) => setSeoLinks(event.target.value)} placeholder="Related program or resource URLs" /></label></div>
+</div></Disclosure>
+      <Disclosure className="border-t border-border pt-4" initiallyOpen={channel === "website"} title={<>Search details for website articles{channel === "website" ? ` · ${seoChecks.filter(Boolean).length}/4 editorial checks` : " (optional)"}</>}>
+        
+        <div className="mt-4 flex flex-col gap-3">
+        <ShadcnField asChild><ShadcnFieldLabel className={field}><span >SEO title · {seoTitle.length}/60 recommended</span><Input name="seo_title" maxLength={70} value={seoTitle} onChange={(event) => setSeoTitle(event.target.value)} placeholder="Clear page title with the main topic" /></ShadcnFieldLabel></ShadcnField>
+        <ShadcnField asChild><ShadcnFieldLabel className={field}><span >Meta description · {seoDescription.length}/160 recommended</span><Textarea name="seo_description" rows={3} maxLength={320} value={seoDescription} onChange={(event) => setSeoDescription(event.target.value)} placeholder="Summarise the page accurately for search results" /></ShadcnFieldLabel></ShadcnField>
+        <div className="grid gap-3 sm:grid-cols-2"><ShadcnField asChild><ShadcnFieldLabel className={field}><span >Target terms · comma separated</span><Input name="seo_keywords" maxLength={500} value={seoKeywords} onChange={(event) => setSeoKeywords(event.target.value)} placeholder="innovation, founders programme" /></ShadcnFieldLabel></ShadcnField><ShadcnField asChild><ShadcnFieldLabel className={field}><span >Internal link suggestions · one per line</span><Textarea name="seo_internal_links" rows={2} maxLength={1000} value={seoLinks} onChange={(event) => setSeoLinks(event.target.value)} placeholder="Related program or resource URLs" /></ShadcnFieldLabel></ShadcnField></div>
         <p className="text-xs leading-5 text-muted-foreground">Checks cover recommended title and description lengths, a target term in the title and copy, and at least one internal link suggestion. They do not predict rankings or replace a technical SEO audit.</p>
-      </fieldset>
-      {state?.error ? <p role="alert" className="text-sm text-destructive">{state.error}</p> : null}
-      {state?.ok ? <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">Draft saved.</p> : null}
-      <Button type="submit" size="sm" className="w-fit" disabled={pending}>{pending ? "Saving…" : "Save draft"}</Button>
-    </form>
+      </div></Disclosure>
+      {state?.error ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm text-destructive">{state.error}</p></ShadcnAlert> : null}
+      {state?.ok ? <ShadcnAlert asChild role="status"><p role="status" className="text-sm text-emerald-700 ">Draft saved. When the copy is ready, choose Review in Content status.</p></ShadcnAlert> : null}
+      <div className="draft-save-bar"><p>Save this revision before requesting review.</p><Button type="submit" size="sm" className="w-fit" disabled={pending}>{pending ? "Saving…" : "Save draft"}</Button></div>
+    </form></ShadcnFieldGroup>
   );
 }
