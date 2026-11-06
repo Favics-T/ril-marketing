@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendConfig } from "@/lib/integrations/resend";
 import { createUnsubscribeToken } from "@/lib/email/tokens";
 import { hasActiveConsent } from "@/lib/email/consent";
+import { markdownToPlainText } from "@/lib/email/from-newsletter";
 import { ATTEMPTED_DELIVERY_STATUSES, shouldPauseForFailures, type DeliveryProblem } from "@/lib/email/workflow";
 import { awaitingSeniorSignoff } from "@/lib/email/sensitivity";
 
@@ -78,9 +79,10 @@ async function sendOne(delivery: Delivery, campaign: Campaign, lead: Lead, unsub
     return "failed";
   }
   const unsubscribeUrl = `${publicOrigin()}/api/email/unsubscribe?token=${encodeURIComponent(token)}`;
-  const bodyText = `${campaign.body}\n\n——\nYou are receiving this because you opted in to Renaissance Innovation Labs marketing updates. Unsubscribe: ${unsubscribeUrl}`;
+  const copy = markdownToPlainText(campaign.body);
+  const bodyText = `${copy}\n\n——\nYou are receiving this because you opted in to Renaissance Innovation Labs marketing updates. Unsubscribe: ${unsubscribeUrl}`;
   const preheader = campaign.preview_text ? `<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0">${escapeHtml(campaign.preview_text)}</span>` : "";
-  const html = `${preheader}<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap">${escapeHtml(campaign.body)}</div><hr><p style="font-size:12px;color:#555">You are receiving this because you opted in to Renaissance Innovation Labs marketing updates. <a href="${escapeHtml(unsubscribeUrl)}">Unsubscribe</a>.</p>`;
+  const html = `${preheader}<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap">${escapeHtml(copy)}</div><hr><p style="font-size:12px;color:#555">You are receiving this because you opted in to Renaissance Innovation Labs marketing updates. <a href="${escapeHtml(unsubscribeUrl)}">Unsubscribe</a>.</p>`;
   const senderName = config.fromName.replace(/[\r\n<>]/g, " ").trim().slice(0, 120);
   const payload = {
     from: `${senderName} <${config.fromEmail}>`, to: [lead.email], subject: campaign.subject,

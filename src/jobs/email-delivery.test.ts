@@ -10,12 +10,12 @@ const lead = { id: "lead", organization_id: "org", email: "optin@example.com", n
 const campaign = { id: "campaign", organization_id: "org", status: "scheduled", delivery_authorized_at: "2026-10-01", subject: "Update", preview_text: "", body: "Approved content", name: "Test" };
 const metadata = { nurture: true, nurture_sequence_id: "sequence", nurture_enrollment_id: "enrollment", nurture_step: 1 };
 
-function setup(options: { sequence?: string; enrollment?: string; revoked?: boolean; countError?: boolean; readError?: boolean; nurture?: boolean; sensitive?: { is_sensitive: boolean; sensitive_approved_by: string | null } } = {}) {
+function setup(options: { body?: string; sequence?: string; enrollment?: string; revoked?: boolean; countError?: boolean; readError?: boolean; nurture?: boolean; sensitive?: { is_sensitive: boolean; sensitive_approved_by: string | null } } = {}) {
   const db = databaseMock((q: Query) => {
     if (q.operation !== "select") return { data: q.columns ? { id: "delivery" } : null, error: null };
     if (q.table === "email_campaigns") {
-      if (q.single) return options.readError ? { error: { message: "Database unavailable" } } : { data: { ...campaign, ...options.sensitive, metadata: options.nurture === false ? {} : metadata } };
-      return { data: q.columns === "id" ? [{ id: "campaign" }] : [campaign] };
+      if (q.single) return options.readError ? { error: { message: "Database unavailable" } } : { data: { ...campaign, body: options.body ?? campaign.body, ...options.sensitive, metadata: options.nurture === false ? {} : metadata } };
+      return { data: q.columns === "id" ? [{ id: "campaign" }] : [{ ...campaign, body: options.body ?? campaign.body }] };
     }
     if (q.table === "leads") return { data: q.single ? { ...lead, marketing_consent: !options.revoked } : [lead] };
     if (q.table === "nurture_sequences") return { data: { status: options.sequence ?? "active", created_by: "author", approved_by: "reviewer" } };
@@ -112,6 +112,18 @@ describe("email delivery authorization at send time", () => {
     setup();
     expect((await processEmailDeliveryBatch()).sent).toBe(1);
     expect(fetch).toHaveBeenCalledWith("https://api.resend.com/emails", expect.objectContaining({ headers: expect.objectContaining({ "Idempotency-Key": "ril-delivery-delivery" }), body: expect.stringContaining("/api/email/unsubscribe") }));
+  });
+  it("sends legacy Markdown as readable plain copy and keeps HTML escaped", async () => {
+    setup({ body: '## Update\n\n**Join us** at [RIL](https://example.com).\n\n<script>alert("test")</script>', nurture: false });
+    expect((await processEmailDeliveryBatch()).sent).toBe(1);
+    const [, request] = vi.mocked(fetch).mock.calls[0];
+    const payload = JSON.parse(request?.body as string);
+    expect(payload.text).toContain('Update\n\nJoin us at RIL: https://example.com.');
+    expect(payload.text).not.toContain('##');
+    expect(payload.text).not.toContain('**');
+    expect(payload.html).toContain('&lt;script&gt;');
+    expect(payload.html).not.toContain('<script>');
+    expect(payload.text).toContain('/api/email/unsubscribe?token=');
   });
   it("holds a sensitive campaign that has no senior sign-off instead of sending", async () => {
     const db = setup({ nurture: false, sensitive: { is_sensitive: true, sensitive_approved_by: null } });

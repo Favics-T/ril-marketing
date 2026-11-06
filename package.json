@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:setup": "node --env-file-if-exists=.env scripts/check-setup.mjs",
+    "check:http": "node scripts/check-http.mjs",
     "db:types": "echo \"Run: supabase gen types typescript --project-id <ref> > src/types/database-generated.ts\""
   },
   "dependencies": {

@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getCallerOrganizationId } from "@/lib/supabase/organization";
 import { applyActiveConsentFilter } from "@/lib/email/consent";
+import { markdownToPlainText } from "@/lib/email/from-newsletter";
 import { listSegments } from "@/lib/audience/segments";
 import { listCampaignRollups } from "@/lib/audience/campaigns";
 import { StatusStamp } from "@/components/ui/status-stamp";
@@ -97,7 +98,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
         return <ShadcnCard asChild key={email.id}><li key={email.id} id={`email-${email.id}`} className="slip flex scroll-mt-6 flex-col gap-3 p-5">
           <div className="flex flex-wrap items-center gap-2"><StatusStamp status={email.status} /><SensitiveSignoffNote campaign={email} approverRoles={settings.sensitiveApproverRoles} /><span className="dateline">{eligible(email.audience_segment_id)} opted-in recipients</span><span className="ml-auto text-[13px] leading-5 text-muted-foreground">{email.campaign_id ? campaignNames.get(email.campaign_id) ?? "Campaign" : "No campaign linked"}</span></div>
           <div><h3 className="font-bold"><Link href={`/email/${email.id}`} className="underline-offset-2 hover:underline">{email.name}</Link></h3>{typeof email.metadata?.source_content_asset_id === "string" ? <p className="dateline">From newsletter · <Link href={`/library/${email.metadata.source_content_asset_id}`} className="text-primary underline">Open source newsletter</Link></p> : null}<p className="mt-0.5 text-sm text-foreground">Subject: {email.subject}</p>{email.preview_text ? <p className="text-[13px] leading-5 text-muted-foreground">Inbox preview: {email.preview_text}</p> : null}
-            <Disclosure initiallyOpen={email.status === "review" || Boolean(reviewFilter)} className="mt-3 border-y py-3" title={<>Read full email</>}><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{email.body}</p></Disclosure>
+            <Disclosure initiallyOpen={email.status === "review" || Boolean(reviewFilter)} className="mt-3 border-y py-3" title={<>Read full email</>}><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{markdownToPlainText(email.body)}</p></Disclosure>
             <p className="mt-2 dateline">Audience · {email.audience_segment_id ? segmentNames.get(email.audience_segment_id) ?? "Segment" : "All opted-in contacts"}</p>
           </div>
           {problem ? <ShadcnAlert asChild variant="destructive"><p role="alert" className="text-sm leading-6 text-destructive">{describeDeliveryProblem(problem)}</p></ShadcnAlert> : null}
