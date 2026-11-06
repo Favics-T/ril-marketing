@@ -95,10 +95,10 @@ END $$;
 
 -- ============ CRM EDITS THAT MUST WORK ============
 DO $$ BEGIN
-  UPDATE leads SET funnel_stage = 'engaged', notes = 'Called on Monday.'
+  UPDATE leads SET funnel_stage = 'engagement', notes = 'Called on Monday.'
     WHERE id = '1ead5000-0000-4000-8000-0000000000a1';
   IF NOT EXISTS (SELECT 1 FROM leads WHERE id = '1ead5000-0000-4000-8000-0000000000a1'
-      AND funnel_stage = 'engaged' AND notes = 'Called on Monday.') THEN
+      AND funnel_stage = 'engagement' AND notes = 'Called on Monday.') THEN
     RAISE EXCEPTION 'FAIL 10: the member could not update funnel_stage and notes';
   END IF;
   UPDATE leads SET is_qualified = true, is_converted = true, score = 'hot', score_reason = 'Converted.',

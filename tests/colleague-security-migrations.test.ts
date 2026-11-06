@@ -43,6 +43,8 @@ beforeAll(async () => {
       marketing_consent boolean DEFAULT false, marketing_consent_at timestamptz,
       email_unsubscribed_at timestamptz, email_suppressed_at timestamptz
     );
+    ALTER TABLE leads ADD CONSTRAINT leads_funnel_stage_valid
+      CHECK (funnel_stage IN ('awareness', 'engagement', 'captured', 'nurturing', 'converted', 'retention'));
     CREATE TABLE community_items(
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid,
       platform text, author_label text, body text, category text, lead_id uuid
@@ -75,7 +77,7 @@ describe("integrated colleague security migrations", () => {
     expect((await db.query("SELECT count(*)::int AS count FROM email_campaigns")).rows).toEqual([{ count: 0 }]);
   }, 30000);
 
-  it("passes the unchanged lead column-grant SQL suite and rolls back its fixtures", async () => {
+  it("passes the lead column-grant SQL suite and rolls back its fixtures", async () => {
     const results = await db.exec(await sql("tests/leads_column_grants.sql"));
     expect(results.some(result => result.rows.some(row => row.result === "Leads column-grant checks passed"))).toBe(true);
     expect((await db.query("SELECT count(*)::int AS count FROM leads")).rows).toEqual([{ count: 0 }]);

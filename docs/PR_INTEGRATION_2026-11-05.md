@@ -12,7 +12,7 @@ The checkpoint also includes the unified Overview, Content and Audience analytic
 
 ## Validation
 
-- 1,106 tests across 108 files pass, using fresh per-file fork processes to avoid a Windows worker-reuse stall. This includes both unchanged colleague SQL verification suites in isolated PostgreSQL and dashboard panel rendering tests.
+- The integration baseline passed 1,106 tests across 108 files, using fresh per-file fork processes to avoid a Windows worker-reuse stall. This includes colleague SQL verification suites in isolated PostgreSQL and dashboard panel rendering tests. On 6 November, the two security migration tests passed again after correcting a lead-stage test value and adding the real stage constraint to the fixture.
 - TypeScript, lint and the production build pass. The built sign-in endpoint returns 200 and protected routes redirect unauthenticated requests to sign-in.
 - Authenticated browser verification remains incomplete because the in-app webview could not attach. Provider writes are mocked; no live publishing or sending was performed.
 
@@ -20,7 +20,9 @@ See [the integration handoff](COLLEAGUE_INTEGRATION_2026-11-05.md) for the exact
 
 ## Database rollout
 
-Do not deploy before the pending database migrations are applied by an authorized operator. On 6 November, the updated read-only token verified 30 applied migrations and exactly three pending local files: `20261025000001_landing_page_approval.sql`, `20261028000000_email_signoff_content_and_unflag.sql`, and `20261103000000_leads_column_grants.sql`. The original `20261021000000_email_sensitive_signoff.sql` is already applied. The landing-page guard is absent, the email follow-up is absent, and direct lead consent edits are still permitted by the current grants. No remote changes were made. The verified pending set does not require blindly adding `--include-all` or repairing history. See [the live verification report](MIGRATION_STATUS_2026-11-06.md) for the reviewed order and checks.
+On 6 November, after explicit deployment authorization, the three pending migrations were applied: `20261025000001_landing_page_approval.sql`, `20261028000000_email_signoff_content_and_unflag.sql`, and `20261103000000_leads_column_grants.sql`. All 33 local versions are now recorded remotely; a final CLI dry run reports no pending migrations. The original `20261021000000_email_sensitive_signoff.sql` was already applied and was not reapplied.
+
+Live rollback tests passed both before and after deployment for independent landing-page approval, sensitive-email sign-off and restricted lead permissions. Enabled guards, the email history column and restricted consent grants were verified. Existing affected records, account/workspace counts and inspected policies are unchanged. The rollout required no history repair, seeds or reset. A private affected-data/schema recovery snapshot was saved first; the project has no completed managed backups and PITR is disabled. See [the rollout report](MIGRATION_STATUS_2026-11-06.md) for evidence, commands and remaining browser checks. This database rollout did not deploy the hosted application or send/publish content.
 
 The integration handoff includes preserved-work checkpoints and the rollout checklist. The older PR #7 targets a different integration branch and does not include this head; it has not been changed or closed by this work.
 
