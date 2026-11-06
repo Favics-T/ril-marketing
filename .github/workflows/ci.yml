@@ -1,0 +1,39 @@
+name: Project checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, david/integrate-colleague]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Tests, lint, types and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-key-not-for-deployment
+      NEXT_PUBLIC_SITE_URL: https://marketing.example.com
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --pool=forks --maxWorkers=2
+      - run: npm run typecheck
+      - run: npm run build
