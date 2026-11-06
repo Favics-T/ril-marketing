@@ -10,9 +10,9 @@ import { ASSET_STATUSES, canTransitionAsset } from "@/lib/content/transitions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dateToZonedInput, WORKSPACE_TIME_ZONE_LABEL, zonedWallTimeToDate } from "@/lib/time";
-import { needsSecondApproval, categoryLabel, type ContentSignoff, type ContentReviewer } from "@/lib/content/workflow";
+import { needsSecondApproval, categoryLabel, contentApprovalRestriction, type ContentSignoff, type ContentReviewer } from "@/lib/content/workflow";
 
 const fieldClass =
 	"h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -26,16 +26,19 @@ export function AssetTransition({
 	assetId,
 	status,
 	scheduledFor = null,
-	expectedUpdatedAt, category = "standard", sensitivity, signoffs = [], reviewers = [], authorId, secondReviewerId,
+	expectedUpdatedAt, category = "standard", sensitivity, signoffs = [], reviewers = [], authorId, secondReviewerId, actorId, actorRole,
 }: {
 	assetId: string;
 	status: string;
+	actorId: string | null;
+	actorRole: string | null;
 	manualSocialPosting?: boolean;
 	scheduledFor?: string | null;
 	expectedUpdatedAt?: string; category?: string; sensitivity?: string; signoffs?: ContentSignoff[]; reviewers?: ContentReviewer[]; authorId?: string | null; secondReviewerId?: string | null;
 }) {
-	const targets = ASSET_STATUSES.filter((s) => canTransitionAsset(status, s) && s !== "published");
 	const second = needsSecondApproval(category, sensitivity);
+	const approvalRestriction = status === "review" ? contentApprovalRestriction({ actorId, actorRole, authorId, secondReviewerId, secondRequired: second, signoffs, reviewers }) : null;
+	const targets = ASSET_STATUSES.filter((s) => canTransitionAsset(status, s) && s !== "published" && !(s === "approved" && approvalRestriction));
 	const waiting = reviewers.find(person => person.id === secondReviewerId);
 	const [to, setTo] = useState(status);
   const statusId = useId();
@@ -49,6 +52,7 @@ export function AssetTransition({
 				if (!at) return { ok: false, error: "Enter a valid date and time." };
 				fd.set("scheduled_for", at.toISOString());
 			}
+			if (fd.get("to") === "approved" && approvalRestriction) return { ok: false, error: approvalRestriction };
 			return transitionAsset(assetId, fd);
 		},
 		null
@@ -60,17 +64,18 @@ export function AssetTransition({
 			<p className="text-sm leading-6 text-muted-foreground">{{ idea: "Add the copy, save your draft, then choose Editing to develop it.", ai_generated: "Check the generated copy against its source. Save your edits, then choose Review when ready.", editing: "Save your copy first, then choose Review to request independent approval.", review: "An independent reviewer must check the copy before choosing Approved. Choose Editing if changes are needed.", approved: "This copy is approved. Use the publishing controls to send it, or choose Scheduled to reserve a calendar time.", scheduled: "Check the delivery controls below. A reserved calendar time alone does not publish this content.", published: "This content is live. Delivery details and its recorded link appear below.", analysing: "Review the recorded performance of this published content." }[status]}</p>
 			<p className="text-sm text-muted-foreground">{categoryLabel(category)} · {signoffs.length}/{second ? 2 : 1} approvals for this revision.</p>
 			{signoffs.map(signoff => <p key={signoff.id} className="text-sm">{signoff.tier === 1 ? "First" : "Second"} approval: <strong>{signoff.reviewer_name}</strong> · {signoff.reviewer_role.replaceAll("_", " ")}</p>)}
+			{approvalRestriction ? <p id={`${statusId}-restriction`} className="text-sm text-muted-foreground">{approvalRestriction}</p> : null}
 			{second && signoffs.length === 1 ? <ShadcnAlert asChild role="status"><p role="status" className="text-sm">Waiting for {waiting?.name ?? "the named second reviewer"}. Only they can complete approval.</p></ShadcnAlert> : null}
 			{["approved", "scheduled"].includes(status) && signoffs.length < (second ? 2 : 1) ? <ShadcnAlert asChild role="status"><p role="status" className="text-sm text-destructive">This older approval has no recorded sign-off for the current revision. Return to Editing and request review before publishing.</p></ShadcnAlert> : null}
       <div className="flex flex-col gap-1.5">
         <ShadcnField asChild><ShadcnFieldLabel htmlFor={statusId} className="dateline">Status</ShadcnFieldLabel></ShadcnField>
         <Select name="to" value={to} onValueChange={setTo} disabled={pending}>
-          <SelectTrigger id={statusId}><SelectValue>{label(to)}{to === status ? " · current" : ""}</SelectValue></SelectTrigger>
-          <SelectContent>{ASSET_STATUSES.map(value => <SelectItem key={value} value={value} disabled={value !== status && !targets.includes(value)}>{label(value)}{value === status ? " · current" : ""}</SelectItem>)}</SelectContent>
+          <SelectTrigger id={statusId} aria-describedby={approvalRestriction ? `${statusId}-restriction` : undefined}><SelectValue>{label(to)}{to === status ? " · current" : ""}</SelectValue></SelectTrigger>
+          <SelectContent><SelectGroup>{ASSET_STATUSES.map(value => <SelectItem key={value} value={value} disabled={value !== status && !targets.includes(value)}>{label(value)}{value === status ? " · current" : ""}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
         <p className="text-xs leading-5 text-muted-foreground">Select an available status, then save. Review and approval rules still apply. Published status is recorded through the publishing controls.</p>
       </div>
-			{to === "approved" && second && signoffs.length === 0 ? <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5"><span >Named second reviewer</span><ShadcnNativeSelect required name="second_reviewer_id" className={fieldClass} defaultValue=""><ShadcnNativeSelectOption value="" disabled>Choose an owner, admin or leader</ShadcnNativeSelectOption>{reviewers.filter(person => person.id !== authorId && ["owner", "admin", "leadership"].includes(person.role)).map(person => <ShadcnNativeSelectOption key={person.id} value={person.id}>{person.name} · {person.role}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect><span className="text-xs text-muted-foreground">They must be different from you and the content author.</span></ShadcnFieldLabel></ShadcnField> : null}
+			{to === "approved" && second && signoffs.length === 0 ? <ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5"><span >Named second reviewer</span><ShadcnNativeSelect required name="second_reviewer_id" className={fieldClass} defaultValue=""><ShadcnNativeSelectOption value="" disabled>Choose an owner, admin or leader</ShadcnNativeSelectOption>{reviewers.filter(person => person.id !== authorId && person.id !== actorId && ["owner", "admin", "leadership"].includes(person.role)).map(person => <ShadcnNativeSelectOption key={person.id} value={person.id}>{person.name} · {person.role}</ShadcnNativeSelectOption>)}</ShadcnNativeSelect><span className="text-xs text-muted-foreground">They must be different from you and the content author.</span></ShadcnFieldLabel></ShadcnField> : null}
 			{to === "scheduled" ? (
 				<ShadcnField asChild><ShadcnFieldLabel className="flex flex-col gap-1.5">
 					<span >Scheduled for ({WORKSPACE_TIME_ZONE_LABEL})</span>
@@ -98,7 +103,7 @@ export function AssetTransition({
 						{state.message ?? `Status updated to ${label(to)}.`}
 				</p>
 			) : null}
-			<Button type="submit" size="sm" className="w-fit" disabled={pending || to === status}>
+			<Button type="submit" size="sm" className="w-fit" disabled={pending || to === status || (to === "approved" && Boolean(approvalRestriction))}>
 				{pending ? "Saving…" : "Save status"}
 			</Button>
 		</form></ShadcnFieldGroup>

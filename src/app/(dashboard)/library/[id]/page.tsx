@@ -69,7 +69,8 @@ export default async function AssetDetailPage({
 	const workflowClient = await createClient();
   const activityIds = [...new Set([asset.source_activity_id, ...linkedActivityIds(asset.metadata)].filter((value): value is string => Boolean(value)))];
   const linkedActivities = activityIds.length ? await workflowClient.from("activities").select("id,title").eq("organization_id", orgId).in("id", activityIds) : { data: [] };
- const canPublish=isReviewerRole(await getUserRole(orgId));
+ const [actorRole, { data: { user: actor } }] = await Promise.all([getUserRole(orgId), workflowClient.auth.getUser()]);
+ const canPublish=isReviewerRole(actorRole);
  const [signoffs, reviewers] = await Promise.all([
    workflowClient.from("content_signoffs").select("*").eq("organization_id", orgId).eq("content_asset_id", id).eq("approval_revision", asset.approval_revision ?? 1).order("tier"),
    workflowClient.rpc("content_reviewers", {p_org: orgId}),
@@ -200,7 +201,7 @@ export default async function AssetDetailPage({
 							<p className="dateline">Approval pipeline</p>
 							<h2 className="mt-1 text-base font-bold">Content status</h2>
 						</div>
-						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below, or change the schedule in the calendar.</p> : <AssetTransition key={asset.updated_at} assetId={asset.id} status={asset.status} manualSocialPosting={socialAsset} scheduledFor={asset.scheduled_for} expectedUpdatedAt={asset.updated_at} category={asset.approval_category} sensitivity={asset.sensitivity} signoffs={(signoffs.data ?? []) as ContentSignoff[]} reviewers={(reviewers.data ?? []) as ContentReviewer[]} authorId={asset.created_by} secondReviewerId={asset.second_reviewer_id} />}
+						{publishing && asset.status === "scheduled" ? <p className="text-sm text-muted-foreground">A provider is handling delivery. Check its status below, or change the schedule in the calendar.</p> : <AssetTransition key={asset.updated_at} assetId={asset.id} status={asset.status} actorId={actor?.id ?? null} actorRole={actorRole} manualSocialPosting={socialAsset} scheduledFor={asset.scheduled_for} expectedUpdatedAt={asset.updated_at} category={asset.approval_category} sensitivity={asset.sensitivity} signoffs={(signoffs.data ?? []) as ContentSignoff[]} reviewers={(reviewers.data ?? []) as ContentReviewer[]} authorId={asset.created_by} secondReviewerId={asset.second_reviewer_id} />}
 					</section></ShadcnCard>
 					{socialAsset && (releaseReady || ["published", "analysing"].includes(asset.status)) && !(publishing && asset.status === "scheduled") ? <ManualPostAction assetId={asset.id} body={asset.body} status={asset.status} liveUrl={liveUrl} recordedAt={typeof manualPost?.recorded_at === "string" && Number.isFinite(Date.parse(manualPost.recorded_at)) ? manualPost.recorded_at : null} /> : null}
 					{buffer ? <SocialPublishAction assetId={asset.id} connected={buffer.connected} channels={buffer.channels} copy={asset} updatedAt={asset.updated_at} /> : null}
